@@ -11,7 +11,7 @@ wdir=/martini/rubiz/Github/PsbS_Binding_Site
 dir3=${wdir}/3_reference_proteins
 dir4=${wdir}/4_pairs
 dir5=${wdir}/5_psii
-scripts=${scripts}
+scripts=${wdir}/scripts
 
 #---IMPORTANT FILES IN THIS SCRIPT
 pdb0=${dir5}/base_dir/protein_only.pdb # CG PSII with cofactors and chains 
@@ -38,23 +38,38 @@ function align_structures_mda() {
 
 
 #---STEP1---
-# 1) Fits previously generated DAFT files to the PSII crystal structure.
+# 2) Rotate reference structure to align with the x axis.
+function rotate_to_x_axis() {
+    gmx editconf -f ${pdb0} -o ${dir5}/base_dir/rotated.pdb -rotate 0 0 -25 
+}
+
 function fit_daft_files() {
-    chains=("4" "s" "r" "c")
+    chains=("4" "s" "r" "c" "4" "s" "r" "c") # Identical chains, but with different names
+    chainsIDs=("4" "s" "r" "c" "8" "S" "R" "C")
+
     rotations=20
     seeds=(242 484)
-    cd ${dir5}
-    for chain in "${chains[@]}"; do 
-        mkdir -p chain_${chain}
-        cd chain_${chain}
+    mkdir -p 5_psii/daft_initial
+    cd ${dir5}/daft_initial
+    n_chains=${#chains[@]}
+    for ((i=0; i<n_chains; i++)); do
+        chain=${chains[$i]}
+        chainID=${chainsIDs[$i]}
+        mkdir -p chain_${chainID}
+        cd chain_${chainID}
         for rot in $(seq 1 1 ${rotations}); do
             for seed in "${seeds[@]}"; do 
                 rotation=$(printf "%04d" ${rot})
                 dir=${dir4}/chain_${chain}/seed${seed}/chain_${chain}/initial-${rotation}
                 pdb_mobile=${dir}/initial.pdb
                 echo "Processing file ${pdb_mobile}"
-                #align_structures -reference_f ${pdb0} -reference_s ${tpr0} -target ${pdb_mobile} -o chain_${chain}_seed${seed}_${rotation}.pdb -sel "name BB and chainID ${chain}" 
-                align_structures_mda -ref ${pdb0} -mobile ${pdb_mobile} -o chain_${chain}_seed${seed}_${rotation}.pdb -sel "name BB and chainID ${chain}"        
+                # If chain ! chainID, change it
+                if [[ ${chain} != ${chainID} ]]; then
+                    echo "Changing chain from ${chain} to ${chainID}"
+                    python3 ${scripts}/modify_structure.py -f ${pdb_mobile} -o chain_${chainID}_seed${seed}_${rotation}.pdb -chain ${chainID} -sel "chainID ${chain}"
+                    pdb_mobile=chain_${chainID}_seed${seed}_${rotation}.pdb
+                fi                
+                align_structures_mda -ref  ${dir5}/base_dir/rotated.pdb -mobile ${pdb_mobile} -o chain_${chainID}_seed${seed}_${rotation}.pdb -sel "name BB and chainID ${chainID}"        
             done
         done
         cd ..
@@ -70,6 +85,7 @@ function fit_daft_files() {
 function main() {
     set -e
     # 1) Fits previously generated DAFT files to the PSII crystal structure.
+    #rotate_to_x_axis
     fit_daft_files
     # 2) Fits them to the PSII crystal structure.
     # 3) Excludes all the structures colliding with the PSII crystal structure.
@@ -77,3 +93,6 @@ function main() {
 }
 
 main
+
+#---IMPORTANT OUTPUTS---
+# ${dir5}/base_dir/rotated.pdb # Rotated PSII structure aligned to the x-axis.
