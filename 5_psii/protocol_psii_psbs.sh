@@ -77,19 +77,58 @@ function fit_daft_files() {
 }
 
 #---STEP3---
-# 3) Excludes all the structures colliding with the PSII crystal structure.
+# 3) Mimimize proteins in vacuum 
+function create_directories() {
+    dir=${dir5}/psii_psbs/initial_structures
+    cd "$dir5/psii_psbs/"
+    pdb_files=("$dir"/*.pdb)
+    n_files=${#pdb_files[@]}
+    for ((i=0; i<n_files; i++)); do
+        mkdir -p "sim_$((i+1))"
+        cd "sim_$((i+1))"
+        rm *pdb
+        cp "${pdb_files[$i]}" "initial.pdb"
+        cp "$dir5/psii_psbs/system.top" .
+        cd ..
+    done
+}
 
-#---STEP4---
-# 4) 4 chains are being studied, n PSII conformations including PsbS attached to four chains are generated.
+function minimize () {
+    f=${1}
+    p=${2}
+    o=${3}
+    gmx grompp -f /martini/rubiz/Github/PsbS_Binding_Site/4_pairs/mdps/em.mdp -c ${f} -p ${p} -o ${o}.tpr -maxwarn 1000
+    gmx mdrun -v -deffnm ${o} -ntmpi 1 -pin on -pinoffset 0 
+}
+
+function minimize_all() {
+    dir=${dir5}/psii_psbs/initial_structures
+    cd "$dir5/psii_psbs/"
+    pdb_files=("$dir"/*.pdb)
+    n_files=${#pdb_files[@]}
+    for ((i=0; i<n_files; i++)); do
+        cd "sim_$((i+1))"
+        gmx editconf -f initial.pdb -o initial.pdb -d 20
+        minimize initial.pdb system.top min.tpr
+        cd ..
+    done
+}
 
 function main() {
     set -e
     # 1) Fits previously generated DAFT files to the PSII crystal structure.
     #rotate_to_x_axis
-    fit_daft_files
-    # 2) Fits them to the PSII crystal structure.
-    # 3) Excludes all the structures colliding with the PSII crystal structure.
-    # 4) 4 chains are being studied, n PSII conformations including PsbS attached to four chains are generated.
+    #fit_daft_files
+    
+    # 2) Excludes all the structures colliding with the PSII crystal structure.
+    #.   4 chains are being studied, n PSII conformations including PsbS attached to four chains are generated.
+    #code generate_inital_configurations.ipynb
+
+    # 3) Creare directories
+    create_directories
+    
+    # 4) Mimimize proteins in vacuum 
+    minimize_all
 }
 
 main
