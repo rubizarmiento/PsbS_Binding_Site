@@ -78,3 +78,5 @@ function submit_simulations {
         sbatch ${file}
     done
 }
+
+sync_martini_to_snellius
