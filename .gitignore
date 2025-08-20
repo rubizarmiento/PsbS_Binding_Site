@@ -16,4 +16,11 @@
 !5_psii/psii_psbs/protocol_snellius.sh
 !5_psii/protocol_psii_psbs.sh
 
+!4_pairs/
+4_pairs/*
+!4_pairs/analysis/
+4_pairs/analysis/*
+!4_pairs/analysis/contact_analysis.ipynb
+
+
 
