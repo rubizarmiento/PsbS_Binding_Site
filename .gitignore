@@ -1,0 +1,19 @@
+# Ignore everything by default
+*
+
+# But allow these specific files and directories
+!.gitignore
+!README.md
+
+# Allow only specific scripts in 5_psii
+!5_psii/
+5_psii/*
+!5_psii/protocol_psii_psbs.sh
+!5_psii/psii_psbs/
+5_psii/psii_psbs/*
+!5_psii/psii_psbs/simulation.sh
+!5_psii/psii_psbs/run_all.sh
+!5_psii/psii_psbs/protocol_snellius.sh
+!5_psii/protocol_psii_psbs.sh
+
+
