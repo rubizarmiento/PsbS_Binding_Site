@@ -21,6 +21,8 @@
 !4_pairs/analysis/
 4_pairs/analysis/*
 !4_pairs/analysis/contact_analysis.ipynb
+!4_pairs/analysis/analysis.sh
+!4_pairs/analysis/binding_pose.py
 
 
 
