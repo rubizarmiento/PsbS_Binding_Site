@@ -324,7 +324,7 @@ function individual_trajectories() {
 
     ignore_rotaions=() #Rotations to ignore, for example, if you want to skip the first rotation, add it here
     #rotations=1
-    seeds=(484) #Two seeds to generate different conformations
+    seeds=(242) #Two seeds to generate different conformations
     gro_0="eq.gro"
     pdb_proteins="initial.pdb"
     tpr_0="3-run.tpr"
