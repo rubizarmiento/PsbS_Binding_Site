@@ -220,14 +220,15 @@ function align_trajectories() {
     #copy_useful_files
     ref_pdb="initial_fit.pdb"
     ref_tpr="fit.tpr"
-    traj_0="proteins_2000ns_concat.xtc"
+    traj_0="proteins_5000ns_concat.xtc"
     dir_a="/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis"
-    #chains=("4" "s" "r" "c")
-    chains=("s")
+    output="aligned_5000ns.xtc"
+    chains=("4" "s" "r" "c")
+    #chains=("s")
 
     for chain in "${chains[@]}"; do 
         cd ${dir_a}/chain_${chain}
-        align_structures -reference_s ${ref_tpr} -reference_f ${ref_pdb} -target ${traj_0} -o aligned.xtc -sel "name BB and not chainID A B"
+        align_structures -reference_s ${ref_tpr} -reference_f ${ref_pdb} -target ${traj_0} -o aligned_5000ns.xtc -sel "name BB and not chainID A B"
     done
 }
 
@@ -378,14 +379,14 @@ function concatenate_trajectories() {
     #chains=("4" "s" "r" "c")
     #chains=("s" "r" "c")
 
-    chains=("r" "c")
+    chains=("s")
 
     rotations=20
     #rotations=1
     seeds=(242 484) #Two seeds to generate different conformations
     pdb_proteins="initial.pdb"
     tpr_0="protein.tpr"
-    traj_0="whole_proteins_5000ns.xtc"
+    traj_0="whole_proteins_5000.xtc"
     output="proteins_5000ns_concat.xtc"
     #sim_length_ps=1000000 # 1 microsecond simulation length
     sim_length_ps=5000000 # 10 nanoseconds simulation length
@@ -401,7 +402,7 @@ function concatenate_trajectories() {
             for i in $(seq 1 1 ${rotations}); do
                 number=$(printf "%04d" ${i}) #For example, if i=1, it will be 0001, if i=10, it will be 0010
                 array_chain+=("${dir4}/chain_${chain}/seed${seed}/chain_${chain}/initial-${number}/${traj_0}") #Add the trajectory to the array
-                time=$((${time} + ${sim_length_ps})) #Increment time by 1000 ps for each trajectory
+                time=$((${time} + ${sim_length_ps})) #Increment time by sim_length_ps ps for each trajectory
                 time_str+="${time}\n" #Store time as a string
             done
         done
@@ -433,7 +434,7 @@ function special_rename(){
 }
 
 function check_trajectories() {
-    chains=("4")
+    chains=("s")
     seeds=(242 484) #Two seeds to generate different conformations
     rotations=20
     dir4="/martini/rubiz/Github/PsbS_Binding_Site/4_pairs"
@@ -458,6 +459,7 @@ function check_trajectories() {
 
 
 function special_cases() {
+    echo "Special cases handled."
     #8) Troubleshooting
     #recover_backup
 
@@ -466,7 +468,6 @@ function special_cases() {
 
     #10) Rename files
     #special_rename
-    echo "Special cases handled."
 }
 
 # Call the main function
@@ -474,9 +475,9 @@ function main() {
     set -e
     #special_cases
 
-    individual_trajectories
+    #individual_trajectories
     #concatenate_trajectories
-    #chain_trajectories
+    chain_trajectories
 
     #check_trajectories
 

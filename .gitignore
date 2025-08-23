@@ -14,7 +14,6 @@
 !5_psii/psii_psbs/simulation.sh
 !5_psii/psii_psbs/run_all.sh
 !5_psii/psii_psbs/protocol_snellius.sh
-!5_psii/protocol_psii_psbs.sh
 
 !4_pairs/
 4_pairs/*
