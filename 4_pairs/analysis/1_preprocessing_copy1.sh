@@ -150,6 +150,8 @@ function tpr_protein() {
 function index_file_proteins() {      
     f=${1} 
     python3 /martini/rubiz/thylakoid/scripts/sel_to_ndx.py -f ${f} -sel "chainID A B 4 s r c" "chainID A B" "chainID 4 s r c" -name "proteins" "psbs" "partner" -o proteins.ndx
+    python3 /martini/rubiz/thylakoid/scripts/sel_to_ndx.py -f ${f} -sel "chainID A B 4 s r c" "chainID A B 4 s r c" -name "System" "Protein" -o index3.ndx
+
 }
 
 function extract_proteins() {
@@ -216,6 +218,7 @@ function copy_useful_files() {
     done
 }
 
+
 function align_trajectories() {
     #copy_useful_files
     ref_pdb="initial_fit.pdb"
@@ -223,7 +226,7 @@ function align_trajectories() {
     traj_0="proteins_5000ns_concat.xtc"
     dir_a="/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis"
     output="aligned_5000ns.xtc"
-    chains=("4" "s" "r" "c")
+    chains=("r")
     #chains=("s")
 
     for chain in "${chains[@]}"; do 
@@ -312,6 +315,22 @@ function change_name() {
     fi
 }
 
+function remove_pbc_dimer_martini(){
+    #Remove boundary conditions from a trajectory using gmx trjconv
+    #Arguments: directory preffix start_time end_time 
+    #Example: remove_pbc 3 directory 3-run 250000 500000 
+    xtc=$1
+    tpr=$2
+    o=$3
+    n=$4
+    #If the xtc file exists, remove boundary conditions
+    echo -e "System\n" | gmx trjconv -s ${tpr}  -f ${xtc} -o pbc_step1.xtc -pbc nojump -n ${n}
+    echo -e "Protein\nSystem" | gmx trjconv -s ${tpr} -f pbc_step1.xtc -o pbc_step2.xtc -pbc cluster -n ${n}
+    echo -e "System" | gmx trjconv -s ${tpr} -f pbc_step2.xtc -o pbc_step3.xtc -pbc mol -n ${n}
+    echo -e "Protein\nSystem" | gmx trjconv -s ${tpr} -f pbc_step3.xtc -o ${o} -pbc cluster -n ${n}
+    rm -f pbc_step1.xtc pbc_step2.xtc pbc_step3.xtc
+}
+
 function individual_trajectories() {
     # Set the script to exit on error
     set -e
@@ -319,8 +338,8 @@ function individual_trajectories() {
     #-----------ITERATE OVER CHAINS AND SEEDS----------------
     dir4="/martini/rubiz/Github/PsbS_Binding_Site/4_pairs"
     #chains=("4" "s" "r" "c")
-    chains=("4")
-    #chains=("s" "r" "c")
+    chains=("c")
+    #chains=("4" "s" "c")
     rotations=20
 
     ignore_rotaions=() #Rotations to ignore, for example, if you want to skip the first rotation, add it here
@@ -358,17 +377,18 @@ function individual_trajectories() {
                 #tpr_protein ${chain} initial_fit.pdb fit.top "fit.tpr" true #Fit protein to reference structure
 
                 #5) Analysis Index file
-                #index_file_proteins ${pdb_proteins}
-
+                index_file_proteins ${pdb_proteins}
                 #6) Extract protein (THIS IS THE ONLY PART THAT IS NEEDED FOR  THE NEW FRAMES)
                 extract_proteins ${traj_0} ${tpr_0} proteins_5000.xtc proteins.ndx true
-                remove_pbc_mdvwhole protein.tpr "proteins_5000.xtc" "whole_proteins_5000.xtc" "all" true
+                remove_pbc_dimer_martini proteins_5000.xtc protein.tpr whole_proteins_5000.xtc index3.ndx
+                #NOTUSEDremove_pbc_mdvwhole protein.tpr "proteins_5000.xtc" "whole_proteins_5000.xtc" "all" true # Produces corrupted files that do not allow concatenation
                 #7 Extract the first n nanoseconds
-                #echo -e "0\n" | gmx trjconv -s protein.tpr -f whole_proteins_2000.xtc -o proteins_2000ns.xtc -b 200000 -e 2000000 -t0 0
+                echo -e "0\n" | gmx trjconv -s protein.tpr -f whole_proteins_5000.xtc -o whole_proteins_5000.xtc -b 50000 -t0 0
             done
         done
     done
 }
+
 
 function concatenate_trajectories() {
     # Set the script to exit on error
@@ -379,17 +399,19 @@ function concatenate_trajectories() {
     #chains=("4" "s" "r" "c")
     #chains=("s" "r" "c")
 
-    chains=("s")
+    chains=("r")
 
     rotations=20
     #rotations=1
     seeds=(242 484) #Two seeds to generate different conformations
     pdb_proteins="initial.pdb"
     tpr_0="protein.tpr"
+    #traj_0="proteins_5000.xtc"
+    #traj_0="aligned_5000ns.xtc"
     traj_0="whole_proteins_5000.xtc"
     output="proteins_5000ns_concat.xtc"
     #sim_length_ps=1000000 # 1 microsecond simulation length
-    sim_length_ps=5000000 # 10 nanoseconds simulation length
+    sim_length_ps=4950000 # 10 nanoseconds simulation length
     #dir3="/martini/rubiz/Github/PsbS_Binding_Site/3_reference_proteins/chain_${chains[0]}"
     b=0
     e=${sim_length_ps} #End time in ps
@@ -403,7 +425,9 @@ function concatenate_trajectories() {
                 number=$(printf "%04d" ${i}) #For example, if i=1, it will be 0001, if i=10, it will be 0010
                 array_chain+=("${dir4}/chain_${chain}/seed${seed}/chain_${chain}/initial-${number}/${traj_0}") #Add the trajectory to the array
                 time=$((${time} + ${sim_length_ps})) #Increment time by sim_length_ps ps for each trajectory
-                time_str+="${time}\n" #Store time as a string
+                #time_str+="${time}\n" #Store time as a string
+                time_str+="c\n" #Store time as a string
+
             done
         done
         #echo "${time_str}"
@@ -412,6 +436,8 @@ function concatenate_trajectories() {
         echo -e "${time_str}" | gmx trjcat -f "${array_chain[@]}" -o ${dir4}/analysis/chain_${chain}/${output} -settime "true" 
     done
 }
+
+
 
 function chain_trajectories() {
     #copy_useful_files
@@ -475,9 +501,9 @@ function main() {
     set -e
     #special_cases
 
-    #individual_trajectories
+    individual_trajectories
     #concatenate_trajectories
-    chain_trajectories
+    #chain_trajectories
 
     #check_trajectories
 

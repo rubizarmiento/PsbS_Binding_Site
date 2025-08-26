@@ -28,5 +28,7 @@
 !4_pairs/analysis/1_preprocessing_copy1.sh
 !4_pairs/analysis/merge_trajectories.ipynb
 !4_pairs/analysis/lifetime_test.ipynb
-
+!4_pairs/analysis/lifetime_test.ipynb
+!4_pairs/analysis/contact_analysis.py
+!4_pairs/analysis/contacts_to_pdb.py
 
