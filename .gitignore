@@ -31,4 +31,5 @@
 !4_pairs/analysis/lifetime_test.ipynb
 !4_pairs/analysis/contact_analysis.py
 !4_pairs/analysis/contacts_to_pdb.py
+!4_pairs/analysis/lifetime_to_pdb.py
 

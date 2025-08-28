@@ -22,31 +22,6 @@ function sync_martini_to_snellius {
     done
 }
 
-function sync_snellius_to_martini {
-    directories=(
-        "/martini/rubiz/Github/PsbS_Binding_Site/5_psii/psii_psbs"
-        "/martini/rubiz/shared/to_Tugba/"
-        "/martini/rubiz/thylakoid/proteins_thylakoid/M3_cofactors/"
-        "/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/mdps/"
-        "/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/sh_snel"
-        "/martini/rubiz/thylakoid/templates/"
-        "/martini/rubiz/Github/PsbS_Binding_Site/3_reference_proteins/chains_opm/"
-        "/martini/rubiz/Github/PsbS_Binding_Site/3_reference_proteins/psbs/"
-        "/martini/rubiz/Github/PsbS_Binding_Site/5_psii/base_dir/"
-    )
-    for directory in "${directories[@]}"
-    do
-        cd $directory
-        #echo $PWD
-        #Change /martini/rubiz to /scratch-shared/rubil
-        remote_directory=$(echo $directory | sed 's|/martini/rubiz|/scratch-shared/rubil|g')
-        rsync -aP rubil@snellius.surf.nl:${remote_directory}/ ${directory}/
-        #echo "${directory}/ ${remote_directory}/"
-    done
-}
-
-
-
 #---INSIDE SNELLIUS--
 function mkdir_snellius() {
     directories=(
@@ -104,5 +79,4 @@ function submit_simulations {
     done
 }
 
-#sync_martini_to_snellius
-sync_snellius_to_martini
+sync_martini_to_snellius

@@ -32,7 +32,7 @@ def parser_args():
     parser.add_argument("-sel1", type=str, required=True, help="Selection of atoms for the first group.")
     parser.add_argument("-sel2", type=str, required=True, help="Selection of atoms for the second group.")
     parser.add_argument("-o", type=str, required=True, help="Output csv file path.")
-    parser.add_argument("-cutoff", type=float, default=0.35, help="Distance cutoff for contacts.")
+    parser.add_argument("-cutoff", type=float, default=8, help="Distance cutoff for contacts in angstroms.")
     parser.add_argument("-group_by1", type=str, default="resids", help="Attribute to group the first selection by.")
     parser.add_argument("-group_by2", type=str, default="resids", help="Attribute to group the second selection by.")
     return parser.parse_args()
