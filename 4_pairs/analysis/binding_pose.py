@@ -31,7 +31,7 @@ import subprocess
 import numpy as np
 import MDAnalysis as mda
 from MDAnalysis.lib.distances import distance_array
-
+#
 def parse_args():
     parser = argparse.ArgumentParser(description="Generate PDB files with binding poses of two atom groups.")
     parser.add_argument('-f', '--structure', required=True, help='Path to the structure file (PDB, GRO, etc.)')
@@ -40,7 +40,7 @@ def parse_args():
     parser.add_argument('-sel1', '--selection1', required=True, help='Selection string for the first atom group')
     parser.add_argument('-sel2', '--selection2', required=True, help='Selection string for the second atom group')
     parser.add_argument('-o', '--output_dir', default='binding_poses', help='Output directory for PDB files')
-    parser.add_argument('-filter', '--distance_filter', type=float, default=0.8, help='Distance filter for the selections in nm')
+    parser.add_argument('-filter', '--distance_filter',default=None, help='Distance filter for the selections in nm')
     parser.add_argument('--cutoff', nargs='+', type=float, default=[0.15, 0.30, 0.45], help='Cut-off distance for clustering in nanometers')
     
     return parser.parse_args()
@@ -165,37 +165,25 @@ def main():
     if len(sel1) == 0 or len(sel2) == 0:
         raise ValueError("One of the selections is empty. Please check your selection strings.")
 
-    # Filter frames based on distance
-    filtered_frames = filter_frames_by_distance(u, sel1, sel2, args.distance_filter)
-    print(f"Filtered frames: {len(filtered_frames)}")
-
-    # Save the filtered trajectory
-    filtered_traj_path = os.path.join(args.output_dir, "filtered_frames.xtc")
-    os.makedirs(args.output_dir, exist_ok=True)
-    
-    print(f"Writing filtered trajectory to: {filtered_traj_path}")
-    print(f"Total atoms: {u.atoms.n_atoms}")
-    
-    with mda.Writer(filtered_traj_path, u.atoms.n_atoms) as W:
-        frames_written = 0
-        for ts in u.trajectory:
-            if ts.frame in filtered_frames:
-                W.write(u.atoms)
-                frames_written += 1
-        print(f"Frames written to trajectory: {frames_written}")
-    
-    # Check if file was created and has content
-    if os.path.exists(filtered_traj_path):
-        size = os.path.getsize(filtered_traj_path)
-        print(f"Filtered trajectory file size: {size} bytes")
+    if args.distance_filter is not None:
+        filtered_frames = filter_frames_by_distance(u, sel1, sel2, args.distance_filter)
+        print(f"Filtered frames: {len(filtered_frames)}")
+                # Save the filtered trajectory
+        filtered_traj_path = os.path.join(args.output_dir, "filtered_frames.xtc")
+        if not os.path.exists(filtered_traj_path):
+            with mda.Writer(filtered_traj_path, u.atoms.n_atoms) as W:
+                for ts in u.trajectory:
+                    if ts.frame in filtered_frames:
+                        W.write(u.atoms)
+        if not filtered_frames:
+            print("No frames found where the selections are within the distance filter.")
+            exit(0)
+        else:
+            print(f"Filtered {len(filtered_frames)} frames where the selections are within the distance filter.")
     else:
-        print("ERROR: Filtered trajectory file was not created!")
-
-    if not filtered_frames:
-        print("No frames found where the selections are within the distance filter.")
-        return
-    else:
-        print(f"Filtered {len(filtered_frames)} frames where the selections are within the distance filter.")
+        print("No distance filter applied.")
+        filtered_frames = u
+        filtered_traj_path = args.trajectory
 
     # Write index file for GROMACS
     ndx_file = os.path.join(args.output_dir, 'selections.ndx')
@@ -233,22 +221,32 @@ def test():
     sel2 = u.select_atoms(args.selection2)
     if len(sel1) == 0 or len(sel2) == 0:
         raise ValueError("One of the selections is empty. Please check your selection strings.")
-    # Filter frames based on distance
-    # Filter frames based on distance
-    filtered_frames = filter_frames_by_distance(u, sel1, sel2, args.distance_filter)
-    print(f"Filtered frames: {len(filtered_frames)}")
-    # Save the filtered trajectory
-    filtered_traj_path = os.path.join(args.output_dir, "filtered_frames.xtc")
-    if not os.path.exists(filtered_traj_path):
-        with mda.Writer(filtered_traj_path, u.atoms.n_atoms) as W:
-            for ts in u.trajectory:
-                if ts.frame in filtered_frames:
-                    W.write(u.atoms)
-    if not filtered_frames:
-        print("No frames found where the selections are within the distance filter.")
-        exit(0)
     else:
-        print(f"Filtered {len(filtered_frames)} frames where the selections are within the distance filter.")
+        print(f"Selection 1 has {len(sel1)} atoms.")
+        print(f"Selection 2 has {len(sel2)} atoms.")
+    exit()
+
+    if args.distance_filter is not None:
+        filtered_frames = filter_frames_by_distance(u, sel1, sel2, args.distance_filter)
+        print(f"Filtered frames: {len(filtered_frames)}")
+                # Save the filtered trajectory
+        filtered_traj_path = os.path.join(args.output_dir, "filtered_frames.xtc")
+        if not os.path.exists(filtered_traj_path):
+            with mda.Writer(filtered_traj_path, u.atoms.n_atoms) as W:
+                for ts in u.trajectory:
+                    if ts.frame in filtered_frames:
+                        W.write(u.atoms)
+        if not filtered_frames:
+            print("No frames found where the selections are within the distance filter.")
+            exit(0)
+        else:
+            print(f"Filtered {len(filtered_frames)} frames where the selections are within the distance filter.")
+    else:
+        print("No distance filter applied.")
+        filtered_frames = u
+        filtered_traj_path
+
+
     # Write index file for GROMACS
     ndx_file = os.path.join(args.output_dir, 'selections.ndx')
     write_ndx_file(ndx_file, [sel1, sel2])
