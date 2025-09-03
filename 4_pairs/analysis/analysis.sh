@@ -195,7 +195,7 @@ function lifetime_analysis_classified(){
     gro=${an1}/chain_${chain}/initial_fit_merged.pdb
     #xtc=test_ultrashort.xtc
     sel1="chainID A" # PsbS
-    sel2="chainID ${chain} and not resname W W2" # Only proteins
+    sel2="chainID ${chain} and (not resname *GG* *SQ* *PG* W* HOH *HG* PLQ PL9 LUT VIO XAT NEO NEX BCR)" # Only chlorophylls and proteins
     cutoff=8
     dt=2 # time step between frames
     min_event_ns=100
