@@ -55,7 +55,7 @@ function lifetime_analysis_protein(){
     sel3="chainID ${chain}"
     cutoff=8
     dt=2
-    min_event_ns=100
+    min_event_ns=1000
     echo "Starting contact analysis for chain ${chain}..."
     python3 ${an1}/lifetime_analysis.py -dt ${dt} -min_event_ns ${min_event_ns} -cutoff "${cutoff}" -f ${gro} -traj ${xtc} -sel1 "${sel1}" -sel2 "${sel3}" -o ${odir}/lifetime -prefix lifetime_psbs_chain_${chain} -group_by1 "resids" -group_by2 "chainIDs" > ${odir}/lifetime/lifetime_psbs_chain_${chain}.log 2>&1 &
     python3 ${an1}/lifetime_analysis.py -dt ${dt} -min_event_ns ${min_event_ns} -cutoff "${cutoff}" -f ${gro} -traj ${xtc} -sel1 "${sel2}" -sel2 "${sel1}" -o ${odir}/lifetime -prefix lifetime_chain${chain} -group_by1 "resids" -group_by2 "chainIDs" > ${odir}/lifetime/lifetime_chain_${chain}.log 2>&1 &
@@ -225,7 +225,7 @@ function main(){
   #python3 ${an1}/contacts_to_pdb.py
 
   #lifetime_analysis_cofactors 
-  #lifetime_analysis_protein
+  lifetime_analysis_protein
   #lifetime_analysis_protein_protein
   
 
@@ -238,7 +238,7 @@ function main(){
 
 
   #lifetime_analysis_chain_resname # Use to classify interactions between Chl and non-chls
-  lifetime_analysis_classified
+  #lifetime_analysis_classified
   
   #cluster_binding_modes
   #cluster_trajectories

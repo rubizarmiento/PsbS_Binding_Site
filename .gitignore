@@ -33,3 +33,5 @@
 !4_pairs/analysis/contacts_to_pdb.py
 !4_pairs/analysis/lifetime_to_pdb.py
 !4_pairs/analysis/extract_trajectories_from_dataframe.py
+!4_pairs/analysis/analysis_psii.sh
+

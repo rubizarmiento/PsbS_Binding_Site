@@ -17,13 +17,26 @@ Arguments:
 -tpr: TPR file, compatible with MDAnalysis.
 -sel1: Selection string for the first atom group.
 -sel2: Selection string for the second atom group.
+-osel: Output selection string for atoms to include in cluster outputs (defaults to combined sel1+sel2).
 -filter: Distance filter for the selections (default: 0.8 nm).
 -o: Output directory for the PDB files.
 -cutoff: Cut-off distance for clustering in Angstroms (default: [0.15,0.30,0.45])
 
 # Example usage:
 python binding_pose.py -f chain_4/initial_fit.pdb -trj chain_4/test.xtc -tpr chain_4/protein.tpr -sel1 "chainID 4" -sel2 "chainID A B" -o binding_poses_main_test -filter 0.8 --cutoff 0.15 0.30 0.45
+
+# Example with custom output selection:
+python binding_pose.py -f chain_4/initial_fit.pdb -trj chain_4/test.xtc -tpr chain_4/protein.tpr -sel1 "chainID 4" -sel2 "chainID A B" -osel "protein" -o binding_poses_main_test -filter 0.8 --cutoff 0.15 0.30 0.45
 """
+
+import argparse
+import os
+import subprocess
+import warnings
+import numpy as np
+import MDAnalysis as mda
+from MDAnalysis.lib.distances import distance_array
+warnings.filterwarnings("ignore", category=UserWarning)
 import argparse
 import os
 import subprocess
@@ -31,6 +44,8 @@ import subprocess
 import numpy as np
 import MDAnalysis as mda
 from MDAnalysis.lib.distances import distance_array
+import warnings
+warnings.filterwarnings("ignore", category=UserWarning)
 #
 def parse_args():
     parser = argparse.ArgumentParser(description="Generate PDB files with binding poses of two atom groups.")
@@ -39,6 +54,7 @@ def parse_args():
     parser.add_argument('-tpr', '--tpr', required=True, help='TPR file, compatible with MDAnalysis')
     parser.add_argument('-sel1', '--selection1', required=True, help='Selection string for the first atom group')
     parser.add_argument('-sel2', '--selection2', required=True, help='Selection string for the second atom group')
+    parser.add_argument('-osel', '--output_selection', required=False, help='Selection string for output atoms (defaults to combined sel1+sel2)')
     parser.add_argument('-o', '--output_dir', default='binding_poses', help='Output directory for PDB files')
     parser.add_argument('-filter', '--distance_filter',default=None, help='Distance filter for the selections in nm')
     parser.add_argument('--cutoff', nargs='+', type=float, default=[0.15, 0.30, 0.45], help='Cut-off distance for clustering in nanometers')
@@ -63,7 +79,7 @@ def filter_frames_by_distance(u, sel1, sel2, distance_filter):
     
     print(f"Distance filter: {distance_filter} nm ({distance_filter_angstrom} Å)")
     return filtered_frames
-def write_ndx_file(ndx_file, selections):
+def write_ndx_file(ndx_file, selections, output_selection=None):
     """
     Write a GROMACS index file with the selections.
 
@@ -71,6 +87,7 @@ def write_ndx_file(ndx_file, selections):
         ndx_file (str): Path to the output index file.
         selections (list): List of two MDAnalysis AtomGroup objects, where
             selections[0] is written as [ group1 ] and selections[1] as [ group2 ].
+        output_selection (AtomGroup, optional): Custom output selection. If None, uses combined sel1+sel2.
     """
     with open(ndx_file, 'w') as f:
         f.write("[ group1 ]\n")
@@ -78,10 +95,13 @@ def write_ndx_file(ndx_file, selections):
         f.write(" ".join(map(str, selections[0].indices + 1)) + "\n")
         f.write("[ group2 ]\n")
         f.write(" ".join(map(str, selections[1].indices + 1)) + "\n")
-        f.write("[ combined ]\n")
-        # Combine both groups for output
-        combined_indices = np.concatenate([selections[0].indices, selections[1].indices])
-        f.write(" ".join(map(str, combined_indices + 1)) + "\n")
+        f.write("[ output_group ]\n")
+        # Use custom output selection if provided, otherwise combine both groups
+        if output_selection is not None:
+            output_indices = output_selection.indices
+        else:
+            output_indices = np.concatenate([selections[0].indices, selections[1].indices])
+        f.write(" ".join(map(str, output_indices + 1)) + "\n")
 
 
 def extract_clusters(trj, tpr, ndx, cutoff,out_path, group1_name="group1", group2_name="group2"):
@@ -124,10 +144,10 @@ def extract_clusters(trj, tpr, ndx, cutoff,out_path, group1_name="group1", group
         os.chdir(outdir)
         
         # Pipe group names (fit group and output group)
-        # Use group1 for fitting, combined for output to include both selections
+        # Use group1 for fitting, output_group for output
         result = subprocess.run(
             cmd,
-            input=f"{group1_name}\ncombined\n",
+            input=f"{group1_name}\noutput_group\n",
             capture_output=True,
             text=True
         )
@@ -137,7 +157,7 @@ def extract_clusters(trj, tpr, ndx, cutoff,out_path, group1_name="group1", group
         
         # Print the command being executed
         print(f"Running command: {' '.join(cmd)}")
-        print(f"Fit group: {group1_name}, Output group: combined")
+        print(f"Fit group: {group1_name}, Output group: output_group")
         
         # Print stdout and stderr for debugging
         if result.stdout:
@@ -161,9 +181,20 @@ def main():
     # Select the atom groups
     sel1 = u.select_atoms(args.selection1)
     sel2 = u.select_atoms(args.selection2)
+    
+    # Handle output selection
+    if args.output_selection:
+        output_sel = u.select_atoms(args.output_selection)
+        print(f"Using custom output selection: {len(output_sel)} atoms")
+    else:
+        output_sel = None
+        print("Using default output selection (sel1 + sel2)")
 
     if len(sel1) == 0 or len(sel2) == 0:
-        raise ValueError("One of the selections is empty. Please check your selection strings.")
+        raise ValueError(f"One of the selections is empty. Please check your selection strings.\nSelection 1: {args.selection1} has {len(sel1)} atoms.\nSelection 2: {args.selection2} has {len(sel2)} atoms.")
+    
+    if args.output_selection and len(output_sel) == 0:
+        raise ValueError(f"Output selection is empty. Please check your output selection string: {args.output_selection}")
 
     if args.distance_filter is not None:
         filtered_frames = filter_frames_by_distance(u, sel1, sel2, args.distance_filter)
@@ -186,8 +217,10 @@ def main():
         filtered_traj_path = args.trajectory
 
     # Write index file for GROMACS
+    # Create output directory if it doesn't exist
+    os.makedirs(args.output_dir, exist_ok=True)
     ndx_file = os.path.join(args.output_dir, 'selections.ndx')
-    write_ndx_file(ndx_file, [sel1, sel2])
+    write_ndx_file(ndx_file, [sel1, sel2], output_sel)
     print(f"Index file written to {ndx_file}")
     
     # Extract clusters using Gromos clustering algorithm on filtered trajectory
@@ -249,7 +282,7 @@ def test():
 
     # Write index file for GROMACS
     ndx_file = os.path.join(args.output_dir, 'selections.ndx')
-    write_ndx_file(ndx_file, [sel1, sel2])
+    write_ndx_file(ndx_file, [sel1, sel2], None)
     print(f"Index file written to {ndx_file}")
     # Extract clusters using Gromos clustering algorithm on filtered trajectory
     extract_clusters(filtered_traj_path, args.tpr, ndx_file, args.cutoff, args.output_dir, group1_name="group1", group2_name="group2")

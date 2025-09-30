@@ -9,6 +9,8 @@ Arguments:
     f: Structure file compatible with MDAnalysis.
     trj: Trajectory file compatible with MDAnalysis.
     sel: Selection string for MDAnalysis, default "all"
+    sel1_tpye: Select the first column by "chainIDs", "segids", "resids", "resnames", "bynum" or "all"
+    sel2_type: Select the second column by "chainIDs", "segids", "resids", "resnames", "bynum" or "all"
     output_dir (str): Directory to write the extracted trajectories.
     preffix: Prefix for the output trajectory files.
     join: Write a single trajectory instead of multiple files.
