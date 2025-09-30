@@ -31,6 +31,7 @@ function lifetime_analysis_protein_protein(){
 function extract_binding(){
   dir5="/martini/rubiz/Github/PsbS_Binding_Site/5_psii/psii_psbs"
   sim=("sim_1" "sim_2" "sim_3" "sim_4" "sim_5" "sim_6" "sim_7" "sim_8")
+  rm -rf /martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj/*
   for s in "${sim[@]}"; do 
   cd ${dir5}/${s}
     python /martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/extract_binding_trajectories_psii.py \
@@ -156,7 +157,7 @@ function group_centers(){
       cp ${odir}/${dir_}/${arr}/centers.pdb ${odir2}/${arr}/${basename}.pdb
     done
   done
-  python3 ${script}/n_clusters_psii.py ${odir2}
+  python3 ${script}/n_clusters_psii.py ${odir2} 
   python3 ${script}/dict_5xnl.py ${odir2}/clust_c075
 }
 
@@ -183,12 +184,12 @@ function align_structures(){
 }
 
 function write_equivalent_binding_sites(){
-  python3 /martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/write_equivalent_binding_sites.py
+  #python3 /martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/write_equivalent_binding_sites.py
   python3 /martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/grouped_binding_pdbs.py
 
 }
 
-function aling_trajectories(){
+function align_trajectories(){
   # Read *grouped.pdb files, select not segids A1... and BB to align the trajectories
   script=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis
   ref_pdb=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/base_dir/rotated.pdb
@@ -206,10 +207,10 @@ function aling_trajectories(){
       chains=$(echo ${line} | awk '{print $1}')
       # Split by underscores
       chains_arr=(${chains//_/ })
-      basename=$(echo ${line} | awk '{print $2}')
+      basename=$(echo ${line} | awk '{print $2}') # Second column (original name)
       python ${script}/align_structures.py -mobile ${basename}.xtc -mobiletop ${basename}_grouped.pdb -ref ${ref_pdb} -sel "name BB and chainID ${chains_arr[*]}" -o ${basename}_aligned.xtc > ${basename}_align.log 2>&1 &
     fi
-    done
+  done
 }
 
 function concatenate_trajectories(){
@@ -378,11 +379,11 @@ function main(){
   #lifetime_analysis 
   #clean_csv
   #clustering
-  #group_centers
+  group_centers
   #align_structures
 
   # Group binding sites
-  write_equivalent_binding_sites # Check here
+  #write_equivalent_binding_sites # Check here
   #align_trajectories
   #concatenate_trajectories
   #write_occupancy

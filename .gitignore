@@ -34,4 +34,4 @@
 !4_pairs/analysis/lifetime_to_pdb.py
 !4_pairs/analysis/extract_trajectories_from_dataframe.py
 !4_pairs/analysis/analysis_psii.sh
-
+!4_pairs/analysis/*py
