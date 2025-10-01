@@ -158,7 +158,7 @@ function group_centers(){
     done
   done
   python3 ${script}/n_clusters_psii.py ${odir2} 
-  python3 ${script}/dict_5xnl.py ${odir2}/clust_c075
+  python3 ${script}/dict_5xnl.py ${odir2}/clust_c075 # Tries to correct centers.pdb but they files are too corrupted, later are just simply extracted
 }
 
 function align_structures(){
@@ -184,8 +184,13 @@ function align_structures(){
 }
 
 function write_equivalent_binding_sites(){
-  #python3 /martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/write_equivalent_binding_sites.py
-  python3 /martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/grouped_binding_pdbs.py
+  # For the binding events that were extracted, writes a dataframe with the ones belonging to the same chain in the file: 
+  # /martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj/basenames_equivalent_chains.csv
+  python3 /martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/write_equivalent_binding_sites.py
+  
+  
+  rm /martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/clustering_grouped/clust_c075/*grouped*
+  python3 /martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/grouped_binding_pdbs.py /martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/clustering_grouped/clust_c075 
 
 }
 
@@ -284,6 +289,7 @@ function group_centers_all(){
   odir2=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/all/clustering_grouped   
   script=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis
   mkdir -p ${odir2}
+  rm -rf ${odir2}/*
   dirs=( $(find "${odir}" -mindepth 1 -maxdepth 1 -type d -exec basename {} \;) )
   array=("clust_c05" "clust_c075")
   for arr in "${array[@]}"; do
@@ -378,9 +384,10 @@ function main(){
   #(Writes in: /martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/lifetimes)
   #lifetime_analysis 
   #clean_csv
-  #clustering
-  group_centers
-  #align_structures
+
+  #DEL - clustering 
+  #DEL - group_centers
+  #DEL - align_structures
 
   # Group binding sites
   #write_equivalent_binding_sites # Check here
@@ -388,8 +395,11 @@ function main(){
   #concatenate_trajectories
   #write_occupancy
   #binding_pose_grouped
+  
+  #HERE
   #group_centers_all
   #align_structures_grouped
+  #extract_cluster
   #lifetime_analysis_grouped
 
   #reassign_chains

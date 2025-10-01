@@ -1,6 +1,15 @@
+"""
+This script summarizes the number of clusters per cut-off
+
+"""
+
+
+
 import os
 import MDAnalysis as mda
 from sys import argv
+
+
 base_dir = argv[1]
 
 
