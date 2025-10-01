@@ -1,28 +1,8 @@
 """
 Reads DataFrame with the format: resid_i,resid_j,start_frame,end_frame,frames,lifetime_ns
 resid_1 are segids and resid_2 are chainIDs
-Extracts sub    # If topology file is provided, modify it and run grompp
-    if top_file and mdp_file and chain_id and seg_id:
-        print(f"Topology file provided: {top_file}")
-        print(f"MDP file provided: {mdp_file}")
-        print(f"Chain ID: {chain_id}, Seg ID: {seg_id}")
-        
-        output_top = output_pdb.with_suffix('.top')
-        output_tpr = output_pdb.with_suffix('.tpr')
-        
-        try:
-            modify_topology_file(top_file, chain_id, seg_id, output_top)
-            success = run_grompp(mdp_file, str(output_pdb), str(output_top), str(output_tpr))
-            if not success:
-                print(f"Warning: grompp failed for {output_pdb} - topology/coordinates mismatch is expected for subset extractions")
-                print(f"Trajectory files are still valid: {output_xtc}")
-        except Exception as e:
-            print(f"Warning: Error processing topology/TPR for {output_pdb}: {e}")
-            print(f"Trajectory files are still valid: {output_xtc}")
-            import traceback
-            traceback.print_exc()
-    else:
-        print(f"Skipping topology processing - missing arguments: top_file={top_file}, mdp_file={mdp_file}, chain_id={chain_id}, seg_id={seg_id}")aj between start_frame and end_frame for each pair. Also extracts the first frame as a PDB file.
+
+Extract subtrajectories (.pdb, .xtc .tpr) per binding event
 
 Arguments:
 -f: Structure file compatible with MDAnalysis.
@@ -40,7 +20,6 @@ python extract_binding_trajectories_psii.py \
   -odir output_dir \
   -p original.top \
   -mdp /path/to/em.mdp
-
 
 """
 
@@ -153,6 +132,7 @@ def extract_binding_trajectory(u, start_frame, end_frame, output_xtc, output_pdb
     # For our A1-A4 segids, the chainID in the DataFrame needs to be mapped to the actual chainID
     actual_chain_id = chain_id
     chain_atoms = u.select_atoms(f"chainID {actual_chain_id}")
+
     
     # Combine both selections
     selected_atoms = seg_atoms + chain_atoms
@@ -162,13 +142,15 @@ def extract_binding_trajectory(u, start_frame, end_frame, output_xtc, output_pdb
     # First, go to first frame and write PDB
     u.trajectory[start_frame]
     # Set chainID to seg_id for all selected atoms
-    for atom in selected_atoms:
-        atom.chainID = seg_id
+    #DELETE#
+    #for atom in selected_atoms:
+    #    atom.chainID = seg_id
     with mda.Writer(str(output_pdb), selected_atoms.n_atoms) as pdb_writer:
         pdb_writer.write(selected_atoms)
     
     print(f"First frame PDB: {output_pdb}")
     
+
     # Then extract trajectory frames
     with mda.Writer(str(output_xtc), selected_atoms.n_atoms) as xtc_writer:
         for ts in u.trajectory[start_frame:end_frame+1]:
@@ -242,15 +224,13 @@ def main():
         output_pdb = output_dir / f"{args.prefix}_{resid_i}_{chain_suffix}.pdb"
         
         chain_atoms = sum(u.select_atoms(f"chainID {cid}") for cid in all_chain_ids_to_keep)
-        selected_atoms = seg_atoms | chain_atoms
+        selected_atoms = seg_atoms | chain_atoms 
         
         print(f"Selected {len(seg_atoms)} atoms from segid {resid_i} + {len(chain_atoms)} atoms from chainIDs {all_chain_ids_to_keep} = {len(selected_atoms)} total atoms")
         
         # Go to first frame and write PDB
         u.trajectory[start_frame_first]
-        # Set chainID to segid for all selected atoms
-        for atom in selected_atoms:
-            atom.chainID = resid_i
+
         with mda.Writer(str(output_pdb), selected_atoms.n_atoms) as pdb_writer:
             pdb_writer.write(selected_atoms)
         

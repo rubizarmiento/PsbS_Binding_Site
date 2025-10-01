@@ -184,14 +184,22 @@ function align_structures(){
 }
 
 function write_equivalent_binding_sites(){
-  # For the binding events that were extracted, writes a dataframe with the ones belonging to the same chain in the file: 
-  # /martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj/basenames_equivalent_chains.csv
+  # The binding events are in the dir: /martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj
+  # The files are named sim_{n_sim}_{PsbSID}_{chains}.* e.g. sim_4_A3_6_7.pdb
+  # We generate a csv file in /martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj/basenames_equivalent_chains.csv
+  # With the columns:
+  # tag original     new          old_chains count tag_number
+  # n_s sim_4_A4_N_S sim_4_A4_n_s N_S        6     1
+
   python3 /martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/write_equivalent_binding_sites.py
   
-  
-  rm /martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/clustering_grouped/clust_c075/*grouped*
-  python3 /martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/grouped_binding_pdbs.py /martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/clustering_grouped/clust_c075 
-
+  # Then simply copies the first {original}.*pdb and {original}.*tpr files in /martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj_grouped
+  # With the name 
+  # {tag_number}_{tag}
+  dir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj 
+  csv=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj/basenames_equivalent_chains.csv
+  odir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj_grouped
+  python3 /martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/grouped_binding_pdbs.py ${dir} ${csv} ${odir}
 }
 
 function align_trajectories(){
@@ -199,7 +207,7 @@ function align_trajectories(){
   script=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis
   ref_pdb=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/base_dir/rotated.pdb
   csv=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj/basenames_equivalent_chains.csv
-  
+  odir
   n_lines=$(wc -l < ${csv})
   for (( i=1; i<=n_lines; i++ )); do
     if [[ $i -eq 1 ]]; then
@@ -213,7 +221,8 @@ function align_trajectories(){
       # Split by underscores
       chains_arr=(${chains//_/ })
       basename=$(echo ${line} | awk '{print $2}') # Second column (original name)
-      python ${script}/align_structures.py -mobile ${basename}.xtc -mobiletop ${basename}_grouped.pdb -ref ${ref_pdb} -sel "name BB and chainID ${chains_arr[*]}" -o ${basename}_aligned.xtc > ${basename}_align.log 2>&1 &
+      echo ${basename}
+      #python ${script}/align_structures.py -mobile ${basename}.xtc -mobiletop ${basename}.pdb -ref ${ref_pdb} -sel "name BB and chainID ${chains_arr[*]}" -o ${basename}_aligned.xtc > ${basename}_align.log 2>&1 &
     fi
   done
 }
@@ -379,11 +388,11 @@ function main(){
   # 2) Extract binding events (pdb, xtc, tpr)
   #extract_binding
 
-  #gen_test_trajectories # Optional, debugging
+  #DELgen_test_trajectories # Optional, debugging
   
   #(Writes in: /martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/lifetimes)
-  #lifetime_analysis 
-  #clean_csv
+  #DELlifetime_analysis 
+  #DELclean_csv
 
   #DEL - clustering 
   #DEL - group_centers
