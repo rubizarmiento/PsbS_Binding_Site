@@ -399,7 +399,7 @@ function main(){
   #DEL - align_structures
 
   # Group binding sites
-  #write_equivalent_binding_sites # Check here
+  write_equivalent_binding_sites 
   #align_trajectories
   #concatenate_trajectories
   #write_occupancy
