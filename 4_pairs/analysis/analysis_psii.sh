@@ -200,6 +200,8 @@ function write_equivalent_binding_sites(){
   csv=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj/basenames_equivalent_chains.csv
   odir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj_grouped
   python3 /martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/grouped_binding_pdbs.py ${dir} ${csv} ${odir}
+  python3 /martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/concatenated_grouped_trajectories.py ${dir} ${csv} ${odir}
+
 }
 
 function align_trajectories(){
@@ -207,7 +209,11 @@ function align_trajectories(){
   script=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis
   ref_pdb=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/base_dir/rotated.pdb
   csv=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj/basenames_equivalent_chains.csv
-  odir
+  odir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj_aligned
+  idir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj
+  # Make the output directory if it doesn't exist
+  mkdir -p ${odir}
+
   n_lines=$(wc -l < ${csv})
   for (( i=1; i<=n_lines; i++ )); do
     if [[ $i -eq 1 ]]; then
@@ -222,14 +228,13 @@ function align_trajectories(){
       chains_arr=(${chains//_/ })
       basename=$(echo ${line} | awk '{print $2}') # Second column (original name)
       echo ${basename}
-      #python ${script}/align_structures.py -mobile ${basename}.xtc -mobiletop ${basename}.pdb -ref ${ref_pdb} -sel "name BB and chainID ${chains_arr[*]}" -o ${basename}_aligned.xtc > ${basename}_align.log 2>&1 &
+      echo ${chains_arr[@]}
+      #python ${script}/align_structures.py -mobile ${idir}/${basename}.xtc -mobiletop ${idir}/${basename}.pdb -ref ${ref_pdb} -sel "name BB and chainID ${chains_arr[*]}" -o ${odir}/${basename}_aligned.xtc > ${odir}/${basename}_align.log 2>&1 &
     fi
   done
 }
 
-function concatenate_trajectories(){
-  python3 /martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/concatenated_grouped_trajectories.py
-}
+
 
 function binding_pose_grouped(){
   an1=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis

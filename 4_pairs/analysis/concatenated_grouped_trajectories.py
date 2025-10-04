@@ -3,12 +3,13 @@ Workflow:
     -Read /martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj/basenames_equivalent_chains.csv with the content:
     tag original new count tag_number old_chains
     n_s sim_4_A4_N_S sim_4_A4_n_s 6 1 N_S
-    -Join all the trajectories with the same tag_number in the files /martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj/{original}_aligned.xtc
-    and save them as /martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/all/{tag_number}_{tag}.xtc
+    -Join all the trajectories with the same tag_number in the files /martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj/{original}.xtc
+    and save them as /martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj_grouped/{tag_number}_{tag}.xtc
     -Also copy the corresponding .pdb, .top, and .tpr files to the same output directory
 """
 
 import os
+import sys
 os.environ['OMP_NUM_THREADS'] = '1'
 import pandas as pd
 import MDAnalysis as mda
@@ -32,69 +33,14 @@ def concatenate_trajectories(trajectory_files, output_file, output_dir):
     if not os.path.exists(first_traj):
         print(f"First trajectory file not found: {first_traj}")
         return False
-    
+
     # Try to find corresponding PDB file
-    pdb_file = first_traj.replace('_aligned.xtc', '_aligned.pdb')
+    pdb_file = first_traj.replace('.xtc', '.pdb')
     if not os.path.exists(pdb_file):
-        # Try grouped PDB file
-        pdb_file = first_traj.replace('_aligned.xtc', '_grouped.pdb')
-        if not os.path.exists(pdb_file):
-            # Try regular PDB file
-            pdb_file = first_traj.replace('_aligned.xtc', '.pdb')
-            if not os.path.exists(pdb_file):
-                # Try without _aligned suffix
-                pdb_file = first_traj.replace('.xtc', '.pdb')
-                if not os.path.exists(pdb_file):
-                    print(f"No corresponding PDB file found for {first_traj}")
-                    print(f"Tried: {first_traj.replace('_aligned.xtc', '_aligned.pdb')}")
-                    print(f"Tried: {first_traj.replace('_aligned.xtc', '_grouped.pdb')}")
-                    print(f"Tried: {first_traj.replace('_aligned.xtc', '.pdb')}")
-                    print(f"Tried: {first_traj.replace('.xtc', '.pdb')}")
-                    return False
-    
-    # Try to find corresponding TOP file
-    top_file = first_traj.replace('_aligned.xtc', '.top')
-    if not os.path.exists(top_file):
-        # Try without _aligned suffix
-        top_file = first_traj.replace('.xtc', '.top')
-        if not os.path.exists(top_file):
-            print(f"No corresponding TOP file found for {first_traj}")
-            print(f"Tried: {first_traj.replace('_aligned.xtc', '.top')}")
-            print(f"Tried: {first_traj.replace('.xtc', '.top')}")
-            top_file = None
-    
-    # Try to find corresponding TPR file
-    tpr_file = first_traj.replace('_aligned.xtc', '.tpr')
-    if not os.path.exists(tpr_file):
-        # Try without _aligned suffix
-        tpr_file = first_traj.replace('.xtc', '.tpr')
-        if not os.path.exists(tpr_file):
-            print(f"No corresponding TPR file found for {first_traj}")
-            print(f"Tried: {first_traj.replace('_aligned.xtc', '.tpr')}")
-            print(f"Tried: {first_traj.replace('.xtc', '.tpr')}")
-            tpr_file = None
+       return False
     
     print(f"Using structure file: {pdb_file}")
     
-    # Copy PDB file to output directory
-    output_pdb = str(output_file).replace('.xtc', '.pdb')
-    import shutil
-    shutil.copy2(pdb_file, output_pdb)
-    print(f"Copied PDB file to: {output_pdb}")
-    
-    if top_file:
-        print(f"Using topology file: {top_file}")
-        # Copy topology file to output directory
-        output_top = str(output_file).replace('.xtc', '.top')
-        shutil.copy2(top_file, output_top)
-        print(f"Copied topology file to: {output_top}")
-    
-    if tpr_file:
-        print(f"Using TPR file: {tpr_file}")
-        # Copy TPR file to output directory
-        output_tpr = str(output_file).replace('.xtc', '.tpr')
-        shutil.copy2(tpr_file, output_tpr)
-        print(f"Copied TPR file to: {output_tpr}")
     
     # Load first universe
     u_first = mda.Universe(pdb_file, first_traj)
@@ -135,10 +81,14 @@ def concatenate_trajectories(trajectory_files, output_file, output_dir):
 
 def main():
     # File paths
-    csv_file = "/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj/basenames_equivalent_chains.csv"
-    trj_dir = "/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj"
-    output_dir = "/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/all"
-    
+    #csv_file = "/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj/basenames_equivalent_chains.csv"
+    #trj_dir = "/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj"
+    #output_dir = "/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj_grouped"
+    trj_dir=sys.argv[1]
+    csv_file=sys.argv[2]
+    output_dir = sys.argv[3]
+
+
     # Create output directory
     os.makedirs(output_dir, exist_ok=True)
     
@@ -164,13 +114,13 @@ def main():
         
         for idx, row in group.iterrows():
             original = row['original']
-            traj_file = os.path.join(trj_dir, f"{original}_aligned.xtc")
+            traj_file = os.path.join(trj_dir, f"{original}.xtc")
             
             if os.path.exists(traj_file):
                 trajectory_files.append(traj_file)
-                print(f"  Found trajectory: {original}_aligned.xtc")
+                print(f"  Found trajectory: {original}.xtc")
             else:
-                print(f"  Warning: Trajectory not found: {original}_aligned.xtc")
+                print(f"  Warning: Trajectory not found: {original}.xtc")
         
         if not trajectory_files:
             print(f"  No trajectory files found for tag_number {tag_number}")
