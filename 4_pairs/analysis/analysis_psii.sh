@@ -191,7 +191,7 @@ function write_equivalent_binding_sites(){
   # tag original     new          old_chains count tag_number
   # n_s sim_4_A4_N_S sim_4_A4_n_s N_S        6     1
 
-  python3 /martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/write_equivalent_binding_sites.py
+  #python3 /martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/write_equivalent_binding_sites.py
   
   # Then simply copies the first {original}.*pdb and {original}.*tpr files in /martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj_grouped
   # With the name 
@@ -199,20 +199,26 @@ function write_equivalent_binding_sites(){
   dir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj 
   csv=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj/basenames_equivalent_chains.csv
   odir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj_grouped
-  python3 /martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/grouped_binding_pdbs.py ${dir} ${csv} ${odir}
-  python3 /martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/concatenated_grouped_trajectories.py ${dir} ${csv} ${odir}
+  #python3 /martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/grouped_binding_pdbs.py ${dir} ${csv} ${odir}
+  #python3 /martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/concatenated_grouped_trajectories.py ${dir} ${csv} ${odir}
 
+
+  ocsv=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj/basenames_binding.csv
+  python3 /martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/write_unique_basenames.py ${csv} ${ocsv}
 }
 
 function align_trajectories(){
   # Read *grouped.pdb files, select not segids A1... and BB to align the trajectories
   script=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis
   ref_pdb=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/base_dir/rotated.pdb
-  csv=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj/basenames_equivalent_chains.csv
+  csv=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj/basenames_binding.csv
   odir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj_aligned
-  idir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj
+  idir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj_grouped
   # Make the output directory if it doesn't exist
   mkdir -p ${odir}
+
+  #Remove *log and *xtc files from the output directory
+  rm -f ${odir}/*log ${odir}/*xtc
 
   n_lines=$(wc -l < ${csv})
   for (( i=1; i<=n_lines; i++ )); do
@@ -222,15 +228,15 @@ function align_trajectories(){
     #Print the first and second column of the i-th line
     line=$(sed -n "${i}p" ${csv})
     if [[ -n "${line}" ]]; then
-      #echo ${line}
-      chains=$(echo ${line} | awk '{print $1}')
+      chains=$(echo ${line} | awk '{print $2}')
+      basename=$(echo ${line} | awk '{print $1}')
+
       # Split by underscores
       chains_arr=(${chains//_/ })
-      basename=$(echo ${line} | awk '{print $2}') # Second column (original name)
       echo ${basename}
       echo ${chains_arr[@]}
       
-      #python ${script}/align_structures.py -mobile ${idir}/${basename}.xtc -mobiletop ${idir}/${basename}.pdb -ref ${ref_pdb} -sel "name BB and chainID ${chains_arr[*]}" -o ${odir}/${basename}_aligned.xtc > ${odir}/${basename}_align.log 2>&1 &
+      python ${script}/align_structures.py -mobile ${idir}/${basename}.xtc -mobiletop ${idir}/${basename}.pdb -ref ${ref_pdb} -sel "name BB and chainID ${chains_arr[*]}" -o ${odir}/${basename}_aligned.xtc > ${odir}/${basename}_align.log 2>&1 &
     fi
   done
 }
@@ -405,7 +411,7 @@ function main(){
   #DEL - align_structures
 
   # Group binding sites
-  write_equivalent_binding_sites 
+  #write_equivalent_binding_sites 
   #align_trajectories
   #concatenate_trajectories
   #write_occupancy
