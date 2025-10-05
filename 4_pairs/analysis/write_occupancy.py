@@ -69,8 +69,9 @@ def calculate_normalized_occupancy(frame_counts, max_frames=32000):
 
 def main():
     # Directory containing trajectories
-    trajectory_dir = "/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/all"
-    
+    #TODO: change this to sys.argv
+    trajectory_dir = "/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj_aligned"
+    max_frames = 32000
     # Output CSV file
     output_csv = os.path.join(trajectory_dir, "occupancy.csv")
     

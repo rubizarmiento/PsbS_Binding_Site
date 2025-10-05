@@ -233,15 +233,20 @@ function align_trajectories(){
 
       # Split by underscores
       chains_arr=(${chains//_/ })
-      echo ${basename}
-      echo ${chains_arr[@]}
-      
-      python ${script}/align_structures.py -mobile ${idir}/${basename}.xtc -mobiletop ${idir}/${basename}.pdb -ref ${ref_pdb} -sel "name BB and chainID ${chains_arr[*]}" -o ${odir}/${basename}_aligned.xtc > ${odir}/${basename}_align.log 2>&1 &
+
+      echo "Aligning ${basename} using chains: ${chains_arr[*]}"
+      python ${script}/align_structures.py -mobile ${idir}/${basename}.xtc -mobiletop ${idir}/${basename}.pdb -ref ${ref_pdb} -sel "name BB and chainID ${chains_arr[*]}" -o ${odir}/${basename}.xtc > ${odir}/${basename}_align.log 2>&1 &
     fi
+    cp ${idir}/*pdb ${odir}/
+    cp ${idir}/*tpr ${odir}/
+
   done
 }
 
-
+function write_occupancy(){
+  script=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis
+  python3 ${script}/write_occupancy.py
+}
 
 function binding_pose_grouped(){
   an1=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis
@@ -299,10 +304,7 @@ function lifetime_analysis_grouped (){
   done
 }
 
-function write_occupancy(){
-  script=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis
-  python3 ${script}/write_occupancy.py
-}
+
 
 function group_centers_all(){
   dir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj
@@ -413,8 +415,7 @@ function main(){
   # Group binding sites
   #write_equivalent_binding_sites 
   #align_trajectories
-  #concatenate_trajectories
-  #write_occupancy
+  write_occupancy
   #binding_pose_grouped
   
   #HERE
