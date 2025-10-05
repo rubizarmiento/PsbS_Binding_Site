@@ -229,6 +229,7 @@ function align_trajectories(){
       basename=$(echo ${line} | awk '{print $2}') # Second column (original name)
       echo ${basename}
       echo ${chains_arr[@]}
+      
       #python ${script}/align_structures.py -mobile ${idir}/${basename}.xtc -mobiletop ${idir}/${basename}.pdb -ref ${ref_pdb} -sel "name BB and chainID ${chains_arr[*]}" -o ${odir}/${basename}_aligned.xtc > ${odir}/${basename}_align.log 2>&1 &
     fi
   done

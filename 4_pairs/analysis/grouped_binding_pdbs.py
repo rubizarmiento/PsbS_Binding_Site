@@ -57,8 +57,8 @@ for index, row in df.iterrows():
     chains_str = row['tag']  # First column: chains (e.g., 'A1_A2')
     basename = row['original']    # Second column: basename (e.g., 'sim_1_A2_Z')
     tag_number = row['tag_number']
-    old_chains_str = row['new']
-    output = row['old_chains']
+    old_chains_str = row['old_chains']
+    output = row['tag']
     
     # Input PDB path
     pdb_pattern = os.path.join(pdb_dir, f'{basename}.pdb')
@@ -85,12 +85,12 @@ for index, row in df.iterrows():
         print(f"Warning: {pdb_path} has no atoms, skipping.")
         continue
 
-    sel = chains_str.split('_')
-    sel_new = old_chains_str.split('_')
+    sel_new = chains_str.split('_')
+    sel_old = old_chains_str.split('_')
 
     # Dictionary to map new chains to old chains
-    chain_map = dict(zip(sel, sel_new))
-
+    chain_map = dict(zip(sel_old, sel_new))
+    #print(f"Mapping chains: {chain_map}")
     # Change chainIDs
     for atom in u.atoms:
         orig_chainID = atom.chainID
