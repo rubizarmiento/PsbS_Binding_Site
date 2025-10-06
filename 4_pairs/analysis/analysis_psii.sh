@@ -242,9 +242,9 @@ function main(){
   #write_equivalent_binding_sites     # Group binding sites
   #align_trajectories             
   #write_occupancy                    # Change "total_frames" if the trajectory is increased
-  binding_pose_grouped                # Change "special selection" if the trajectory is increased
+  #binding_pose_grouped                # Change "special selection" if the trajectory is increased
     
-  #extract_cluster
+  extract_cluster
   #lifetime_analysis_grouped
   #DELclean_csv
 
