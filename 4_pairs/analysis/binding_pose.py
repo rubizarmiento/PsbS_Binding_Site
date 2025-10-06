@@ -137,7 +137,8 @@ def extract_clusters(trj, tpr, ndx, cutoff,out_path, group1_name="group1", group
             "-sz", "sizes.xvg",
             "-cl", "centers.pdb",
             "-o", "rmsd-clust.xpm",
-            "-dist", "rmsd-dist.xvg"
+            "-dist", "rmsd-dist.xvg",
+            "-pbc", "no"
         ]
 
         # Change to output directory so log files are written there
