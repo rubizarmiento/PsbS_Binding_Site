@@ -13,8 +13,11 @@ os.environ['OMP_NUM_THREADS'] = '1'
 import glob
 import MDAnalysis as mda
 import pandas as pd
+import sys
 import warnings
 warnings.filterwarnings("ignore", category=UserWarning, module='MDAnalysis')
+
+
 
 def get_trajectory_frames(trajectory_dir):
     """Get the number of frames for each trajectory file in the directory"""
@@ -69,9 +72,9 @@ def calculate_normalized_occupancy(frame_counts, max_frames=32000):
 
 def main():
     # Directory containing trajectories
-    #TODO: change this to sys.argv
-    trajectory_dir = "/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj_aligned"
-    max_frames = 32000
+    trajectory_dir=sys.argv[1]
+    max_frames=int(sys.argv[2]) 
+
     # Output CSV file
     output_csv = os.path.join(trajectory_dir, "occupancy.csv")
     
@@ -85,8 +88,8 @@ def main():
         return
     
     # Calculate normalized occupancy
-    occupancy_data = calculate_normalized_occupancy(frame_counts)
-    
+    occupancy_data = calculate_normalized_occupancy(frame_counts, max_frames=max_frames)
+    x
     # Create DataFrame and save to CSV
     df = pd.DataFrame(occupancy_data)
     

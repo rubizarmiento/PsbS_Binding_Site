@@ -244,8 +244,11 @@ function align_trajectories(){
 }
 
 function write_occupancy(){
+  #Returns /martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj_aligned/occupancy.csv
+  dir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj_aligned
   script=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis
-  python3 ${script}/write_occupancy.py
+  total_frames=$((4950*32)) # 32 PsbS copies, 4950 frames each
+  python3 ${script}/write_occupancy.py ${dir} ${total_frames}
 }
 
 function binding_pose_grouped(){
@@ -415,7 +418,7 @@ function main(){
   # Group binding sites
   #write_equivalent_binding_sites 
   #align_trajectories
-  write_occupancy
+  write_occupancy #Change total_frames if the trajectory is increased
   #binding_pose_grouped
   
   #HERE
