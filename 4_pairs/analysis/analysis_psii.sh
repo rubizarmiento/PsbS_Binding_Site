@@ -212,8 +212,9 @@ function align_trajectories(){
   script=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis
   ref_pdb=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/base_dir/rotated.pdb
   csv=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj/basenames_binding.csv
-  odir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj_aligned
   idir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj_grouped
+  odir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj_aligned
+
   # Make the output directory if it doesn't exist
   mkdir -p ${odir}
 
@@ -252,14 +253,18 @@ function write_occupancy(){
 }
 
 function binding_pose_grouped(){
-  an1=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis
-  trj_arr=($(ls /martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/all/*.xtc))
-  odir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/all/clustering
+  script=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis
+  idir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj_aligned
+  odir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj_cluster
+  trj_arr=($(ls ${idir}/*.xtc))
+
+  mkdir -p ${odir}
+  rm -rf ${odir}/*
+
   for trj in "${trj_arr[@]}"; do
     basename=$(basename ${trj} .xtc)
-    rm -f ${odir}/${basename}/cluster.log
-    f=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/all/${basename}.pdb
-    tpr=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/all/${basename}.tpr
+    f=${idir}/${basename}.pdb
+    tpr=${idir}/${basename}.tpr
     special_basename=5_8_c_e_f_j_k_p_z
     special_selection="chainID 5 c 8 and name BB"
     # the trajectories are named chain${chain}_${id}_${start}_${end}.xtc
@@ -271,9 +276,10 @@ function binding_pose_grouped(){
     if [[ "${basename}" == *"${special_basename}"* ]]; then
       sel2="${special_selection}"
       echo "Processing ${basename} with special selection: ${sel2}"
-      python3 ${an1}/binding_pose.py -f ${f} -trj ${trj} -tpr ${tpr} -osel "all" -sel1 "${sel2}" -sel2 "${sel1}" -o ${odir}/${basename} --cutoff 0.75 >> ${odir}/${basename}/cluster.log 2>&1 &
+      python3 ${script}/binding_pose.py -f ${f} -trj ${trj} -tpr ${tpr} -osel "all" -sel1 "${sel2}" -sel2 "${sel1}" -o ${odir}/${basename} --cutoff 0.75 >> ${odir}/${basename}/cluster.log 2>&1 &
     else
       echo "Processing ${basename} with standard selection..."
+      python3 ${script}/binding_pose.py -f ${f} -trj ${trj} -tpr ${tpr} -osel "all" -sel1 "${sel2}" -sel2 "${sel1}" -o ${odir}/${basename} --cutoff 0.75 >> ${odir}/${basename}/cluster.log 2>&1 &
     fi
   done
 }
@@ -418,8 +424,8 @@ function main(){
   # Group binding sites
   #write_equivalent_binding_sites 
   #align_trajectories
-  write_occupancy #Change total_frames if the trajectory is increased
-  #binding_pose_grouped
+  #write_occupancy #Change total_frames if the trajectory is increased
+  binding_pose_grouped
   
   #HERE
   #group_centers_all
