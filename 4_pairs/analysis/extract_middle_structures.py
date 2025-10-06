@@ -94,7 +94,7 @@ def parse_cluster_log(log_file: str) -> Dict[int, Dict[str, any]]:
     return clusters
 
 
-def find_trajectory_file(cluster_dir: str, base_dir: str) -> str:
+def find_trajectory_file(cluster_dir: str, base_dir: str) -> Tuple[str, str]:
     """
     Map cluster directory name to corresponding trajectory file.
 
@@ -103,19 +103,34 @@ def find_trajectory_file(cluster_dir: str, base_dir: str) -> str:
         base_dir: Base directory containing trajectory files
 
     Returns:
-        Path to the trajectory file or empty string if not found
+        Tuple of (trajectory_path, tpr_path) or empty strings if not found
     """
-    # Try new format first: direct mapping like '1_n_s' -> '1_n_s.xtc'
+    # Try new format first: direct mapping like '1_n_s' -> 'base_dir/1_n_s.xtc'
     traj_file = f"{cluster_dir}.xtc"
+    tpr_file = f"{cluster_dir}.tpr"
+    pdb_file = f"{cluster_dir}.pdb"
+    
     traj_path = os.path.join(base_dir, traj_file)
+    tpr_path = os.path.join(base_dir, tpr_file)
+    pdb_path = os.path.join(base_dir, pdb_file)
+    
     if os.path.exists(traj_path):
-        return traj_path
+        # Try to find structure file (tpr or pdb)
+        if os.path.exists(tpr_path):
+            return traj_path, tpr_path
+        elif os.path.exists(pdb_path):
+            return traj_path, pdb_path
+        else:
+            print(f"Warning: Structure file not found for {cluster_dir} (looked for .tpr and .pdb)")
+            return traj_path, ""
+    
+    print(f"Warning: Trajectory file not found: {traj_path}")
 
     # Fall back to old format: {number}_sim_{sim_num}_{chains}
     match = re.match(r'(\d+)_sim_(\d+)_(.+)', cluster_dir)
     if not match:
         print(f"Warning: Could not parse cluster directory name: {cluster_dir}")
-        return ""
+        return "", ""
 
     cluster_num = match.group(1)
     sim_num = int(match.group(2))
@@ -125,21 +140,35 @@ def find_trajectory_file(cluster_dir: str, base_dir: str) -> str:
     sim_dir = os.path.join(base_dir, f'sim_{sim_num}')
     if not os.path.exists(sim_dir):
         print(f"Warning: Simulation directory not found: {sim_dir}")
-        return ""
+        return "", ""
 
     # Look for trajectory files - prefer 3-run.xtc if it exists
     trajectory_files = ['3-run.xtc', 'analysis.xtc', 'proteins.xtc', 'aligned.xtc']
+    tpr_files = ['3-run.tpr', 'topol.tpr', 'analysis.tpr', '2-eq.tpr']
 
+    traj_path = ""
     for traj_file in trajectory_files:
-        traj_path = os.path.join(sim_dir, traj_file)
-        if os.path.exists(traj_path):
-            return traj_path
+        traj_path_candidate = os.path.join(sim_dir, traj_file)
+        if os.path.exists(traj_path_candidate):
+            traj_path = traj_path_candidate
+            break
+    
+    if not traj_path:
+        print(f"Warning: No trajectory file found in {sim_dir}")
+        return "", ""
+    
+    # Find corresponding TPR file
+    tpr_path = ""
+    for tpr_file in tpr_files:
+        tpr_path_candidate = os.path.join(sim_dir, tpr_file)
+        if os.path.exists(tpr_path_candidate):
+            tpr_path = tpr_path_candidate
+            break
+    
+    return traj_path, tpr_path
 
-    print(f"Warning: No trajectory file found in {sim_dir}")
-    return ""
 
-
-def extract_frame(trajectory_file: str, frame_number: int, output_file: str, tpr_file: str = None) -> bool:
+def extract_frame(trajectory_file: str, frame_number: int, output_file: str, structure_file: str = None) -> bool:
     """
     Extract a specific frame from a trajectory file using gmx trjconv.
 
@@ -147,33 +176,40 @@ def extract_frame(trajectory_file: str, frame_number: int, output_file: str, tpr
         trajectory_file: Path to the trajectory file
         frame_number: Frame number to extract (0-based)
         output_file: Path for the output PDB file
-        tpr_file: Path to the TPR file (optional, will try to find automatically)
+        structure_file: Path to the structure file (.pdb or .tpr, optional)
 
     Returns:
         True if successful, False otherwise
     """
     try:
-        # Find TPR file if not provided
-        if not tpr_file:
-            # First try: TPR file with same base name as trajectory file
+        # Find structure file if not provided - prefer PDB to preserve chain IDs
+        if not structure_file:
+            # First try: PDB file with same base name as trajectory file
             traj_basename = os.path.basename(trajectory_file)
-            tpr_basename = traj_basename.replace('.xtc', '.pdb')
-            tpr_path = os.path.join(os.path.dirname(trajectory_file), tpr_basename)
-            if os.path.exists(tpr_path):
-                tpr_file = tpr_path
+            pdb_basename = traj_basename.replace('.xtc', '.pdb')
+            pdb_path = os.path.join(os.path.dirname(trajectory_file), pdb_basename)
+            
+            if os.path.exists(pdb_path):
+                structure_file = pdb_path
             else:
-                # Fall back to old method: look for standard TPR files in sim directory
-                sim_dir = os.path.dirname(trajectory_file)
-                tpr_files = ['3-run.tpr', 'topol.tpr', 'analysis.tpr', '2-eq.tpr']
+                # Try TPR file as fallback
+                tpr_basename = traj_basename.replace('.xtc', '.tpr')
+                tpr_path = os.path.join(os.path.dirname(trajectory_file), tpr_basename)
+                if os.path.exists(tpr_path):
+                    structure_file = tpr_path
+                else:
+                    # Fall back to old method: look for standard files in sim directory
+                    sim_dir = os.path.dirname(trajectory_file)
+                    structure_files = ['3-run.pdb', 'analysis.pdb', '3-run.tpr', 'topol.tpr', 'analysis.tpr', '2-eq.tpr']
 
-                for tpr in tpr_files:
-                    tpr_path = os.path.join(sim_dir, tpr)
-                    if os.path.exists(tpr_path):
-                        tpr_file = tpr_path
-                        break
+                    for struct_file in structure_files:
+                        struct_path = os.path.join(sim_dir, struct_file)
+                        if os.path.exists(struct_path):
+                            structure_file = struct_path
+                            break
 
-        if not tpr_file or not os.path.exists(tpr_file):
-            print(f"Warning: TPR file not found for {trajectory_file}")
+        if not structure_file or not os.path.exists(structure_file):
+            print(f"Warning: Structure file not found for {trajectory_file}")
             print(f"  Looked in: {os.path.dirname(trajectory_file)}")
             return False
 
@@ -181,7 +217,7 @@ def extract_frame(trajectory_file: str, frame_number: int, output_file: str, tpr
         cmd = [
             'gmx', 'trjconv',
             '-f', trajectory_file,
-            '-s', tpr_file,
+            '-s', structure_file,
             '-o', output_file
         ]
 
@@ -251,13 +287,14 @@ def main():
         print(f"\nProcessing cluster directory: {cluster_dir_name}")
 
         # Find trajectory file for this cluster
-        trajectory_file = find_trajectory_file(cluster_dir_name, args.sim_base_dir)
+        trajectory_file, structure_file = find_trajectory_file(cluster_dir_name, args.sim_base_dir)
 
         if not trajectory_file:
             print(f"No trajectory file found for {cluster_dir_name}")
             continue
 
         print(f"Using trajectory: {trajectory_file}")
+        print(f"Using structure: {structure_file}")
 
         # Process clust_* subdirectories based on flags
         if args.clust_c075_only:
@@ -303,7 +340,7 @@ def main():
                             if args.dry_run:
                                 print(f"    Would extract frame {frame_number} from {trajectory_file} to {output_file}")
                             else:
-                                success = extract_frame(trajectory_file, frame_number, output_file)
+                                success = extract_frame(trajectory_file, frame_number, output_file, structure_file)
                                 if success:
                                     cluster_info['extracted_file'] = output_file
 
@@ -337,7 +374,7 @@ def main():
                                 if args.dry_run:
                                     print(f"    Would extract frame {frame_number} from {trajectory_file} to {output_file}")
                                 else:
-                                    success = extract_frame(trajectory_file, frame_number, output_file)
+                                    success = extract_frame(trajectory_file, frame_number, output_file, structure_file)
                                     if success:
                                         cluster_info['extracted_file'] = output_file
 

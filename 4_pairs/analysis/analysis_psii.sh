@@ -176,7 +176,8 @@ function binding_pose_grouped(){
 
 function extract_cluster(){
   # Returns: /martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/biggest_clusters_c075 
-  python3 extract_middle_structures.py --clustering-dir /martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj_cluster --sim-base-dir /martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj --output-dir /martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/biggest_clusters_c075 --clust-c075-only --biggest-only
+  script=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis
+  python3 ${script}/extract_middle_structures.py --clustering-dir /martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj_cluster --sim-base-dir /martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj_aligned --output-dir /martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/biggest_clusters_c075 --clust-c075-only --biggest-only
 }
 
 function reassign_chains(){
@@ -219,14 +220,6 @@ function lifetime_analysis_grouped (){
   done
 }
 
-function clean_csv(){
-  odir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/lifetimes   
-  sed -i '/A1/d' ${odir}/*residue_summary_df.csv
-  sed -i '/A2/d' ${odir}/*residue_summary_df.csv
-  sed -i '/A3/d' ${odir}/*residue_summary_df.csv
-  sed -i '/A4/d' ${odir}/*residue_summary_df.csv
-}
-
 function lifetimes_to_pdb_psii(){
   python3 /martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/lifetime_to_pdb_psii.py
 }
@@ -244,10 +237,10 @@ function main(){
   #write_occupancy                    # Change "total_frames" if the trajectory is increased
   #binding_pose_grouped                # Change "special selection" if the trajectory is increased
     
-  extract_cluster
+  
   #lifetime_analysis_grouped
-  #DELclean_csv
 
+  #extract_cluster #Fix chains
   #reassign_chains
   #lifetimes_to_pdb_psii
 }
