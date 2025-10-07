@@ -194,6 +194,27 @@ function extract_cluster(){
   done
 }
 
+function cg2at(){
+  script=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis
+  dir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/middle_cluster
+  odir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/cg2at
+  cg2at_path=/martini/rubiz/thylakoid/scripts/para/bin/cg2at
+  mkdir -p ${odir}
+  rm -rf ${odir}/*
+  scripts=/martini/rubiz/thylakoid/scripts
+  files=("$dir"/*.pdb)
+  cd $odir
+  for file in "${files[@]}"; do
+      basename=$(basename ${file} .pdb)  # Get filename without path and extension
+
+      sel="not resname CLA CLB CHL *HG* PLQ PL9 *GG* *SQ* *PG* LUT VIO XAT NEO NEX W2 HOH BCR"
+      python3 ${script}/sel_to_ndx.py -f ${file} -sel "${sel}" -name "Protein" -o ${odir}/${basename}_protein_cg.ndx
+      gmx editconf -f ${file} -n ${odir}/${basename}_protein_cg.ndx -o ${odir}/${basename}_protein_cg.pdb
+      # cg2at
+      ${cg2at_path} -c ${basename}_protein_cg.pdb -ff charmm36-jul2020-updated -fg martini_3-0_charmm36 -w tip3p -loc ${basename}
+  done
+}
+
 function reassign_chains(){
   dir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/biggest_clusters_c075
   cd ${dir}
@@ -239,7 +260,7 @@ function lifetimes_to_pdb_psii(){
 }
 
 function main(){
-  #set -e  
+  set -e  
   
   #lifetime_analysis_protein_protein  # Get the binding events a csv file.
   
@@ -254,8 +275,8 @@ function main(){
   
   #lifetime_analysis_grouped          # Calculate contacts for each subtrajectory
 
-  extract_cluster                    #TODO: Fix chains
-  #cg2at
+  #extract_cluster                    # Extract middle cluster as gmx cluster generates corrupted PDBs
+  cg2at
   #reassign_chains
   #lifetimes_to_pdb_psii
 }
