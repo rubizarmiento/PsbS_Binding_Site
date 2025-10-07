@@ -149,7 +149,7 @@ function binding_pose_grouped(){
   trj_arr=($(ls ${idir}/*.xtc))
 
   mkdir -p ${odir}
-  #rm -rf ${odir}/*
+  rm -rf ${odir}/*
 
   for trj in "${trj_arr[@]}"; do
     basename=$(basename ${trj} .xtc)
@@ -169,7 +169,7 @@ function binding_pose_grouped(){
       python3 ${script}/binding_pose.py -f ${f} -trj ${trj} -tpr ${tpr} -osel "all" -sel1 "${sel2}" -sel2 "${sel1}" -o ${odir}/${basename} --cutoff 0.75 >> ${odir}/${basename}/cluster.log 2>&1 &
     else
       echo "Processing ${basename} with standard selection..."
-      #python3 ${script}/binding_pose.py -f ${f} -trj ${trj} -tpr ${tpr} -osel "all" -sel1 "${sel2}" -sel2 "${sel1}" -o ${odir}/${basename} --cutoff 0.75 >> ${odir}/${basename}/cluster.log 2>&1 &
+      python3 ${script}/binding_pose.py -f ${f} -trj ${trj} -tpr ${tpr} -osel "all" -sel1 "${sel2}" -sel2 "${sel1}" -o ${odir}/${basename} --cutoff 0.75 >> ${odir}/${basename}/cluster.log 2>&1 &
     fi
   done
 }
@@ -177,7 +177,21 @@ function binding_pose_grouped(){
 function extract_cluster(){
   # Returns: /martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/biggest_clusters_c075 
   script=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis
-  python3 ${script}/extract_middle_structures.py --clustering-dir /martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj_cluster --sim-base-dir /martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj_aligned --output-dir /martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/biggest_clusters_c075 --clust-c075-only --biggest-only
+  idir1=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj_aligned
+  idir2=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj_cluster
+  odir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/middle_cluster
+  trj_arr=($(ls ${idir1}/*.xtc))
+
+  mkdir -p ${odir}
+  rm -rf ${odir}/*
+
+  for trj in "${trj_arr[@]}"; do
+    basename=$(basename ${trj} .xtc)
+    f=${idir1}/${basename}.pdb
+    trj=${idir1}/${basename}.xtc
+    log=${idir2}/${basename}/clust_c075/cluster.log
+    python3 ${script}/extract_cluster.py -f ${f} -trj ${trj} -g ${log} -o ${odir}/${basename}.pdb
+  done
 }
 
 function reassign_chains(){
@@ -235,12 +249,13 @@ function main(){
   #write_equivalent_binding_sites     # Group binding sites
   #align_trajectories             
   #write_occupancy                    # Change "total_frames" if the trajectory is increased
-  #binding_pose_grouped                # Change "special selection" if the trajectory is increased
+  #binding_pose_grouped               # Change "special selection" if the trajectory is increased
     
   
-  #lifetime_analysis_grouped
+  #lifetime_analysis_grouped          # Calculate contacts for each subtrajectory
 
-  #extract_cluster #Fix chains
+  extract_cluster                    #TODO: Fix chains
+  #cg2at
   #reassign_chains
   #lifetimes_to_pdb_psii
 }
