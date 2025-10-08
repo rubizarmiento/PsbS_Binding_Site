@@ -45,17 +45,6 @@ function extract_binding(){
   done
 }
 
-function gen_test_trajectories(){
-  dir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj
-  odir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj_test
-  mkdir -p ${odir}
-  trj_files=($(ls ${dir}/*.xtc))
-  for trj_file in "${trj_files[@]}"; do
-    basename=$(basename ${trj_file} .xtc)
-    echo -e "0\n" | gmx trjconv -f ${trj_file} -s ${dir}/${basename}.tpr -o ${odir}/${basename}.xtc -e 50000 
-  done
-}
-
 function binding_pose_pdb(){
   cd chain_${chain}
   # the trajectories are named chain${chain}_${id}_${start}_${end}.xtc
@@ -135,8 +124,9 @@ function align_trajectories(){
 }
 
 function write_occupancy(){
-  #Returns /martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj_aligned/occupancy.csv
-  dir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj_aligned
+  #Returns: /martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj_aligned/occupancy.csv
+
+  dir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj_grouped
   script=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis
   total_frames=$((4950*32)) # 32 PsbS copies, 4950 frames each
   python3 ${script}/write_occupancy.py ${dir} ${total_frames}
@@ -174,59 +164,8 @@ function binding_pose_grouped(){
   done
 }
 
-function extract_cluster(){
-  # Returns: /martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/biggest_clusters_c075 
-  script=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis
-  idir1=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj_aligned
-  idir2=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj_cluster
-  odir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/middle_cluster
-  trj_arr=($(ls ${idir1}/*.xtc))
-
-  mkdir -p ${odir}
-  rm -rf ${odir}/*
-
-  for trj in "${trj_arr[@]}"; do
-    basename=$(basename ${trj} .xtc)
-    f=${idir1}/${basename}.pdb
-    trj=${idir1}/${basename}.xtc
-    log=${idir2}/${basename}/clust_c075/cluster.log
-    python3 ${script}/extract_cluster.py -f ${f} -trj ${trj} -g ${log} -o ${odir}/${basename}.pdb
-  done
-}
-
-function cg2at(){
-  script=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis
-  dir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/middle_cluster
-  odir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/cg2at
-  cg2at_path=/martini/rubiz/thylakoid/scripts/para/bin/cg2at
-  mkdir -p ${odir}
-  rm -rf ${odir}/*
-  scripts=/martini/rubiz/thylakoid/scripts
-  files=("$dir"/*.pdb)
-  cd $odir
-  for file in "${files[@]}"; do
-      basename=$(basename ${file} .pdb)  # Get filename without path and extension
-
-      sel="not resname CLA CLB CHL *HG* PLQ PL9 *GG* *SQ* *PG* LUT VIO XAT NEO NEX W2 HOH BCR"
-      python3 ${script}/sel_to_ndx.py -f ${file} -sel "${sel}" -name "Protein" -o ${odir}/${basename}_protein_cg.ndx
-      gmx editconf -f ${file} -n ${odir}/${basename}_protein_cg.ndx -o ${odir}/${basename}_protein_cg.pdb
-      # cg2at
-      ${cg2at_path} -c ${basename}_protein_cg.pdb -ff charmm36-jul2020-updated -fg martini_3-0_charmm36 -w tip3p -loc ${basename} >> ${odir}/${basename}.log 2>&1 &
-  done
-}
-
-function reassign_chains(){
-  dir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/biggest_clusters_c075
-  cd ${dir}
-  for i in `find -name "final_cg2at_de_novo.pdb"`;do 
-    subdirpath=$(dirname "$(dirname "$i")")
-    subdirpath="${subdirpath#./}"
-    python3 /martini/rubiz/thylakoid/scripts/assing_resid_chain_from_pdb.py -o ${dir}/${subdirpath}/FINAL/final.pdb  -ref ${dir}/${subdirpath}_protein.pdb -i ${dir}/${subdirpath}/FINAL/final_cg2at_de_novo.pdb 
-  done
-}
-
 function lifetime_analysis_grouped (){
-  dir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj_aligned
+  dir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj_grouped
   odir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/lifetimes   
   script=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis
   mkdir -p ${odir}
@@ -255,30 +194,136 @@ function lifetime_analysis_grouped (){
   done
 }
 
+function extract_cluster(){
+  # Returns: /martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/biggest_clusters_c075 
+  script=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis
+  idir1=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj_aligned
+  idir2=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj_cluster
+  odir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/middle_cluster
+  trj_arr=($(ls ${idir1}/*.xtc))
+
+  mkdir -p ${odir}
+  rm -rf ${odir}/*
+
+  for trj in "${trj_arr[@]}"; do
+    basename=$(basename ${trj} .xtc)
+    f=${idir1}/${basename}.pdb
+    trj=${idir1}/${basename}.xtc
+    log=${idir2}/${basename}/clust_c075/cluster.log
+    python3 ${script}/extract_cluster.py -f ${f} -trj ${trj} -g ${log} -o ${odir}/${basename}.pdb
+  done
+}
+
+function cg2at(){
+  script=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis
+  dir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/middle_cluster
+  odir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/cg2at
+  cg2at_path=/martini/rubiz/thylakoid/scripts/para/bin/cg2at
+  scripts=/martini/rubiz/thylakoid/scripts
+  rewrite=${1:-"false"}  # Default to false if not provided
+  if [ "$rewrite" == "true" ]; then
+    rm -rf ${odir}/*
+  fi
+  
+  files=("$dir"/*.pdb)
+
+  cd $odir
+  for file in "${files[@]}"; do
+      basename=$(basename ${file} .pdb)  # Get filename without path and extension
+
+      o=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/cg2at/${basename}/FINAL/final_cg2at_de_novo.pdb
+      
+      # Skip if output exists
+      if [ -f ${o} ]; then
+        echo "Skipping ${file}, output already exists."
+        continue
+      else
+        echo "Processing ${file}..."
+        rm -rf ${odir}/${basename}/*
+
+
+        sel="not resname CLA CLB CHL *HG* HEM PLQ PL9 *GG* *SQ* *PG* DGD LMG LUT VIO XAT NEO NEX W2 HOH BCR"
+        cofactors="resname CLA CLB CHL *HG* HEM PLQ PL9 *GG* *SQ* *PG* DGD LMG LUT VIO XAT NEO NEX W2 HOH BCR"
+
+        python3 ${script}/sel_to_ndx.py -f ${file} -sel "${sel}" -name "Protein" -o ${odir}/${basename}_protein_cg.ndx
+        python3 ${script}/sel_to_ndx.py -f ${file} -sel "${cofactors}" -name "Cofactors" -o ${odir}/${basename}_cofactors_cg.ndx
+
+        gmx editconf -f ${file} -n ${odir}/${basename}_protein_cg.ndx -o ${odir}/${basename}_protein_cg.pdb
+        
+        # Some proteins have no cofactors, check if ndx is empty
+        if [ -s ${odir}/${basename}_cofactors_cg.ndx ]; then
+          gmx editconf -f ${file} -n ${odir}/${basename}_cofactors_cg.ndx -o ${odir}/${basename}_cofactors_cg.pdb
+        fi
+
+        # cg2at
+        ${cg2at_path} -c ${basename}_protein_cg.pdb -ff charmm36-jul2020-updated -fg martini_3-0_charmm36 -w tip3p -loc ${basename} >> ${odir}/${basename}.log 2>&1 &
+      fi
+  done
+}
+
+function check_sucess_cg2at(){
+  dir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/middle_cluster
+  odir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/cg2at
+
+  files=("$dir"/*.pdb)
+  rm -rf ${odir}/cg2at.log
+  for file in "${files[@]}"; do
+    basename=$(basename ${file} .pdb)  # Get filename without path and extension
+    file=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/cg2at/${basename}/FINAL/final_cg2at_de_novo.pdb
+    # Check if the file exists and is not empty
+    if [[ -s ${file} ]]; then
+      echo "${file} SUCCESS" >> ${odir}/cg2at.log
+    else
+      echo "${file} FAILED" >> ${odir}/cg2at.log
+    fi
+  done
+  grep "FAILED" ${odir}/cg2at.log
+}
+
+function reassign_chains(){
+  dir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/cg2at
+  cd ${dir}
+  for i in `find -name "final_cg2at_de_novo.pdb"`;do 
+    subdirpath=$(dirname "$(dirname "$i")")
+    subdirpath="${subdirpath#./}"
+    python3 /martini/rubiz/thylakoid/scripts/assing_resid_chain_from_pdb.py -o ${dir}/${subdirpath}/FINAL/final.pdb  -ref ${dir}/${subdirpath}_protein_cg.pdb -i ${dir}/${subdirpath}/FINAL/final_cg2at_de_novo.pdb 
+  done
+}
+
 function lifetimes_to_pdb_psii(){
-  python3 /martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/lifetime_to_pdb_psii.py
+  pdb_dir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/cg2at
+  lifetimes_dir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/lifetimes
+  odir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/pdbs_lifetimes
+  python3 /martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/lifetime_to_pdb_psii.py ${pdb_dir} ${lifetimes_dir} ${odir}
 }
 
 function main(){
   set -e  
-  
+
   #lifetime_analysis_protein_protein  # Get the binding events a csv file.
-  
+  #sleep 80m
+
   #extract_binding                    # Extract binding events (pdb, xtc, tpr)
-  #gen_test_trajectories              # Optional, debugging
+  #sleep 10m
   
   #write_equivalent_binding_sites     # Group binding sites
-  #align_trajectories             
-  write_occupancy                     # CHECK ERROR Change "total_frames" if the trajectory is extended
-  #binding_pose_grouped               # Change "special selection" if the trajectory is extended
-    
-  
-  #lifetime_analysis_grouped          # Calculate contacts for each subtrajectory
+  #write_occupancy                    # Change "total_frames" if the trajectory is extended
 
+  #lifetime_analysis_grouped          # Calculate contacts for each subtrajectory
+  #sleep 80m
+  #plot_lifetimes                     #TODO
+  
+  #align_trajectories             
+  #sleep 20m
+  
+  #binding_pose_grouped               # Clustering analysis. !!! Change "special selection" if the trajectory is extended
+  #sleep 30m
   #extract_cluster                    # Extract middle cluster as gmx cluster generates corrupted PDBs
+
   #cg2at
+  #check_sucess_cg2at
   #reassign_chains
-  #lifetimes_to_pdb_psii
+  lifetimes_to_pdb_psii
 }
 
 main

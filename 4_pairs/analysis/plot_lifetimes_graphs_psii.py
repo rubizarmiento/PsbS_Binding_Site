@@ -49,6 +49,8 @@ from adjustText import adjust_text
 #Ignore warnings
 import warnings
 warnings.filterwarnings("ignore")
+# Ignore user warnings from matplotlib
+warnings.filterwarnings("ignore", category=UserWarning, module="matplotlib")
 # Function to get helices for a chain
 def get_helices(pdb_path, chain_id):
     parser = PDBParser()
@@ -119,33 +121,54 @@ def plot_bar_data(df,  title, color, u, chain_id, output_file,helices=False):
 
 # INPUT USER
 
-dir = "/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/biggest_clusters_c075"
-output_dir = "/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/lifetime_per_binding_figures_psii"
+dir = "/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj_grouped"
+output_dir = "/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/png_lifetimes"
 ref_pdb_chains = "/martini/rubiz/Github/PsbS_Binding_Site/5_psii/base_dir/rotated.pdb"
 ref_pdb_psbs = "/martini/rubiz/Github/PsbS_Binding_Site/3_reference_proteins/psbs/psbs_dimer_cg.pdb"
+cofactors_sel = "resname CLA CLB CHL *HG* *HEM* PLQ PL9 *GG* *SQ* *PG* DGD LMG LUT VIO XAT NEO NEX W2 HOH BCR"
+lifetimes_dir = "/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/lifetimes"
+# Create output directory if it doesn't exist
+os.makedirs(output_dir, exist_ok=True)
+
+other_dirs = [dir,lifetimes_dir,output_dir]
+for d in other_dirs:
+    if not os.path.exists(d):
+        raise FileNotFoundError(f"Directory {d} does not exist. Please check the path.")
+other_files = [ref_pdb_chains,ref_pdb_psbs]
+for f in other_files:
+    if not os.path.isfile(f):
+        raise FileNotFoundError(f"File {f} does not exist. Please check the path.")
+
 u_chains = mda.Universe(ref_pdb_chains)
 u_psbs = mda.Universe(ref_pdb_psbs)
 # Colors from Set3
 partner_colors = ['blue', 'green', 'red', 'blue', 'green', 'red', 'blue', 'green', 'red',]
 psbs_color = 'purple'
 
+# Cases are the grouped pdb files in dir
+pdb_files = [f for f in os.listdir(dir) if f.endswith('.pdb')]
+# Remove .pdb extension
+cases = [os.path.splitext(f)[0] for f in pdb_files]
+print(f"Found {len(cases)} case directories in {dir}.")
+exit()
+# Check if cases were found
+if len(cases) == 0:
+    raise ValueError(f"No case directories found in {dir}. Please check the path.")
+    exit() 
 
-
-# Output directory
-os.makedirs(output_dir, exist_ok=True)
-cases = [d for d in os.listdir(dir) if os.path.isdir(os.path.join(dir, d))]
 
 for i in range(len(cases)):
     case=cases[i]
     chains=case.split("_")[1:]
     for i, chain in enumerate(chains):
-        chain_path = f"/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/all/lifetimes/chain_{chain}_{case}_residue_summary_df.csv"
+        chain_path = f"{lifetimes_dir}/chain_{chain}_{case}_residue_summary_df.csv"
         # Used for labelling top residues
         
         df = pd.read_csv(chain_path)
         plot_bar_data(df, f'{chain}', partner_colors[i], u_chains, [chain], f'{output_dir}/chain_{chain}_{case}.png')
         
     # PsbS dataframes
-    psbs_path = f"/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/all/lifetimes/psbs_{case}_residue_summary_df.csv"
+    psbs_path = f"{lifetimes_dir}/psbs_{case}_residue_summary_df.csv"
     df_psbs = pd.read_csv(psbs_path)
     plot_bar_data(df_psbs, f'Case {case} PsbS', psbs_color, u_psbs, ['A','B'], f'{output_dir}/psbs_{case}.png')
+print("Done!")
