@@ -89,7 +89,7 @@ def main():
     
     # Calculate normalized occupancy
     occupancy_data = calculate_normalized_occupancy(frame_counts, max_frames=max_frames)
-    x
+    
     # Create DataFrame and save to CSV
     df = pd.DataFrame(occupancy_data)
     

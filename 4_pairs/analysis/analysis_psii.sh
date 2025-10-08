@@ -81,7 +81,7 @@ function write_equivalent_binding_sites(){
   # tag original     new          old_chains count tag_number
   # n_s sim_4_A4_N_S sim_4_A4_n_s N_S        6     1
 
-  #python3 /martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/write_equivalent_binding_sites.py
+  python3 /martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/write_equivalent_binding_sites.py
   
   # Then simply copies the first {original}.*pdb and {original}.*tpr files in /martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj_grouped
   # With the name 
@@ -89,8 +89,8 @@ function write_equivalent_binding_sites(){
   dir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj 
   csv=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj/basenames_equivalent_chains.csv
   odir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj_grouped
-  #python3 /martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/grouped_binding_pdbs.py ${dir} ${csv} ${odir}
-  #python3 /martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/concatenated_grouped_trajectories.py ${dir} ${csv} ${odir}
+  python3 /martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/grouped_binding_pdbs.py ${dir} ${csv} ${odir}
+  python3 /martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/concatenated_grouped_trajectories.py ${dir} ${csv} ${odir}
 
 
   ocsv=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj/basenames_binding.csv
@@ -211,7 +211,7 @@ function cg2at(){
       python3 ${script}/sel_to_ndx.py -f ${file} -sel "${sel}" -name "Protein" -o ${odir}/${basename}_protein_cg.ndx
       gmx editconf -f ${file} -n ${odir}/${basename}_protein_cg.ndx -o ${odir}/${basename}_protein_cg.pdb
       # cg2at
-      ${cg2at_path} -c ${basename}_protein_cg.pdb -ff charmm36-jul2020-updated -fg martini_3-0_charmm36 -w tip3p -loc ${basename}
+      ${cg2at_path} -c ${basename}_protein_cg.pdb -ff charmm36-jul2020-updated -fg martini_3-0_charmm36 -w tip3p -loc ${basename} >> ${odir}/${basename}.log 2>&1 &
   done
 }
 
@@ -269,14 +269,14 @@ function main(){
   
   #write_equivalent_binding_sites     # Group binding sites
   #align_trajectories             
-  #write_occupancy                    # Change "total_frames" if the trajectory is increased
-  #binding_pose_grouped               # Change "special selection" if the trajectory is increased
+  write_occupancy                     # CHECK ERROR Change "total_frames" if the trajectory is extended
+  #binding_pose_grouped               # Change "special selection" if the trajectory is extended
     
   
   #lifetime_analysis_grouped          # Calculate contacts for each subtrajectory
 
   #extract_cluster                    # Extract middle cluster as gmx cluster generates corrupted PDBs
-  cg2at
+  #cg2at
   #reassign_chains
   #lifetimes_to_pdb_psii
 }
