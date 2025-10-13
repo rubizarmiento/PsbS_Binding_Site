@@ -1,12 +1,6 @@
+# Minimal example of continue and break in a for loop
 
-import matplotlib.pyplot as plt
-import numpy as np
-x = np.linspace(0, 10, 100)
-y1 = np.sin(x)
-y2 = np.cos(x)
-fig, axs = plt.subplots(nrows=2)
-axs[0].plot(x, y1)
-axs[1].plot(x, y2)
-
-#Save the figure
-plt.savefig("/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/test.png")
+for i in range(10):
+    if i == 3:
+        continue  # Skip the rest of this iteration (i=3) and go to next
+    print(i)

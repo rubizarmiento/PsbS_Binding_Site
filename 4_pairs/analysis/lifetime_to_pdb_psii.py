@@ -27,23 +27,27 @@ for i in range(len(cases)):
     if not os.path.isfile(file):
         print(f"File {file} does not exist. Skipping...")
         continue
+
     u = mda.Universe(file)
     
     # Initialize
     chain0 = chains[0]
+    print("Processing file:", file, "with chain:", chain0)
+
     contact_protein = pd.read_csv(f"{lifetimes_dir}/chain_{chain0}_{case}_residue_summary_df.csv") 
 
     selelections = u.select_atoms(f'chainID {chain0}')
     resids_chain = contact_protein["resid"]
     bfactors_chain = contact_protein["median_ns"]
     
-    print(len(resids_chain))
-    print(resids_chain.values)
-    exit()
+
+
     # If resid is A1, A2, A3, A4, replace it for 9
-    if 'A' in resids_chain.values:
-        print("Replacing A1, A2, A3, A4 with 9")
-        resids_chain = resids_chain.replace({'A1': '9', 'A2': '9', 'A3': '9', 'A4': '9'})
+    chains_psbs = ['A1','A2','A3','A4']
+    for ch in chains_psbs:
+        if ch in chains:
+            print("Replacing A1, A2, A3, A4 with 9")
+            resids_chain = resids_chain.replace({'A1': '9', 'A2': '9', 'A3': '9', 'A4': '9'})
 
 
     # Assign B-factors to the universe for the specific chain

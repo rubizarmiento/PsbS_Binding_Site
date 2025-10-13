@@ -382,6 +382,11 @@ def assign_bfactor_to_universe(universe, resids, bfactor):
     for resid, bf in zip(resids, bfactor):
         # Select atoms by residue ID
         atoms = universe.select_atoms(f'resid {resid}')
+
+        # Raise warning and skip if len(atoms) == 0
+        if len(atoms) == 0:
+            print(f"Warning: No atoms found for resid {resid}. Skipping B-factor assignment for this resid.")
+            continue
         # Assign B-factor
         atoms.bfactors = bf
     return universe
@@ -401,151 +406,8 @@ def save_universe_to_pdb(universe, filename):
 def compute_lifetimes_from_contacts(
     contacts_df: pd.DataFrame,
     dt: float,
-    min_event_ns: float = 0.0
-) -> Tuple[pd.DataFrame, pd.DataFrame, Dict[str, float]]:
-    """
-    Compute lifetimes from a wide 'frames × resid_pairs' contact matrix.
-
-    Parameters
-    ----------
-    contacts_df : pd.DataFrame
-        Index: frames (int). Columns: residue-pair labels. Values: bool (or 0/1).
-        Example columns: "101_315", "A_B", "LYS_ARG", etc.
-    dt : float
-        Time between saved frames in nanoseconds.
-    min_event_ns : float, default 0.0
-        Minimum lifetime (ns) to keep an event; set e.g. 5.0 to drop micro-events.
-
-    Returns
-    -------
-    events_df : DataFrame
-        Per-pair events with ['resid_i','resid_j','start_frame','end_frame','frames','lifetime_ns'].
-    residue_summary_df : DataFrame
-        Per-residue stats: ['resid','n_events','occupancy_pct','median_ns','p90_ns'].
-    protein_summary : dict
-        {'total_bound_ns': float, 'bound_fraction_pct': float}
-    """
-    # Ensure index are integer frames and values are boolean
-    df = contacts_df.copy()
-    # Convert any numeric to boolean; treat >0 as True
-    if not np.issubdtype(df.dtypes.values[0], np.bool_):
-        df = df.astype(bool)
-
-    frame_min, frame_max = int(df.index.min()), int(df.index.max())
-    n_frames = frame_max - frame_min + 1
-    if n_frames <= 0:
-        return (
-            pd.DataFrame(columns=['resid_i','resid_j','start_frame','end_frame','frames','lifetime_ns']),
-            pd.DataFrame(columns=['resid','n_events','occupancy_pct','median_ns','p90_ns']),
-            dict(total_bound_ns=0.0, bound_fraction_pct=0.0)
-        )
-
-    # Parse residue pairs from column names (handles both string and numeric residues)
-    def _parse_pair(col: str) -> tuple:
-        # Split by underscore or common separators
-        parts = str(col).replace('-', '_').split('_')
-        if len(parts) >= 2:
-            return parts[0], parts[1]
-        else:
-            raise ValueError(f"Cannot parse residue pair from column name: {col}")
-
-    # Helper: ON-segment extraction
-    def _segments(on_bool: np.ndarray) -> np.ndarray:
-        """Return array of (start_idx, end_idx) inclusive (indices relative to df.index order)."""
-        x = on_bool.astype(int)
-        diff = np.diff(x, prepend=0, append=0)
-        starts = np.where(diff == 1)[0]
-        ends   = np.where(diff == -1)[0] - 1
-        return np.stack([starts, ends], axis=1) if starts.size else np.empty((0,2), dtype=int)
-
-    # Protein-level ON timeline (any pair ON)
-    protein_on = df.any(axis=1).to_numpy()
-    total_on_frames = int(protein_on.sum())
-    total_bound_ns = total_on_frames * dt 
-    bound_fraction_pct = 100.0 * (total_on_frames / n_frames)
-    protein_summary = dict(total_bound_ns=float(total_bound_ns),
-                           bound_fraction_pct=float(bound_fraction_pct))
-
-    # Per-pair events
-    events_rows = []
-    resid_on: Dict[str, np.ndarray] = {}  # Changed from int to str
-
-    for col in df.columns:
-        ri, rj = _parse_pair(col)
-        on_series = df[col].to_numpy()
-
-        segs = _segments(on_series)
-        if segs.size:
-            # Convert segments to lifetimes
-            lengths = segs[:,1] - segs[:,0] + 1
-            lifetimes_ns = lengths * dt 
-            # Optional: drop short events
-            if min_event_ns > 0.0:
-                keep = lifetimes_ns >= float(min_event_ns)
-                segs = segs[keep]
-                lifetimes_ns = lifetimes_ns[keep]
-
-            for (s_idx, e_idx), L_ns in zip(segs, lifetimes_ns):
-                start_frame = int(df.index[s_idx])
-                end_frame   = int(df.index[e_idx])
-                events_rows.append(dict(
-                    resid_i=ri, resid_j=rj,
-                    start_frame=start_frame,
-                    end_frame=end_frame,
-                    frames=int(e_idx - s_idx + 1),
-                    lifetime_ns=float(L_ns)
-                ))
-
-        # Accumulate per-residue ON (any partner)
-        # Initialize if needed
-        if ri not in resid_on:
-            resid_on[ri] = np.zeros(n_frames, dtype=bool)
-        if rj not in resid_on:
-            resid_on[rj] = np.zeros(n_frames, dtype=bool)
-        resid_on[ri] |= on_series
-        resid_on[rj] |= on_series
-
-    events_df = (pd.DataFrame(events_rows) if events_rows
-                 else pd.DataFrame(columns=['resid_i','resid_j','start_frame','end_frame','frames','lifetime_ns']))
-
-    # Per-residue stats
-    res_rows = []
-    for resid, on_vec in resid_on.items():
-        occ_pct = 100.0 * (on_vec.sum() / n_frames)
-        segs = _segments(on_vec)
-        if segs.size:
-            lengths = segs[:,1] - segs[:,0] + 1
-            lifetimes_ns = lengths * dt
-            if min_event_ns > 0.0:
-                lifetimes_ns = lifetimes_ns[lifetimes_ns >= float(min_event_ns)]
-        else:
-            lifetimes_ns = np.array([], dtype=float)
-
-        if lifetimes_ns.size == 0:
-            med = p90 = 0.0
-            n_ev = 0
-        else:
-            med = float(np.median(lifetimes_ns))
-            p90 = float(np.percentile(lifetimes_ns, 90))
-            n_ev = int(lifetimes_ns.size)
-
-        res_rows.append(dict(
-            resid=resid,  # Keep as string
-            n_events=n_ev,
-            occupancy_pct=float(occ_pct),
-            median_ns=med,
-            p90_ns=p90
-        ))
-
-    residue_summary_df = pd.DataFrame(res_rows).sort_values('resid').reset_index(drop=True)
-    
-    return events_df, residue_summary_df, protein_summary
-
-def compute_lifetimes_from_contacts(
-    contacts_df: pd.DataFrame,
-    dt: float,
     min_event_ns: float = 0.0,
-    exclude_single_letters: bool = True
+    exclude_single_letters: bool = False
 ) -> Tuple[pd.DataFrame, pd.DataFrame, Dict[str, float]]:
     """
     Compute lifetimes from a wide 'frames × resid_pairs' contact matrix.
@@ -650,7 +512,6 @@ def compute_lifetimes_from_contacts(
                 ))
 
         # Accumulate per-residue ON (any partner) - but exclude single letters
-        # Only include residues from the first selection (ri)
         if not _should_exclude_resid(ri):
             if ri not in resid_on:
                 resid_on[ri] = np.zeros(n_frames, dtype=bool)
@@ -661,7 +522,7 @@ def compute_lifetimes_from_contacts(
 
     # Per-residue stats (excluding single letters)
     res_rows = []
-    for resid, on_vec in resid_on.items():
+    for resid, on_vec in resid_on.items(): 
         occ_pct = 100.0 * (on_vec.sum() / n_frames)
         segs = _segments(on_vec)
         if segs.size:

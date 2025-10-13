@@ -77,6 +77,11 @@ def main():
     contact_matrix_obj = ContactMatrix(u, sel1, sel2, cutoff, group_by1=group_by1, group_by2=group_by2)
     contact_matrix_list = contact_matrix_obj.calculate_contact_pairs_matrix_per_observation(n_frames=n_frames-1)
 
+    # If no contacts found, exit and print message
+    if contact_matrix_list[0].empty:
+        print("No contacts found with the given selections and cutoff.")
+        exit()
+
     events_df, residue_summary_df, protein_summary = compute_lifetimes_from_contacts(
     contact_matrix_list[0], dt,min_event_ns)
     
@@ -84,13 +89,13 @@ def main():
     #Sort events_df by lifetime
     #events_df = events_df.sort_values(by='lifetime_ns', ascending=False)
     events_df.to_csv(f"{odir}/{args.prefix}_events_df.csv", index=False,float_format='%.2f')
+    
     #Sort summary by resid - convert to numeric for proper sorting
     if 'resid' in residue_summary_df.columns:
         residue_summary_df['resid_numeric'] = pd.to_numeric(residue_summary_df['resid'], errors='coerce')
         residue_summary_df = residue_summary_df.sort_values(by='resid_numeric').drop('resid_numeric', axis=1).reset_index(drop=True)
 
     residue_summary_df.to_csv(f"{odir}/{args.prefix}_residue_summary_df.csv", index=False,float_format='%.2f')
-    print(protein_summary)
     #protein_summary.to_csv(f"{odir}/{args.prefix}_protein_summary.csv", index=False)
 
 #Run main

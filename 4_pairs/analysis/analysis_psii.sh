@@ -184,12 +184,13 @@ function lifetime_analysis_grouped (){
     dt=1 # time step between frames
     min_event_ns=100
 
-    #python3 ${script}/lifetime_analysis.py -prefix test -n_frames 100 -dt ${dt} -min_event_ns 0 -cutoff "${cutoff}" -f ${f} -traj ${trj} -sel1 "${sel1}" -sel2 "${sel2}" -o ${odir} -prefix test_${basename} -group_by1 "resids" -group_by2 "resids" > ${odir}/psbs_${basename}.log 2>&1 &
 
+    #python3 ${script}/lifetime_analysis.py -prefix test -n_frames 100 -dt ${dt} -min_event_ns 0 -cutoff "${cutoff}" -f ${f} -traj ${trj} -sel1 "${sel1}" -sel2 "${sel2}" -o ${odir} -prefix test_${basename} -group_by1 "resids" -group_by2 "resids" > ${odir}/psbs_${basename}.log 2>&1 &
+    #Contacts PsbS and chains
     python3 ${script}/lifetime_analysis.py -dt ${dt} -min_event_ns ${min_event_ns} -cutoff "${cutoff}" -f ${f} -traj ${trj} -sel1 "${sel1}" -sel2 "${sel2}" -o ${odir} -prefix psbs_${basename} -group_by1 "resids" -group_by2 "resids" > ${odir}/psbs_${basename}.log 2>&1 &
     for chain in "${chains_arr[@]}"; do
-      python3 ${script}/lifetime_analysis.py -dt ${dt} -min_event_ns ${min_event_ns} -cutoff "${cutoff}" -f ${f} -traj ${trj} -sel2 "segid ${chain}" -sel1 "${sel1}" -o ${odir} -prefix chain_${chain}_${basename} -group_by1 "segids" -group_by2 "resids" > ${odir}/chain_${chain}_${basename}.log 2>&1 &
-      python3 ${script}/lifetime_analysis.py -dt ${dt} -min_event_ns ${min_event_ns} -cutoff "${cutoff}" -f ${f} -traj ${trj} -sel2 "segid ${chain}" -sel1 "${sel1}" -o ${odir} -prefix chain_${chain}_${basename} -group_by1 "segids" -group_by2 "resids" > ${odir}/chain_${chain}_${basename}.log 2>&1 &
+      # Contacts chains and PsbS
+      python3 ${script}/lifetime_analysis.py -dt ${dt} -min_event_ns ${min_event_ns} -cutoff "${cutoff}" -f ${f} -traj ${trj} -sel1 "segid ${chain}" -sel2 "${sel1}" -o ${odir} -prefix chain_${chain}_${basename} -group_by1 "resids" -group_by2 "segids" > ${odir}/chain_${chain}_${basename}.log 2>&1 &
     done
   done
 }
@@ -307,23 +308,23 @@ function main(){
   #sleep 10m
   
   #write_equivalent_binding_sites     # Group binding sites
-  #write_occupancy                    # Change "total_frames" if the trajectory is extended
+  #write_occupancy                    # !!!Change "total_frames" if the trajectory is extended
 
-  #lifetime_analysis_grouped          # Calculate contacts for each subtrajectory
+  lifetime_analysis_grouped          # Calculate contacts for each subtrajectory
   #sleep 80m
   #plot_lifetimes                     #TODO
   
   #align_trajectories             
   #sleep 20m
   
-  #binding_pose_grouped               # Clustering analysis. !!! Change "special selection" if the trajectory is extended
+  #binding_pose_grouped               # Clustering analysis. !!!Change "special selection" if the trajectory is extended
   #sleep 30m
   #extract_cluster                    # Extract middle cluster as gmx cluster generates corrupted PDBs
 
   #cg2at
   #check_sucess_cg2at
   #reassign_chains
-  lifetimes_to_pdb_psii
+  #lifetimes_to_pdb_psii
 }
 
 main
