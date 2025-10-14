@@ -181,7 +181,7 @@ function lifetime_analysis_grouped (){
     sel1="segid A*" # PsbS
     sel2="not segid A* and (not resname *GG* *SQ* *PG* *MG* W* HOH *HG*)" # Only chlorophylls, HEME and proteins, carotenoids
     cutoff=8
-    dt=1 # time step between frames
+    dt=2 # time step between frames
     min_event_ns=100
 
 
@@ -190,7 +190,7 @@ function lifetime_analysis_grouped (){
     python3 ${script}/lifetime_analysis.py -dt ${dt} -min_event_ns ${min_event_ns} -cutoff "${cutoff}" -f ${f} -traj ${trj} -sel1 "${sel1}" -sel2 "${sel2}" -o ${odir} -prefix psbs_${basename} -group_by1 "resids" -group_by2 "resids" > ${odir}/psbs_${basename}.log 2>&1 &
     for chain in "${chains_arr[@]}"; do
       # Contacts chains and PsbS
-      python3 ${script}/lifetime_analysis.py -dt ${dt} -min_event_ns ${min_event_ns} -cutoff "${cutoff}" -f ${f} -traj ${trj} -sel1 "segid ${chain}" -sel2 "${sel1}" -o ${odir} -prefix chain_${chain}_${basename} -group_by1 "resids" -group_by2 "segids" > ${odir}/chain_${chain}_${basename}.log 2>&1 &
+      python3 ${script}/lifetime_analysis.py -dt ${dt} -min_event_ns ${min_event_ns} -cutoff "${cutoff}" -f ${f} -traj ${trj} -sel1 "chainID ${chain}" -sel2 "${sel1}" -o ${odir} -prefix chain_${chain}_${basename} -group_by1 "resids" -group_by2 "segids" > ${odir}/chain_${chain}_${basename}.log 2>&1 &
     done
   done
 }
@@ -295,7 +295,10 @@ function lifetimes_to_pdb_psii(){
   pdb_dir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/cg2at
   lifetimes_dir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/lifetimes
   odir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/pdbs_lifetimes
-  python3 /martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/lifetime_to_pdb_psii.py ${pdb_dir} ${lifetimes_dir} ${odir}
+  sel_protein="not resname CLA CLB CHL *HG* HEM PLQ PL9 *GG* *SQ* *PG* DGD LMG LUT VIO XAT NEO NEX W2 HOH BCR"
+  sel_cofactors="resname CLA CLB CHL *HG* HEM PLQ PL9 *GG* *SQ* *PG* DGD LMG LUT VIO XAT NEO NEX W2 HOH BCR"
+  sel_psbs="all"
+  python3 /martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/lifetime_to_pdb_psii.py ${pdb_dir} ${lifetimes_dir} ${odir} "${sel_protein}" "${sel_cofactors}" "${sel_psbs}"
 }
 
 function main(){
@@ -310,7 +313,7 @@ function main(){
   #write_equivalent_binding_sites     # Group binding sites
   #write_occupancy                    # !!!Change "total_frames" if the trajectory is extended
 
-  lifetime_analysis_grouped          # Calculate contacts for each subtrajectory
+  #lifetime_analysis_grouped          # Calculate contacts for each subtrajectory
   #sleep 80m
   #plot_lifetimes                     #TODO
   
@@ -322,9 +325,10 @@ function main(){
   #extract_cluster                    # Extract middle cluster as gmx cluster generates corrupted PDBs
 
   #cg2at
+  #sleep 60m
   #check_sucess_cg2at
   #reassign_chains
-  #lifetimes_to_pdb_psii
+  lifetimes_to_pdb_psii
 }
 
 main

@@ -6,6 +6,10 @@ from lib_contacts import *
 pdb_dir = sys.argv[1]
 lifetimes_dir = sys.argv[2]
 odir = sys.argv[3]
+sel_protein = sys.argv[4]
+sel_cofactors = sys.argv[5]
+sel_psbs = sys.argv[6]
+
 
 # Create dir
 os.makedirs(odir, exist_ok=True)
@@ -17,95 +21,91 @@ if len(cases) == 0:
     exit()
 else:
     print(f"Found {len(cases)} case directories in {pdb_dir}.")
+#cases = ["4_7_8"]
 
+
+
+
+dict = { 
+    "type": ["PROTEIN", "COFACTORS", "PSBS"],
+    "input_pdb": [f"{pdb_dir}/{{case}}/FINAL/final.pdb", f"{pdb_dir}/{{case}}_cofactors_cg.pdb", "/martini/rubiz/Github/PsbS_Binding_Site/3_reference_proteins/psbs/psbs_4_0_dimer_aligned.pdb"],
+    "input_csv": [f"{lifetimes_dir}/chain_{{chain}}_{{case}}_residue_summary_df.csv", f"{lifetimes_dir}/chain_{{chain}}_{{case}}_residue_summary_df.csv", f"{lifetimes_dir}/psbs_{{case}}_residue_summary_df.csv"],
+    "selections": [f'chainID {{chain}} and {sel_protein}', f'chainID {{chain}} and {sel_cofactors}', sel_psbs],
+    "output": [f"{odir}/lifetimes_{{case}}_protein.pdb", f"{odir}/lifetimes_{{case}}_cofactors.pdb", f"{odir}/lifetimes_{{case}}_psbs.pdb"]
+}
+
+
+
+# Proteins
 for i in range(len(cases)):
     case=cases[i]
-    #Split chain name
-    chains=case.split("_")[1:]
-    file = f"{pdb_dir}/{case}/FINAL/final.pdb" 
-    #Check if file exists
-    if not os.path.isfile(file):
-        print(f"File {file} does not exist. Skipping...")
-        continue
+    for j in range(len(dict["input_pdb"])):
+        type = dict["type"][j]
+        pdb = dict["input_pdb"][j].format(case=case)
+        output = dict["output"][j].format(case=case)
 
-    u = mda.Universe(file)
-    
-    # Initialize
-    chain0 = chains[0]
-    print("Processing file:", file, "with chain:", chain0)
+        print(f"\n\n---TYPE: {type} {case}---")
 
-    contact_protein = pd.read_csv(f"{lifetimes_dir}/chain_{chain0}_{case}_residue_summary_df.csv") 
+        #Split chain name
+        if type == "PSBS":
+            chains = ["A B"]
+        else:
+            chains=case.split("_")[1:]
 
-    selelections = u.select_atoms(f'chainID {chain0}')
-    resids_chain = contact_protein["resid"]
-    bfactors_chain = contact_protein["median_ns"]
-    
+        if os.path.isfile(pdb):
+            u = mda.Universe(pdb)
+        else:
+            print(f"{pdb} not found. Skipping...")
+            continue 
 
+        sel = [u.select_atoms("all")]
 
-    # If resid is A1, A2, A3, A4, replace it for 9
-    chains_psbs = ['A1','A2','A3','A4']
-    for ch in chains_psbs:
-        if ch in chains:
-            print("Replacing A1, A2, A3, A4 with 9")
-            resids_chain = resids_chain.replace({'A1': '9', 'A2': '9', 'A3': '9', 'A4': '9'})
-
-
-    # Assign B-factors to the universe for the specific chain
-    selections = assign_bfactor_to_universe(selelections, resids_chain, bfactors_chain)
-
-
-    for chain in chains[1:]:
-        #-----Getting DATA---------
-        contact_protein = pd.read_csv(f"{lifetimes_dir}/chain_{chain}_{case}_residue_summary_df.csv") 
-
-        sel1 = u.select_atoms(f'chainID {chain}')
-
-        resids_chain = contact_protein["resid"]
-        bfactors_chain = contact_protein["median_ns"]
-        # Assign B-factors to the universe for the specific chain
-        sel1 = assign_bfactor_to_universe(sel1, resids_chain, bfactors_chain)
-        selections += sel1
-
-    # Save the universe to a PDB file
-    output_filename = f"{odir}/lifetimes_{case}.pdb" #TODO
-    save_universe_to_pdb(selections, output_filename)
-    print(f"B-factors assigned and saved for chain {chains} in {output_filename}")
-
-
-    #--- SAVE COFACTORS ---
-
-    # Initialize
-    chain0 = chains[0]
-    f2 = f"{pdb_dir}/{case}_cofactors_cg.pdb"
-
-    # Check if file exists
-    if not os.path.isfile(f2):
-        print(f"File {f2} does not exist. Skipping...")
-        continue
-    else:
-        u2 = mda.Universe(f2)
-        contact_protein = pd.read_csv(f"{lifetimes_dir}/chain_{chain0}_{case}_residue_summary_df.csv")
-        resids_chain = contact_protein["resid"]
-        bfactors_chain = contact_protein["median_ns"]
-        selections2 = u2.select_atoms(f'chainID {chain0}')
-        # Assign B-factors to the universe for the specific chain
-        selections2 = assign_bfactor_to_universe(selections2, resids_chain, bfactors_chain)
-
-
-        for chain in chains[1:]:
+        for chain in chains:
+            print(f"---Chain {chain}---")
+            selection = dict["selections"][j].format(chain=chain)
+            csv_file = dict["input_csv"][j].format(case=case,chain=chain)
             #-----Getting DATA---------
-            contact_protein = pd.read_csv(f"{lifetimes_dir}/chain_{chain}_{case}_residue_summary_df.csv")
-            sel1 = u2.select_atoms(f'chainID {chain}')
+            if not os.path.isfile(csv_file):
+                print(f"{csv_file} does not exist. Skipping...")
+            else:
+                print(f"Analyzing {csv_file} file")
+                contacts = pd.read_csv(csv_file) 
 
-            resids_chain = contact_protein["resid"]
-            bfactors_chain = contact_protein["median_ns"]
-            # Assign B-factors to the universe for the specific chain
-            sel1 = assign_bfactor_to_universe(sel1, resids_chain, bfactors_chain)
-            selections2 += sel1
-
-        # Save the universe to a PDB file
-        output_filename = f"{odir}/lifetimes_cofactors_{case}.pdb"
-        save_universe_to_pdb(selections2, output_filename)
-        print(f"B-factors assigned and saved for chain {chains} in {output_filename}")
+                resids_chain = contacts["resid"]
+                bfactors_chain = contacts["median_ns"]
 
 
+                sel_ = u.select_atoms(selection) 
+                if len(sel_.atoms) == 0:
+                    print(f" Selection {selection} is empty. Skipping...")
+                else:
+                    # Separate resids
+                    resids = set(sel_.atoms.resids)
+
+                    filtered_resids = []
+                filtered_bfactors = []
+
+                for i in range(len(resids_chain)):
+                    if resids_chain[i] in resids:
+                        filtered_resids.append(resids_chain[i])
+                        filtered_bfactors.append(bfactors_chain[i])
+                print(f"Found {len(filtered_resids)} proteins residues in chain {chain} csv")
+
+                # Assign B-factors to the universe for the specific chain
+                sel_ = u.select_atoms(selection) 
+                if len(sel_.atoms) == 0:
+                    print(f" Selection {selection} is empty. Skipping...") 
+
+                sel_ = assign_bfactor_to_universe(sel_, filtered_resids, filtered_bfactors)
+                sel.append(sel_)
+
+
+        if len(sel) > 1:
+            sels= sel[1]
+            for i in range(len(sel)):
+                if i == 0:
+                    continue
+                else:
+                    sels += sel[i]
+            # Save the universe to a PDB file
+            save_universe_to_pdb(sels, output)
