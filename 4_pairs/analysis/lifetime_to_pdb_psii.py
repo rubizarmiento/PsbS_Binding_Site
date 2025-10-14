@@ -28,7 +28,7 @@ else:
 
 dict = { 
     "type": ["PROTEIN", "COFACTORS", "PSBS"],
-    "input_pdb": [f"{pdb_dir}/{{case}}/FINAL/final.pdb", f"{pdb_dir}/{{case}}_cofactors_cg.pdb", "/martini/rubiz/Github/PsbS_Binding_Site/3_reference_proteins/psbs/psbs_4_0_dimer_aligned.pdb"],
+    "input_pdb": [f"{pdb_dir}/{{case}}/FINAL/final_aligned.pdb", f"{pdb_dir}/{{case}}_cofactors_cg.pdb", "/martini/rubiz/Github/PsbS_Binding_Site/3_reference_proteins/psbs/psbs_4_0_dimer_aligned.pdb"],
     "input_csv": [f"{lifetimes_dir}/chain_{{chain}}_{{case}}_residue_summary_df.csv", f"{lifetimes_dir}/chain_{{chain}}_{{case}}_residue_summary_df.csv", f"{lifetimes_dir}/psbs_{{case}}_residue_summary_df.csv"],
     "selections": [f'chainID {{chain}} and {sel_protein}', f'chainID {{chain}} and {sel_cofactors}', sel_psbs],
     "output": [f"{odir}/lifetimes_{{case}}_protein.pdb", f"{odir}/lifetimes_{{case}}_cofactors.pdb", f"{odir}/lifetimes_{{case}}_psbs.pdb"]

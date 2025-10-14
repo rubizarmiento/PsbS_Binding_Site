@@ -9,6 +9,8 @@ Arguments:
     - ref: Path to the reference structure file (PDB/GRO format) or trajectory (XTC/TRR format).
     - reftop: Topology file for reference trajectory (required if ref is a trajectory).
     - sel: Selection string to specify which atoms to use for alignment (default is "name BB").
+    - sel_mobile: Selection string for mobile (if different from sel).
+    - sel_ref: Selection string for reference (if different from sel).
     - o: Output file path for the aligned structure/trajectory (default is "aligned.pdb").
 
 Example usage:
@@ -30,7 +32,9 @@ def parser():
     parser.add_argument("-mobiletop", help="Topology file for mobile trajectory (required if mobile is a trajectory).")
     parser.add_argument("-ref", required=True, help="Path to the reference structure file (PDB/GRO format) or trajectory (XTC/TRR format).")
     parser.add_argument("-reftop", help="Topology file for reference trajectory (required if ref is a trajectory).")
-    parser.add_argument("-sel", default="name BB", help="Selection string for alignment (default: 'name BB').")
+    parser.add_argument("-sel", help="Selection string for alignment (default: 'name BB').")
+    parser.add_argument("-sel_mobile", help="Selection string for mobile (if different from sel).")
+    parser.add_argument("-sel_ref", help="Selection string for reference (if different from sel).")
     parser.add_argument("-o", default="aligned.pdb", help="Output file path for the aligned structure/trajectory (default: 'aligned.pdb').")
 
     return parser.parse_args()
@@ -66,9 +70,15 @@ def main():
         ref = mda.Universe(args.ref)
 
     # Check if the selections have the same number of atoms
-    mobile_sel = mobile.select_atoms(args.sel)
-    ref_sel = ref.select_atoms(args.sel)
-    
+    if args.sel_mobile:
+        mobile_sel = mobile.select_atoms(args.sel_mobile)
+    else:
+        mobile_sel = mobile.select_atoms(args.sel)
+    if args.sel_ref:
+        ref_sel = ref.select_atoms(args.sel_ref)
+    else:
+        ref_sel = ref.select_atoms(args.sel)
+
     print(f"Mobile selection: {len(mobile_sel)} atoms")
     print(f"Reference selection: {len(ref_sel)} atoms")
     
@@ -126,13 +136,13 @@ def main():
             with mda.Writer(args.o, mobile.atoms.n_atoms) as w:
                 for ts in mobile.trajectory:
                     # Align current frame
-                    mobile0 = mobile.select_atoms(args.sel).positions - mobile.select_atoms(args.sel).center_of_mass()
-                    ref0 = ref.select_atoms(args.sel).positions - ref.select_atoms(args.sel).center_of_mass()
+                    mobile0 = mobile_sel.positions - mobile_sel.center_of_mass()
+                    ref0 = ref_sel.positions - ref_sel.center_of_mass()
                     R, rmsd = align.rotation_matrix(mobile0, ref0)
                     
-                    mobile.atoms.translate(-mobile.select_atoms(args.sel).center_of_mass())
+                    mobile.atoms.translate(-mobile_sel.center_of_mass())
                     mobile.atoms.rotate(R)
-                    mobile.atoms.translate(ref.select_atoms(args.sel).center_of_mass())
+                    mobile.atoms.translate(ref_sel.center_of_mass())
                     
                     # Write aligned frame
                     mobile.trajectory.ts.time = ts.time
@@ -142,22 +152,22 @@ def main():
         else:
             # Output is a single structure - align first frame only
             mobile.trajectory[0]  # Go to first frame
-            mobile0 = mobile.select_atoms(args.sel).positions - mobile.select_atoms(args.sel).center_of_mass()
-            ref0 = ref.select_atoms(args.sel).positions - ref.select_atoms(args.sel).center_of_mass()
+            mobile0 = mobile_sel.positions - mobile_sel.center_of_mass()
+            ref0 = ref_sel.positions - ref_sel.center_of_mass()
             R, rmsd = align.rotation_matrix(mobile0, ref0)
             print(f"RMSD after alignment: {rmsd:.3f} Angstroms")
-            mobile.atoms.translate(-mobile.select_atoms(args.sel).center_of_mass())
+            mobile.atoms.translate(-mobile_sel.center_of_mass())
             mobile.atoms.rotate(R)
-            mobile.atoms.translate(ref.select_atoms(args.sel).center_of_mass())
+            mobile.atoms.translate(ref_sel.center_of_mass())
     else:
         # Mobile is a single structure
-        mobile0 = mobile.select_atoms(args.sel).positions - mobile.select_atoms(args.sel).center_of_mass()
-        ref0 = ref.select_atoms(args.sel).positions - ref.select_atoms(args.sel).center_of_mass()
+        mobile0 = mobile_sel.positions - mobile_sel.center_of_mass()
+        ref0 = ref_sel.positions - ref_sel.center_of_mass()
         R, rmsd = align.rotation_matrix(mobile0, ref0)
         print(f"RMSD after alignment: {rmsd:.3f} Angstroms")
-        mobile.atoms.translate(-mobile.select_atoms(args.sel).center_of_mass())
+        mobile.atoms.translate(-mobile_sel.center_of_mass())
         mobile.atoms.rotate(R)
-        mobile.atoms.translate(ref.select_atoms(args.sel).center_of_mass())
+        mobile.atoms.translate(ref_sel.center_of_mass())
 
     # Write the aligned structure/trajectory to the output file
     if not (is_mobile_trajectory and args.o.endswith(('.xtc', '.trr', '.dcd', '.nc'))):

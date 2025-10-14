@@ -283,11 +283,26 @@ function check_sucess_cg2at(){
 
 function reassign_chains(){
   dir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/cg2at
+  script=/martini/rubiz/thylakoid/scripts
+  an1=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis
+
+  
   cd ${dir}
   for i in `find -name "final_cg2at_de_novo.pdb"`;do 
     subdirpath=$(dirname "$(dirname "$i")")
     subdirpath="${subdirpath#./}"
-    python3 /martini/rubiz/thylakoid/scripts/assing_resid_chain_from_pdb.py -o ${dir}/${subdirpath}/FINAL/final.pdb  -ref ${dir}/${subdirpath}_protein_cg.pdb -i ${dir}/${subdirpath}/FINAL/final_cg2at_de_novo.pdb 
+    #python3 /martini/rubiz/thylakoid/scripts/assing_resid_chain_from_pdb.py -o ${dir}/${subdirpath}/FINAL/final.pdb  -ref ${dir}/${subdirpath}_protein_cg.pdb -i ${dir}/${subdirpath}/FINAL/final_cg2at_de_novo.pdb
+    # Align PDB to input CG structure
+    chains_arr=(${subdirpath//_/ })
+    # Remove the first element (the tag number)
+    chains_arr=("${chains_arr[@]:1}")
+    echo "Aligning ${subdirpath} using chains: ${chains_arr[*]}"
+
+    ref_pdb=${dir}/${subdirpath}_protein_cg.pdb
+    #python ${script}/align_structures.py -mobile ${dir}/${subdirpath}/FINAL/final.pdb -ref ${ref_pdb} -sel_ref "name BB and chainID ${chains_arr[*]}" -sel_mobile "name CA and chainID ${chains_arr[*]}" -o ${dir}/${subdirpath}/FINAL/final_aligned.pdb > ${dir}/${subdirpath}_align.log 2>&1 &
+    python ${an1}/align_structures.py -mobile ${dir}/${subdirpath}/FINAL/final.pdb -ref ${ref_pdb} -sel_ref "name BB and chainID ${chains_arr[*]}" -sel_mobile "name CA and chainID ${chains_arr[*]}" -o ${dir}/${subdirpath}/FINAL/final_aligned.pdb     
+
+
   done
 }
 
@@ -298,6 +313,7 @@ function lifetimes_to_pdb_psii(){
   sel_protein="not resname CLA CLB CHL *HG* HEM PLQ PL9 *GG* *SQ* *PG* DGD LMG LUT VIO XAT NEO NEX W2 HOH BCR"
   sel_cofactors="resname CLA CLB CHL *HG* HEM PLQ PL9 *GG* *SQ* *PG* DGD LMG LUT VIO XAT NEO NEX W2 HOH BCR"
   sel_psbs="all"
+  rm -rf ${odir}/*
   python3 /martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/lifetime_to_pdb_psii.py ${pdb_dir} ${lifetimes_dir} ${odir} "${sel_protein}" "${sel_cofactors}" "${sel_psbs}"
 }
 
