@@ -262,6 +262,33 @@ function cg2at(){
   done
 }
 
+function add_bonds_pdb_cofactors() {
+  dir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/middle_cluster
+  dir1=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj
+  odir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/cg2at
+
+  files=("$dir1"/*.pdb)
+  cd $odir 
+
+  for file in "${files[@]}"; do
+    basename=$(basename ${file} .pdb)
+    #TODO Copy top file and comment the chains.
+    f=${dir}/${basename}.pdb
+    trj=${dir}/${basename}.xtc
+    chains_part=$(echo ${basename} | cut -d'_' -f2-)
+    top_file=${dir1}/*${chains_part}.top
+    echo ${top_file}
+    #chains_arr=(${chains_part//_/ })
+
+
+    #gmx genconf -f ${file} -o ${file} -s ${odir}/${basename}_cofactors.tpr
+  done
+
+  
+
+
+}
+
 function check_sucess_cg2at(){
   dir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/middle_cluster
   odir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/cg2at
@@ -285,7 +312,6 @@ function reassign_chains(){
   dir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/cg2at
   script=/martini/rubiz/thylakoid/scripts
   an1=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis
-
   
   cd ${dir}
   for i in `find -name "final_cg2at_de_novo.pdb"`;do 
@@ -312,7 +338,7 @@ function lifetimes_to_pdb_psii(){
   odir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/pdbs_lifetimes
   sel_protein="not resname CLA CLB CHL *HG* HEM PLQ PL9 *GG* *SQ* *PG* DGD LMG LUT VIO XAT NEO NEX W2 HOH BCR"
   sel_cofactors="resname CLA CLB CHL *HG* HEM PLQ PL9 *GG* *SQ* *PG* DGD LMG LUT VIO XAT NEO NEX W2 HOH BCR"
-  sel_psbs="all"
+  sel_psbs="chainID 9"
   rm -rf ${odir}/*
   python3 /martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/lifetime_to_pdb_psii.py ${pdb_dir} ${lifetimes_dir} ${odir} "${sel_protein}" "${sel_cofactors}" "${sel_psbs}"
 }
@@ -342,9 +368,10 @@ function main(){
 
   #cg2at
   #sleep 60m
+  add_bonds_pdb_cofactors
   #check_sucess_cg2at
   #reassign_chains
-  lifetimes_to_pdb_psii
+  #lifetimes_to_pdb_psii
 }
 
 main
