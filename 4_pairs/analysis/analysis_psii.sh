@@ -217,8 +217,9 @@ function extract_cluster(){
 
 function cg2at(){
   script=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis
-  dir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/middle_cluster
-  odir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/cg2at
+  dir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/middle_cluster   # pdb files: 9_c_s_z.pdb -> ${basename}.pdb 
+  tpr_dir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj_grouped
+  odir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/cg2at          
   cg2at_path=/martini/rubiz/thylakoid/scripts/para/bin/cg2at
   scripts=/martini/rubiz/thylakoid/scripts
   rewrite=${1:-"false"}  # Default to false if not provided
@@ -237,11 +238,10 @@ function cg2at(){
       # Skip if output exists
       if [ -f ${o} ]; then
         echo "Skipping ${file}, output already exists."
-        continue
+        #continue
       else
         echo "Processing ${file}..."
         rm -rf ${odir}/${basename}/*
-
 
         sel="not resname CLA CLB CHL *HG* HEM PLQ PL9 *GG* *SQ* *PG* DGD LMG LUT VIO XAT NEO NEX W2 HOH BCR"
         cofactors="resname CLA CLB CHL *HG* HEM PLQ PL9 *GG* *SQ* *PG* DGD LMG LUT VIO XAT NEO NEX W2 HOH BCR"
@@ -253,40 +253,15 @@ function cg2at(){
         
         # Some proteins have no cofactors, check if ndx is empty
         if [ -s ${odir}/${basename}_cofactors_cg.ndx ]; then
-          gmx editconf -f ${file} -n ${odir}/${basename}_cofactors_cg.ndx -o ${odir}/${basename}_cofactors_cg.pdb
+          gmx editconf -f ${file} -n ${odir}/${basename}_cofactors_cg.ndx -o ${odir}/${basename}_cofactors_cg_nb.pdb # No bonds info, but ok chains
+          echo "Cofactors\n" | gmx trjconv -f ${file} -s ${tpr_dir}/${basename}.tpr -n ${odir}/${basename}_cofactors_cg.ndx -conect -o ${odir}/${basename}_cofactors_cg.pdb # Bonds info but wrong chains
+          python3 /martini/rubiz/thylakoid/scripts/assing_resid_chain_from_pdb.py -o ${odir}/${basename}_cofactors_cg.pdb  -ref ${odir}/${basename}_cofactors_cg_nb.pdb -i ${odir}/${basename}_cofactors_cg.pdb
         fi
 
         # cg2at
         ${cg2at_path} -c ${basename}_protein_cg.pdb -ff charmm36-jul2020-updated -fg martini_3-0_charmm36 -w tip3p -loc ${basename} >> ${odir}/${basename}.log 2>&1 &
       fi
   done
-}
-
-function add_bonds_pdb_cofactors() {
-  dir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/middle_cluster
-  dir1=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj
-  odir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/cg2at
-
-  files=("$dir1"/*.pdb)
-  cd $odir 
-
-  for file in "${files[@]}"; do
-    basename=$(basename ${file} .pdb)
-    #TODO Copy top file and comment the chains.
-    f=${dir}/${basename}.pdb
-    trj=${dir}/${basename}.xtc
-    chains_part=$(echo ${basename} | cut -d'_' -f2-)
-    top_file=${dir1}/*${chains_part}.top
-    echo ${top_file}
-    #chains_arr=(${chains_part//_/ })
-
-
-    #gmx genconf -f ${file} -o ${file} -s ${odir}/${basename}_cofactors.tpr
-  done
-
-  
-
-
 }
 
 function check_sucess_cg2at(){
@@ -317,7 +292,8 @@ function reassign_chains(){
   for i in `find -name "final_cg2at_de_novo.pdb"`;do 
     subdirpath=$(dirname "$(dirname "$i")")
     subdirpath="${subdirpath#./}"
-    #python3 /martini/rubiz/thylakoid/scripts/assing_resid_chain_from_pdb.py -o ${dir}/${subdirpath}/FINAL/final.pdb  -ref ${dir}/${subdirpath}_protein_cg.pdb -i ${dir}/${subdirpath}/FINAL/final_cg2at_de_novo.pdb
+    python3 /martini/rubiz/thylakoid/scripts/assing_resid_chain_from_pdb.py -o ${dir}/${subdirpath}/FINAL/final.pdb  -ref ${dir}/${subdirpath}_protein_cg.pdb -i ${dir}/${subdirpath}/FINAL/final_cg2at_de_novo.pdb
+    
     # Align PDB to input CG structure
     chains_arr=(${subdirpath//_/ })
     # Remove the first element (the tag number)
@@ -368,7 +344,7 @@ function main(){
 
   #cg2at
   #sleep 60m
-  add_bonds_pdb_cofactors
+  #add_bonds_pdb_cofactors
   #check_sucess_cg2at
   #reassign_chains
   #lifetimes_to_pdb_psii
