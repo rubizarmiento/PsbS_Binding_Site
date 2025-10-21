@@ -29,9 +29,14 @@ function lifetime_analysis_protein_protein(){
 }
 
 function extract_binding(){
+  # Extract all the subtrajectories and generate a tpr file
+  # By default it comments the itps after the [ molecules ] section as it genarates problems with gmx trjconv -conect 
   dir5="/martini/rubiz/Github/PsbS_Binding_Site/5_psii/psii_psbs"
   sim=("sim_1" "sim_2" "sim_3" "sim_4" "sim_5" "sim_6" "sim_7" "sim_8")
+  #sim=("sim_1")
+
   rm -rf /martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj/*
+  rm -rf /martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj/*#*
   for s in "${sim[@]}"; do 
   cd ${dir5}/${s}
     python /martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/extract_binding_trajectories_psii.py \
@@ -80,8 +85,6 @@ function write_equivalent_binding_sites(){
   odir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj_grouped
   python3 /martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/grouped_binding_pdbs.py ${dir} ${csv} ${odir}
   python3 /martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/concatenated_grouped_trajectories.py ${dir} ${csv} ${odir}
-
-
   ocsv=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj/basenames_binding.csv
   python3 /martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/write_unique_basenames.py ${csv} ${ocsv}
 }
@@ -156,10 +159,10 @@ function binding_pose_grouped(){
     if [[ "${basename}" == *"${special_basename}"* ]]; then
       sel2="${special_selection}"
       echo "Processing ${basename} with special selection: ${sel2}"
-      python3 ${script}/binding_pose.py -f ${f} -trj ${trj} -tpr ${tpr} -osel "all" -sel1 "${sel2}" -sel2 "${sel1}" -o ${odir}/${basename} --cutoff 0.75 >> ${odir}/${basename}/cluster.log 2>&1 &
+      python3 ${script}/binding_pose.py -f ${f} -trj ${trj} -tpr ${tpr} -osel "all" -sel1 "${sel2}" -sel2 "${sel1}" -o ${odir}/${basename} --cutoff 0.45 >> ${odir}/${basename}/cluster.log 2>&1 &
     else
       echo "Processing ${basename} with standard selection..."
-      python3 ${script}/binding_pose.py -f ${f} -trj ${trj} -tpr ${tpr} -osel "all" -sel1 "${sel2}" -sel2 "${sel1}" -o ${odir}/${basename} --cutoff 0.75 >> ${odir}/${basename}/cluster.log 2>&1 &
+      python3 ${script}/binding_pose.py -f ${f} -trj ${trj} -tpr ${tpr} -osel "all" -sel1 "${sel2}" -sel2 "${sel1}" -o ${odir}/${basename} --cutoff 0.45 >> ${odir}/${basename}/cluster.log 2>&1 &
     fi
   done
 }
@@ -210,7 +213,7 @@ function extract_cluster(){
     basename=$(basename ${trj} .xtc)
     f=${idir1}/${basename}.pdb
     trj=${idir1}/${basename}.xtc
-    log=${idir2}/${basename}/clust_c075/cluster.log
+    log=${idir2}/${basename}/clust_c045/cluster.log
     python3 ${script}/extract_cluster.py -f ${f} -trj ${trj} -g ${log} -o ${odir}/${basename}.pdb
   done
 }
@@ -238,27 +241,31 @@ function cg2at(){
       # Skip if output exists
       if [ -f ${o} ]; then
         echo "Skipping ${file}, output already exists."
-        #continue
+        continue
       else
         echo "Processing ${file}..."
-        rm -rf ${odir}/${basename}/*
+        #rm -rf ${odir}/${basename}/*
 
         sel="not resname CLA CLB CHL *HG* HEM PLQ PL9 *GG* *SQ* *PG* DGD LMG LUT VIO XAT NEO NEX W2 HOH BCR"
         cofactors="resname CLA CLB CHL *HG* HEM PLQ PL9 *GG* *SQ* *PG* DGD LMG LUT VIO XAT NEO NEX W2 HOH BCR"
 
-        python3 ${script}/sel_to_ndx.py -f ${file} -sel "${sel}" -name "Protein" -o ${odir}/${basename}_protein_cg.ndx
-        python3 ${script}/sel_to_ndx.py -f ${file} -sel "${cofactors}" -name "Cofactors" -o ${odir}/${basename}_cofactors_cg.ndx
-
+        python3 ${script}/sel_to_ndx.py -f ${dir}/${basename}.pdb -sel "${sel}" -name "Protein" -o ${odir}/${basename}_protein_cg.ndx
+        python3 ${script}/sel_to_ndx.py -f ${dir}/${basename}.pdb -sel "${cofactors}" -name "Cofactors" -o ${odir}/${basename}_cofactors_cg.ndx
         gmx editconf -f ${file} -n ${odir}/${basename}_protein_cg.ndx -o ${odir}/${basename}_protein_cg.pdb
+        
+        # Check if ndx is empty
+        if [ -s ${odir}/${basename}_cofactors_cg.ndx ]; then
+          gmx editconf -f ${file} -n ${odir}/${basename}_cofactors_cg.ndx -o ${odir}/${basename}_cofactors_cg.pdb
+          echo -e "0\n" | gmx trjconv -f ${odir}/${basename}_cofactors_cg.pdb -s ${tpr_dir}/${basename}_cofactors.tpr -conect -o ${odir}/${basename}_cofactors_cg_1.pdb
+        fi
         
         # Some proteins have no cofactors, check if ndx is empty
         if [ -s ${odir}/${basename}_cofactors_cg.ndx ]; then
           gmx editconf -f ${file} -n ${odir}/${basename}_cofactors_cg.ndx -o ${odir}/${basename}_cofactors_cg_nb.pdb # No bonds info, but ok chains
-          echo "Cofactors\n" | gmx trjconv -f ${file} -s ${tpr_dir}/${basename}.tpr -n ${odir}/${basename}_cofactors_cg.ndx -conect -o ${odir}/${basename}_cofactors_cg.pdb # Bonds info but wrong chains
-          python3 /martini/rubiz/thylakoid/scripts/assing_resid_chain_from_pdb.py -o ${odir}/${basename}_cofactors_cg.pdb  -ref ${odir}/${basename}_cofactors_cg_nb.pdb -i ${odir}/${basename}_cofactors_cg.pdb
+          echo "Cofactors\n" | gmx trjconv -f ${file} -s ${tpr_dir}/${basename}.tpr -n ${odir}/${basename}_cofactors_cg.ndx -conect -o ${odir}/${basename}_cofactors_cg_1.pdb # Bonds info but wrong chains
+          python3 /martini/rubiz/thylakoid/scripts/assing_resid_chain_from_pdb.py -o ${odir}/${basename}_cofactors_cg.pdb  -ref ${odir}/${basename}_cofactors_cg_nb.pdb -i ${odir}/${basename}_cofactors_cg_1.pdb
         fi
-
-        # cg2at
+          #cg2at
         ${cg2at_path} -c ${basename}_protein_cg.pdb -ff charmm36-jul2020-updated -fg martini_3-0_charmm36 -w tip3p -loc ${basename} >> ${odir}/${basename}.log 2>&1 &
       fi
   done
@@ -340,12 +347,12 @@ function main(){
   
   #binding_pose_grouped               # Clustering analysis. !!!Change "special selection" if the trajectory is extended
   #sleep 30m
-  #extract_cluster                    # Extract middle cluster as gmx cluster generates corrupted PDBs
+  #extract_cluster                    # Extract middle structure from lasrgest cluster as gmx cluster generates corrupted PDBs
 
-  #cg2at
-  #sleep 60m
-  #add_bonds_pdb_cofactors
+  cg2at 
+  #sleep 20m
   #check_sucess_cg2at
+  #cg2at                             # Sometimes it fails during first try
   #reassign_chains
   #lifetimes_to_pdb_psii
 }

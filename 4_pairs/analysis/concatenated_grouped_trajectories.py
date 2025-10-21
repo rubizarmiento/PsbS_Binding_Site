@@ -116,11 +116,11 @@ def main():
             original = row['original']
             traj_file = os.path.join(trj_dir, f"{original}.xtc")
             
-            if os.path.exists(traj_file):
+            if os.path.exists(traj_file) and "_cofactors" not in traj_file:
                 trajectory_files.append(traj_file)
                 print(f"  Found trajectory: {original}.xtc")
             else:
-                print(f"  Warning: Trajectory not found: {original}.xtc")
+                print(f"  Warning: Trajectory not found or contains '_cofactors': {original}.xtc")
         
         if not trajectory_files:
             print(f"  No trajectory files found for tag_number {tag_number}")

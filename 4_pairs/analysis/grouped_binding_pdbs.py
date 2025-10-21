@@ -21,7 +21,7 @@ import pandas as pd
 import warnings
 import glob
 import shutil
-
+from pathlib import Path
 warnings.filterwarnings("ignore")
 
 pdb_dir=sys.argv[1]
@@ -114,6 +114,12 @@ for index, row in df.iterrows():
         print(f"Warning: {tpr_path} not found, skipping TPR copy.")
         continue
     grouped_tpr_path = os.path.join(odir, f'{tag_number}_{output}.tpr')
+    
+    tpr_cofactors = tpr_path.replace('.tpr','_cofactors.tpr')
+    if os.path.exists(tpr_cofactors):
+        shutil.copyfile(tpr_cofactors, grouped_tpr_path.replace('.tpr','_cofactors.tpr'))
+        print(f"Copied grouped TPR cofactors: {grouped_tpr_path.replace('.tpr','_cofactors.tpr')}")
+
     shutil.copyfile(tpr_path, grouped_tpr_path)
     print(f"Copied grouped TPR: {grouped_tpr_path}")
 

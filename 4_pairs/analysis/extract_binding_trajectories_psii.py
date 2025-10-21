@@ -56,41 +56,48 @@ def modify_topology_file(top_file, chain_ids, seg_id, output_top):
         print(f"Read {len(lines)} lines from topology file")
         
         modified_lines = []
+        cofactors_lines = []
         in_molecules_section = False
-        
+
         for line in lines:
             stripped = line.strip()
-            
             # Check if we're entering the molecules section
             if stripped == "[ molecules ]":
                 in_molecules_section = True
                 modified_lines.append(line)
+                cofactors_lines.append(line)  # Append to cofactors too
                 continue
-            
+
             # If we're in molecules section and line is not empty
-            if in_molecules_section and stripped and not stripped.startswith(';'):
+            elif in_molecules_section and stripped and not stripped.startswith(';'):
                 # Check if line contains any of the chain_ids or seg_id
                 seg_id_str = str(seg_id)
-                if any(f"chain_{cid}" in stripped or f"psbs_chain_{cid}" in stripped for cid in chain_ids) or seg_id_str in stripped:
+                if seg_id_str in stripped or any(stripped.startswith(f"chain_{cid}") for cid in chain_ids):
                     modified_lines.append(line)
-                    print(f"Keeping molecule line: {stripped}")
+                    print(f"Keeping protein molecule line: {stripped}")
+                # If the line is already commented and contains a specific chain ID, keep it as is
+                elif any(f"; chain_{cid}" in stripped for cid in chain_ids):
+                    modified_lines.append(line)
+                    cofactors_lines.append(f"{line}")
                 else:
                     # Comment out the line
                     modified_lines.append(f";{line}")
-            elif in_molecules_section and stripped.startswith(';') and any(f"; chainID {cid}" in stripped for cid in chain_ids):
-                # Uncomment cofactor lines with matching chainID comment
-                uncommented_line = line[1:]  # Remove the leading ;
-                modified_lines.append(uncommented_line)
-                print(f"Uncommenting cofactor line: {stripped[1:]}")
+                    cofactors_lines.append(f";{line}")
             else:
                 modified_lines.append(line)
-        
+                cofactors_lines.append(line)  # Append all other lines to cofactors
+
         # Write modified topology
         with open(str(output_top), 'w') as f:
             f.writelines(modified_lines)
         
-        print(f"Modified topology written to: {output_top}")
+        output_top_cofactors = output_top.with_stem(output_top.stem + '_cofactors')
+        with open(str(output_top_cofactors), 'w') as f:
+            f.writelines(cofactors_lines)
         
+        print(f"Modified topology written to: {output_top}")
+        print(f"Modified topology written to: {output_top_cofactors}")
+
     except Exception as e:
         print(f"Error in modify_topology_file: {e}")
         raise
@@ -132,12 +139,13 @@ def extract_binding_trajectory(u, start_frame, end_frame, output_xtc, output_pdb
     # For our A1-A4 segids, the chainID in the DataFrame needs to be mapped to the actual chainID
     actual_chain_id = chain_id
     chain_atoms = u.select_atoms(f"chainID {actual_chain_id}")
+    cofactors_atoms = u.select_atoms(f"chainID {actual_chain_id} and resname CLA CLB CHL *MG* *HEM* *GG* DGD *SQ* *PG* W* *HG* HOH *MG* *HG* PLQ PL9 LUT VIO XAT NEO NEX BCR")
 
     
     # Combine both selections
     selected_atoms = seg_atoms + chain_atoms
-    
     print(f"Selected {len(seg_atoms)} atoms from segid {seg_id} + {len(chain_atoms)} atoms from chainID {chain_id} = {len(selected_atoms)} total atoms")
+    print(f"The system contains {cofactors_atoms.n_residues} cofactors")
     
     # First, go to first frame and write PDB
     u.trajectory[start_frame]
@@ -145,43 +153,29 @@ def extract_binding_trajectory(u, start_frame, end_frame, output_xtc, output_pdb
     #DELETE#
     #for atom in selected_atoms:
     #    atom.chainID = seg_id
+
     with mda.Writer(str(output_pdb), selected_atoms.n_atoms) as pdb_writer:
         pdb_writer.write(selected_atoms)
-    
     print(f"First frame PDB: {output_pdb}")
-    
-
     # Then extract trajectory frames
     with mda.Writer(str(output_xtc), selected_atoms.n_atoms) as xtc_writer:
         for ts in u.trajectory[start_frame:end_frame+1]:
             xtc_writer.write(selected_atoms)
-    
     print(f"Extracted trajectory: {start_frame}-{end_frame} -> {output_xtc}")
-    
-    # If topology file is provided, modify it and run grompp
-    if top_file and mdp_file and chain_id and seg_id:
-        print(f"Topology file provided: {top_file}")
-        print(f"MDP file provided: {mdp_file}")
-        print(f"Chain ID: {chain_id}, Seg ID: {seg_id}")
-        
-        output_top = output_pdb.with_suffix('.top')
-        output_tpr = output_pdb.with_suffix('.tpr')
-        
-        try:
-            modify_topology_file(top_file, [actual_chain_id], seg_id, output_top)
-            success = run_grompp(mdp_file, str(output_pdb), str(output_top), str(output_tpr))
-            if success:
-                print(f"Generated TPR file: {output_tpr}")
-            else:
-                print(f"Warning: grompp failed for {output_pdb} - topology/coordinates mismatch is expected for subset extractions")
-                print(f"Trajectory files are still valid: {output_xtc}")
-        except Exception as e:
-            print(f"Warning: Error processing topology/TPR for {output_pdb}: {e}")
-            print(f"Trajectory files are still valid: {output_xtc}")
-            import traceback
-            traceback.print_exc()
+
+    if cofactors_atoms.n_atoms !=0:
+        ouput_pdb_cofactors =  output_pdb.with_stem(output_pdb.stem + '_cofactors')
+        with mda.Writer(str(ouput_pdb_cofactors), cofactors_atoms.n_atoms) as pdb_writer:
+            pdb_writer.write(cofactors_atoms)
+        print(f"First frame PDB: {ouput_pdb_cofactors}")
+
+        ouput_xtc_cofactors =  output_xtc.with_stem(output_xtc.stem + '_cofactors')
+        with mda.Writer(str(ouput_xtc_cofactors), cofactors_atoms.n_atoms) as xtc_writer:
+            for ts in u.trajectory[start_frame:end_frame+1]:
+                xtc_writer.write(cofactors_atoms)
+        print(f"Extracted trajectory: {start_frame}-{end_frame} -> {ouput_xtc_cofactors}")
     else:
-        print(f"Skipping topology processing - missing arguments: top_file={top_file}, mdp_file={mdp_file}, chain_id={chain_id}, seg_id={seg_id}")
+        print(f"Warning: The {ouput_pdb_cofactors} does not contain cofactors")
 
 def main():
     args = parse_arguments()
@@ -215,7 +209,7 @@ def main():
         # Select atoms
         seg_atoms = u.select_atoms(f"segid {resid_i}")
         seg_chain_ids = list(set(seg_atoms.chainIDs))
-        all_chain_ids_to_keep = actual_chain_ids
+        all_chain_ids_to_keep = [cid.upper() for cid in actual_chain_ids]
         chain_suffix = '_'.join(sorted(all_chain_ids_to_keep))
         print(f"All chain_ids to keep: {all_chain_ids_to_keep}")
         
@@ -224,18 +218,25 @@ def main():
         output_pdb = output_dir / f"{args.prefix}_{resid_i}_{chain_suffix}.pdb"
         
         chain_atoms = sum(u.select_atoms(f"chainID {cid}") for cid in all_chain_ids_to_keep)
+        cofactors_atoms = chain_atoms.select_atoms(f"resname CLA CLB CHL *MG* *HEM* *GG* DGD *SQ* *PG* W* *HG* HOH *MG* *HG* PLQ PL9 LUT VIO XAT NEO NEX BCR")
         selected_atoms = seg_atoms | chain_atoms 
         
         print(f"Selected {len(seg_atoms)} atoms from segid {resid_i} + {len(chain_atoms)} atoms from chainIDs {all_chain_ids_to_keep} = {len(selected_atoms)} total atoms")
-        
+        print(f"Found {cofactors_atoms.n_residues} cofactors")
         # Go to first frame and write PDB
         u.trajectory[start_frame_first]
 
         with mda.Writer(str(output_pdb), selected_atoms.n_atoms) as pdb_writer:
             pdb_writer.write(selected_atoms)
-        
         print(f"First frame PDB for {resid_i}: {output_pdb}")
         
+        if cofactors_atoms.n_atoms != 0:
+            ouput_pdb_cofactors =  output_pdb.with_stem(output_pdb.stem + '_cofactors')
+            with mda.Writer(str(ouput_pdb_cofactors), cofactors_atoms.n_atoms) as pdb_writer:
+                pdb_writer.write(cofactors_atoms)
+            print(f"First frame PDB for {resid_i}: {ouput_pdb_cofactors}")
+
+
         # Collect all unique frames across all binding events for this segid
         all_frames = set()
         for idx, row in group.iterrows():
@@ -265,6 +266,22 @@ def main():
                 xtc_writer.write(selected_atoms)
         
         print(f"Extracted trajectory for {resid_i}: {output_xtc}")
+
+        if cofactors_atoms.n_atoms != 0:
+            ouput_xtc_cofactors =  output_xtc.with_stem(output_xtc.stem + '_cofactors')
+
+            with mda.Writer(str(ouput_xtc_cofactors), cofactors_atoms.n_atoms) as xtc_writer:
+                for frame in unique_frames:
+                    # Validate frame range
+                    if frame >= len(u.trajectory):
+                        print(f"WARNING: Frame {frame} exceeds trajectory length {len(u.trajectory)}")
+                        continue
+                    
+                    u.trajectory[frame]
+                    xtc_writer.write(cofactors_atoms)
+            
+            print(f"Extracted trajectory for {resid_i}: {ouput_xtc_cofactors}")
+
         
         # If topology file is provided, modify it and run grompp
         if args.topology and args.mdp_file:
@@ -273,12 +290,25 @@ def main():
             
             try:
                 modify_topology_file(args.topology, all_chain_ids_to_keep, resid_i, output_top)
-                success = run_grompp(args.mdp_file, str(output_pdb), str(output_top), str(output_tpr))
-                if success:
-                    print(f"Generated TPR for {resid_i}: {output_tpr}")
+                
+                # Determine cases based on cofactors
+                selected_cofactors = seg_atoms
+                if selected_cofactors.n_atoms != 0:
+                    cases = ["", "_cofactors"]
                 else:
-                    print(f"Warning: grompp failed for {output_pdb} - topology/coordinates mismatch is expected for subset extractions")
-                    print(f"Trajectory files are still valid: {output_xtc}")
+                    cases = [""]
+                
+                for case in cases:
+                    pdb = output_pdb.with_stem(output_pdb.stem + case)
+                    top = output_top.with_stem(output_top.stem + case)
+                    tpr = output_tpr.with_stem(output_tpr.stem + case)
+                    
+                    success = run_grompp(args.mdp_file, str(pdb), str(top), str(tpr))
+                    if success:
+                        print(f"Generated TPR for {resid_i} ({case}): {tpr}")
+                    else:
+                        print(f"Warning: grompp failed for {pdb} - topology/coordinates mismatch is expected for subset extractions")
+                        print(f"Trajectory files are still valid: {output_xtc}")
             except Exception as e:
                 print(f"Warning: Error processing topology/TPR for {output_pdb}: {e}")
                 print(f"Trajectory files are still valid: {output_xtc}")

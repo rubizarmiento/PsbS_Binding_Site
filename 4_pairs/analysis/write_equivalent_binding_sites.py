@@ -24,7 +24,7 @@ for key in data_dict:
     data_dict[key] = [x for x in data_dict[key] if pd.notna(x)]
 # Get basenames
 dir="/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj"
-files = [f for f in os.listdir(dir) if f.endswith('.xtc')]
+files = [f for f in os.listdir(dir) if f.endswith('.xtc') and '_cofactors' not in f]
 files = [os.path.join(dir, f) for f in files]
 basenames = [os.path.basename(f) for f in files]
 basenames = [s.replace(".xtc", "") for s in basenames]
