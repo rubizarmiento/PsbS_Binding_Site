@@ -238,36 +238,37 @@ function cg2at(){
 
       o=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/cg2at/${basename}/FINAL/final_cg2at_de_novo.pdb
       
-      # Skip if output exists
-      if [ -f ${o} ]; then
-        echo "Skipping ${file}, output already exists."
-        continue
-      else
-        echo "Processing ${file}..."
-        #rm -rf ${odir}/${basename}/*
+    # Skip if output exists
+    #if [ -f ${o} ]; then
+      #echo "Skipping ${file}, output already exists."
+      #continue
+    #else
+      echo "Processing ${file}..."
+      #rm -rf ${odir}/${basename}/*
 
-        sel="not resname CLA CLB CHL *HG* HEM PLQ PL9 *GG* *SQ* *PG* DGD LMG LUT VIO XAT NEO NEX W2 HOH BCR"
-        cofactors="resname CLA CLB CHL *HG* HEM PLQ PL9 *GG* *SQ* *PG* DGD LMG LUT VIO XAT NEO NEX W2 HOH BCR"
+      sel="not resname CLA CLB CHL *HG* HEM PLQ PL9 *GG* *SQ* *PG* DGD LMG LUT VIO XAT NEO NEX W2 HOH BCR"
+      cofactors="resname CLA CLB CHL *HG* HEM PLQ PL9 *GG* *SQ* *PG* DGD LMG LUT VIO XAT NEO NEX W2 HOH BCR"
 
-        python3 ${script}/sel_to_ndx.py -f ${dir}/${basename}.pdb -sel "${sel}" -name "Protein" -o ${odir}/${basename}_protein_cg.ndx
-        python3 ${script}/sel_to_ndx.py -f ${dir}/${basename}.pdb -sel "${cofactors}" -name "Cofactors" -o ${odir}/${basename}_cofactors_cg.ndx
-        gmx editconf -f ${file} -n ${odir}/${basename}_protein_cg.ndx -o ${odir}/${basename}_protein_cg.pdb
-        
-        # Check if ndx is empty
-        if [ -s ${odir}/${basename}_cofactors_cg.ndx ]; then
-          gmx editconf -f ${file} -n ${odir}/${basename}_cofactors_cg.ndx -o ${odir}/${basename}_cofactors_cg.pdb
-          echo -e "0\n" | gmx trjconv -f ${odir}/${basename}_cofactors_cg.pdb -s ${tpr_dir}/${basename}_cofactors.tpr -conect -o ${odir}/${basename}_cofactors_cg_1.pdb
-        fi
-        
-        # Some proteins have no cofactors, check if ndx is empty
-        if [ -s ${odir}/${basename}_cofactors_cg.ndx ]; then
-          gmx editconf -f ${file} -n ${odir}/${basename}_cofactors_cg.ndx -o ${odir}/${basename}_cofactors_cg_nb.pdb # No bonds info, but ok chains
-          echo "Cofactors\n" | gmx trjconv -f ${file} -s ${tpr_dir}/${basename}.tpr -n ${odir}/${basename}_cofactors_cg.ndx -conect -o ${odir}/${basename}_cofactors_cg_1.pdb # Bonds info but wrong chains
-          python3 /martini/rubiz/thylakoid/scripts/assing_resid_chain_from_pdb.py -o ${odir}/${basename}_cofactors_cg.pdb  -ref ${odir}/${basename}_cofactors_cg_nb.pdb -i ${odir}/${basename}_cofactors_cg_1.pdb
-        fi
-          #cg2at
-        ${cg2at_path} -c ${basename}_protein_cg.pdb -ff charmm36-jul2020-updated -fg martini_3-0_charmm36 -w tip3p -loc ${basename} >> ${odir}/${basename}.log 2>&1 &
+      #python3 ${script}/sel_to_ndx.py -f ${dir}/${basename}.pdb -sel "${sel}" -name "Protein" -o ${odir}/${basename}_protein_cg.ndx
+      #python3 ${script}/sel_to_ndx.py -f ${dir}/${basename}.pdb -sel "${cofactors}" -name "Cofactors" -o ${odir}/${basename}_cofactors_cg.ndx
+      #gmx editconf -f ${file} -n ${odir}/${basename}_protein_cg.ndx -o ${odir}/${basename}_protein_cg.pdb
+      
+      # Check if ndx is empty
+      if [ -s ${odir}/${basename}_cofactors_cg.ndx ]; then
+        gmx editconf -f ${file} -n ${odir}/${basename}_cofactors_cg.ndx -o ${odir}/${basename}_cofactors_cg_1.pdb
+        echo -e "0\n" | gmx trjconv -f ${odir}/${basename}_cofactors_cg_1.pdb -s ${tpr_dir}/${basename}_cofactors.tpr -conect -o ${odir}/${basename}_cofactors_cg.pdb
+        python3 /martini/rubiz/thylakoid/scripts/assing_resid_chain_from_pdb.py -o ${odir}/${basename}_cofactors_cg.pdb  -ref ${odir}/${basename}_cofactors_cg_1.pdb -i ${odir}/${basename}_cofactors_cg.pdb
       fi
+      
+      # Some proteins have no cofactors, check if ndx is empty
+      #if [ -s ${odir}/${basename}_cofactors_cg.ndx ]; then
+      #  gmx editconf -f ${file} -n ${odir}/${basename}_cofactors_cg.ndx -o ${odir}/${basename}_cofactors_cg_nb.pdb # No bonds info, but ok chains
+      #  echo "Cofactors\n" | gmx trjconv -f ${file} -s ${tpr_dir}/${basename}.tpr -n ${odir}/${basename}_cofactors_cg.ndx -conect -o ${odir}/${basename}_cofactors_cg_1.pdb # Bonds info but wrong chains
+      #  python3 /martini/rubiz/thylakoid/scripts/assing_resid_chain_from_pdb.py -o ${odir}/${basename}_cofactors_cg.pdb  -ref ${odir}/${basename}_cofactors_cg_nb.pdb -i ${odir}/${basename}_cofactors_cg_1.pdb
+      #fi
+        #cg2at
+      #${cg2at_path} -c ${basename}_protein_cg.pdb -ff charmm36-jul2020-updated -fg martini_3-0_charmm36 -w tip3p -loc ${basename} >> ${odir}/${basename}.log 2>&1 &
+      #fi
   done
 }
 
@@ -324,6 +325,8 @@ function lifetimes_to_pdb_psii(){
   sel_psbs="chainID 9"
   rm -rf ${odir}/*
   python3 /martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/lifetime_to_pdb_psii.py ${pdb_dir} ${lifetimes_dir} ${odir} "${sel_protein}" "${sel_cofactors}" "${sel_psbs}"
+  sed -i '/TER/d' ${odir}/*cofactors*
+  sed -i '/ENDMDL/d' ${odir}/*cofactors*
 }
 
 function main(){
@@ -349,12 +352,12 @@ function main(){
   #sleep 30m
   #extract_cluster                    # Extract middle structure from lasrgest cluster as gmx cluster generates corrupted PDBs
 
-  cg2at 
+  #cg2at 
   #sleep 20m
   #check_sucess_cg2at
-  #cg2at                             # Sometimes it fails during first try
+  #cg2at                             # Rerun, Sometimes it fails during first try
   #reassign_chains
-  #lifetimes_to_pdb_psii
+  lifetimes_to_pdb_psii
 }
 
 main
