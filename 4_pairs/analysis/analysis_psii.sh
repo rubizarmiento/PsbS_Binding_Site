@@ -178,12 +178,12 @@ function binding_pose_grouped(){
 function plot_psii_binding_modes () {
   script=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis
   ref=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/base_dir/rotated.pdb
-  binding_dir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj_aligned
+  binding_dir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/middle_cluster
   occupancy_csv=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj_aligned/occupancy.csv
   output_dir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/psii_psbs/figures
   mkdir -p ${output_dir}
 
-  python3 ${script}/plot_psii_binding_modes.py -ref ${ref} -binding_dir ${binding_dir} -occupancy_csv ${occupancy_csv} -output_dir ${output_dir}
+  python3 ${script}/plot_psii_binding_modes.py -ref ${ref} -binding_dir ${binding_dir} -occupancy_csv ${occupancy_csv} -output_dir ${output_dir} -move_site_label "S10" -move_offset "0 20"
 }
 
 function lifetime_analysis_grouped (){
@@ -253,23 +253,22 @@ function cg2at(){
   cd $odir
   for file in "${files[@]}"; do
       basename=$(basename ${file} .pdb)  # Get filename without path and extension
-
       o=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/cg2at/${basename}/FINAL/final_cg2at_de_novo.pdb
       
     # Skip if output exists
-    #if [ -f ${o} ]; then
-      #echo "Skipping ${file}, output already exists."
-      #continue
-    #else
+    if [ -f ${o} ]; then
+      echo "Skipping ${file}, output already exists."
+      continue
+    else
       echo "Processing ${file}..."
-      #rm -rf ${odir}/${basename}/*
+      rm -rf ${odir}/${basename}/*
 
       sel="not resname CLA CLB CHL *HG* HEM PLQ PL9 *GG* *SQ* *PG* DGD LMG LUT VIO XAT NEO NEX W2 HOH BCR"
       cofactors="resname CLA CLB CHL *HG* HEM PLQ PL9 *GG* *SQ* *PG* DGD LMG LUT VIO XAT NEO NEX W2 HOH BCR"
 
-      #python3 ${script}/sel_to_ndx.py -f ${dir}/${basename}.pdb -sel "${sel}" -name "Protein" -o ${odir}/${basename}_protein_cg.ndx
-      #python3 ${script}/sel_to_ndx.py -f ${dir}/${basename}.pdb -sel "${cofactors}" -name "Cofactors" -o ${odir}/${basename}_cofactors_cg.ndx
-      #gmx editconf -f ${file} -n ${odir}/${basename}_protein_cg.ndx -o ${odir}/${basename}_protein_cg.pdb
+      python3 ${script}/sel_to_ndx.py -f ${dir}/${basename}.pdb -sel "${sel}" -name "Protein" -o ${odir}/${basename}_protein_cg.ndx
+      python3 ${script}/sel_to_ndx.py -f ${dir}/${basename}.pdb -sel "${cofactors}" -name "Cofactors" -o ${odir}/${basename}_cofactors_cg.ndx
+      gmx editconf -f ${file} -n ${odir}/${basename}_protein_cg.ndx -o ${odir}/${basename}_protein_cg.pdb
       
       # Check if ndx is empty
       if [ -s ${odir}/${basename}_cofactors_cg.ndx ]; then
@@ -279,14 +278,14 @@ function cg2at(){
       fi
       
       # Some proteins have no cofactors, check if ndx is empty
-      #if [ -s ${odir}/${basename}_cofactors_cg.ndx ]; then
-      #  gmx editconf -f ${file} -n ${odir}/${basename}_cofactors_cg.ndx -o ${odir}/${basename}_cofactors_cg_nb.pdb # No bonds info, but ok chains
-      #  echo "Cofactors\n" | gmx trjconv -f ${file} -s ${tpr_dir}/${basename}.tpr -n ${odir}/${basename}_cofactors_cg.ndx -conect -o ${odir}/${basename}_cofactors_cg_1.pdb # Bonds info but wrong chains
-      #  python3 /martini/rubiz/thylakoid/scripts/assing_resid_chain_from_pdb.py -o ${odir}/${basename}_cofactors_cg.pdb  -ref ${odir}/${basename}_cofactors_cg_nb.pdb -i ${odir}/${basename}_cofactors_cg_1.pdb
-      #fi
-        #cg2at
-      #${cg2at_path} -c ${basename}_protein_cg.pdb -ff charmm36-jul2020-updated -fg martini_3-0_charmm36 -w tip3p -loc ${basename} >> ${odir}/${basename}.log 2>&1 &
-      #fi
+      if [ -s ${odir}/${basename}_cofactors_cg.ndx ]; then
+        gmx editconf -f ${file} -n ${odir}/${basename}_cofactors_cg.ndx -o ${odir}/${basename}_cofactors_cg_nb.pdb # No bonds info, but ok chains
+        echo "Cofactors\n" | gmx trjconv -f ${file} -s ${tpr_dir}/${basename}.tpr -n ${odir}/${basename}_cofactors_cg.ndx -conect -o ${odir}/${basename}_cofactors_cg_1.pdb # Bonds info but wrong chains
+        python3 /martini/rubiz/thylakoid/scripts/assing_resid_chain_from_pdb.py -o ${odir}/${basename}_cofactors_cg.pdb  -ref ${odir}/${basename}_cofactors_cg_nb.pdb -i ${odir}/${basename}_cofactors_cg_1.pdb
+      fi
+      #cg2at
+      ${cg2at_path} -c ${basename}_protein_cg.pdb -ff charmm36-jul2020-updated -fg martini_3-0_charmm36 -w tip3p -loc ${basename} >> ${odir}/${basename}.log 2>&1 &
+      fi
   done
 }
 
@@ -375,12 +374,12 @@ function main(){
   #binding_pose_grouped               # Clustering analysis. !!!Change "special selection" if the binding mode does not correspond to the trajectory, select chain c instead
   #sleep 30m
   #extract_cluster                    # Extract middle structure from lasrgest cluster as gmx cluster generates corrupted PDBs
-  plot_psii_binding_modes
+  #plot_psii_binding_modes
   #cg2at 
   #sleep 20m
-  #check_sucess_cg2at
+  #check_success_cg2at
   #cg2at                             # Rerun, Sometimes it fails during first try
-  #reassign_chains
+  #reassign_chains #TODO fix
 
   #lifetime_analysis_grouped          # Calculate contacts for each subtrajectory
   #sleep 80m

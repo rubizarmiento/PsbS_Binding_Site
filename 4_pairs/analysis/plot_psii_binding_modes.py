@@ -6,7 +6,8 @@ Arguments:
 -binding_dir: Directory containing binding site PDB structures.
 -occupancy_csv: CSV file with occupancy data for binding sites.
 -output_dir: Directory to save output figures.
-
+-move_site_label: Label to move site text away from center (default: None), e.g., "S10".
+-move_offset: Offset for moving site label (default: (0,0)), e.g., (5, -5).
 
 """
 
@@ -28,7 +29,7 @@ def parser():
                         default='/martini/rubiz/Github/PsbS_Binding_Site/5_psii/base_dir/rotated.pdb',
                         help='Path to reference PSII structure PDB file.')
     parser.add_argument('-binding_dir', type=str, required=False,
-                        default='/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj_aligned',
+                        default='/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/middle_cluster',
                         help='Directory containing binding site PDB structures.')
     parser.add_argument('-occupancy_csv', type=str, required=False,
                         default='/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj_grouped/occupancy.csv',
@@ -36,6 +37,13 @@ def parser():
     parser.add_argument('-output_dir', type=str, required=False,
                         default='/martini/rubiz/Github/PsbS_Binding_Site/5_psii/psii_psbs/figures',
                         help='Directory to save output figures.')
+    parser.add_argument('-move_site_label', type=str, required=False,
+                        default=None,
+                        help='Label to move site text away from center (e.g., "S10").')
+    parser.add_argument('-move_offset', type=str, required=False,
+                        default="0 0",
+                        help='Offset for moving site label (e.g., (5, -5)).')
+
     return parser.parse_args()
 
 
@@ -190,7 +198,7 @@ def plot_reference_chains(ax, u0, cmap):
         ax.scatter(selection.positions[:, 0], selection.positions[:, 1], 
                   color=color, alpha=1, s=60)
         cog = selection.center_of_geometry()
-        ax.text(cog[0], cog[1], label, color='grey', fontsize=12, 
+        ax.text(cog[0], cog[1], label, color='black', fontsize=12, 
                ha='center', va='center',
                bbox=dict(boxstyle="round,pad=0.3", facecolor="white", alpha=0))
 
@@ -215,7 +223,7 @@ def plot_lhcii_complexes(ax, u0):
         ax.scatter(selection.positions[:, 0], selection.positions[:, 1], 
                   c=color, alpha=1, s=60)
         cog = selection.center_of_geometry()
-        ax.text(cog[0], cog[1], label, color='grey', fontsize=12, 
+        ax.text(cog[0], cog[1], label, color='black', fontsize=12, 
                ha='center', va='center',
                bbox=dict(boxstyle="round,pad=0.3", facecolor="white", alpha=0))
 
@@ -238,7 +246,7 @@ def calculate_normalized_occupancy(value, max_occupancy):
     return value / max_occupancy if max_occupancy > 0 else 0.5
 
 
-def plot_binding_sites(ax, sorted_chain_dict, df, cmap_rdpu, max_occupancy):
+def plot_binding_sites(ax, sorted_chain_dict, df, cmap_rdpu, max_occupancy, move_site_label=None, move_offset=(0,0)):
     """Plot PsbS binding sites with occupancy-based coloring.
     
     Parameters
@@ -290,9 +298,18 @@ def plot_binding_sites(ax, sorted_chain_dict, df, cmap_rdpu, max_occupancy):
         
         # Add label at center of geometry
         cog = sel.center_of_geometry()
-        ax.text(cog[0], cog[1], label, color='black', fontsize=12, 
+        cog_x = cog[0]
+        cog_y = cog[1]
+
+        if label == move_site_label:
+            move_offset = np.array(move_offset.split(), dtype=float)
+            print(cog_x, move_offset[0])
+            cog_x += move_offset[0]
+            cog_y += move_offset[1]
+
+        ax.text(cog_x, cog_y, label, color='black', fontsize=12, 
                ha='center', va='center',
-               bbox=dict(boxstyle="round,pad=0.3", facecolor="white", alpha=0.8))
+               bbox=dict(boxstyle="round,pad=0.3", facecolor="white", alpha=1))
     
     return site_labels
 
@@ -386,7 +403,9 @@ def main():
     
     # Plot binding sites
     max_occupancy = df['occupancy_percent'].max()
-    plot_binding_sites(ax, sorted_chain_dict, df, cmap_rdpu, max_occupancy)
+    plot_binding_sites(ax, sorted_chain_dict, df, cmap_rdpu, max_occupancy,
+                       move_site_label=args.move_site_label,
+                       move_offset=args.move_offset)
     
     # Finalize plot
     add_colorbar(ax, cmap_rdpu)
