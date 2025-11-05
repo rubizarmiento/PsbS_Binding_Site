@@ -225,7 +225,7 @@ function main(){
   #python3 ${an1}/contacts_to_pdb.py
 
   #lifetime_analysis_cofactors 
-  lifetime_analysis_protein
+  #lifetime_analysis_protein
   #lifetime_analysis_protein_protein
   
 

@@ -15,15 +15,14 @@ function lifetime_analysis_protein_protein(){
   # Clean up temp files
   rm -f ${odir2}/clust_c075/temp_step*.pdb.xtc
   xtc=analysis.xtc
-  sel1="not segid A1 A2 A3 A4 and not resname *GG* *SQ* *MG* *HEME* *PG* W* HOH *HG* *MG* PLQ PL9 LUT VIO XAT NEO NEX BCR"
-  sel3="segid A1 A2 A3 A4" # Only chlorophylls and proteins
+  sel1="not segid A1 A2 A3 A4 and not resname *GG* DGD *SQ* *MG* *HEM* *PG* W* HOH *HG* *MG* PLQ PL9 LUT VIO XAT NEO NEX BCR" # Only chlorophylls and proteins
   cutoff=8
   dt=1 # time step between frames
   min_event_ns=1000
   sim=("sim_1" "sim_2" "sim_3" "sim_4" "sim_5" "sim_6" "sim_7" "sim_8")
   for s in "${sim[@]}"; do 
     cd ${dir5}/${s} 
-    echo "Starting contact analysis for chain ${chain}..."
+    echo "Starting contact analysis for ${s}..."
     python3 /martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/lifetime_analysis.py -dt ${dt} -min_event_ns ${min_event_ns} -cutoff "${cutoff}" -f ${gro} -traj ${xtc} -sel1 "${sel3}" -sel2 "${sel1}" -o . -prefix lifetime_protein -group_by1 "segids" -group_by2 "segids" > lifetime.log 2>&1 &
   done
 }
@@ -36,9 +35,8 @@ function extract_binding(){
   #sim=("sim_1")
 
   rm -rf /martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj/*
-  rm -rf /martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj/*#*
   for s in "${sim[@]}"; do 
-  cd ${dir5}/${s}
+    cd ${dir5}/${s}
     python /martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/extract_binding_trajectories_psii.py \
       -f ${dir5}/sim_1/tem4.pdb \
       -trj analysis.xtc \
@@ -101,7 +99,9 @@ function align_trajectories(){
   mkdir -p ${odir}
 
   #Remove *log and *xtc files from the output directory
-  rm -f ${odir}/*log ${odir}/*xtc
+  rm -f ${odir}/*log ${odir}/*xtc ${odir}/*pdb ${odir}/*tpr
+
+  special_basenames=("c_k_z" "c_s_z")
 
   n_lines=$(wc -l < ${csv})
   for (( i=1; i<=n_lines; i++ )); do
@@ -113,9 +113,15 @@ function align_trajectories(){
     if [[ -n "${line}" ]]; then
       chains=$(echo ${line} | awk '{print $2}')
       basename=$(echo ${line} | awk '{print $1}')
-
+    
       # Split by underscores
       chains_arr=(${chains//_/ })
+
+      #If baseanme includes any of the special basenames cange selection to chainID c
+      if [[ " ${special_basenames[@]} " =~ " ${chains} " ]]; then
+        chains_arr=("c")
+        echo "Special case for ${chains}, using chainID C only"
+      fi
 
       echo "Aligning ${basename} using chains: ${chains_arr[*]}"
       python ${script}/align_structures.py -mobile ${idir}/${basename}.xtc -mobiletop ${idir}/${basename}.pdb -ref ${ref_pdb} -sel "name BB and chainID ${chains_arr[*]}" -o ${odir}/${basename}.xtc > ${odir}/${basename}_align.log 2>&1 &
@@ -140,7 +146,6 @@ function binding_pose_grouped(){
   idir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj_aligned
   odir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj_cluster
   trj_arr=($(ls ${idir}/*.xtc))
-
   mkdir -p ${odir}
   rm -rf ${odir}/*
 
@@ -148,22 +153,25 @@ function binding_pose_grouped(){
     basename=$(basename ${trj} .xtc)
     f=${idir}/${basename}.pdb
     tpr=${idir}/${basename}.tpr
-    special_basename=6_8_c_e_f_j_k_p_z
-    special_selection="chainID 8 and name BB"
+    #special_basenames=("8_c_e_f_j_k_p_z" "c_s_z" "c_k_z")
+    #special_selection="chainID C and name BB"
     # the trajectories are named chain${chain}_${id}_${start}_${end}.xtc
     sel1="segid A1 A2 A3 A4 and name BB" # PsbS
     sel2="(not segid A1 A2 A3 A4 and (not resname *MG* *HEM* *GG* DGD *SQ* *PG* W* *HG* HOH *MG* *HG* PLQ PL9 LUT VIO XAT NEO NEX BCR)) and name BB" # Only chlorophylls and proteins
   
     # 'counter' is used to generate unique output file names for each trajectory in the loop.
     mkdir -p ${odir}/${basename}
-    if [[ "${basename}" == *"${special_basename}"* ]]; then
-      sel2="${special_selection}"
-      echo "Processing ${basename} with special selection: ${sel2}"
-      python3 ${script}/binding_pose.py -f ${f} -trj ${trj} -tpr ${tpr} -osel "all" -sel1 "${sel2}" -sel2 "${sel1}" -o ${odir}/${basename} --cutoff 0.45 >> ${odir}/${basename}/cluster.log 2>&1 &
-    else
-      echo "Processing ${basename} with standard selection..."
-      python3 ${script}/binding_pose.py -f ${f} -trj ${trj} -tpr ${tpr} -osel "all" -sel1 "${sel2}" -sel2 "${sel1}" -o ${odir}/${basename} --cutoff 0.45 >> ${odir}/${basename}/cluster.log 2>&1 &
-    fi
+    basename_no_id=$(echo ${basename} | cut -d'_' -f2-)
+    #echo ${basename_no_id}
+    #if [[ " ${special_basenames[@]} " =~ " ${basename_no_id} " ]]; then
+    #  sel2="${special_selection}"
+    #  echo "Processing ${basename} with special selection: ${sel2}"
+      #python3 ${script}/binding_pose.py -f ${f} -trj ${trj} -tpr ${tpr} -osel "all" -sel1 "${sel2}" -sel2 "${sel1}" -o ${odir}/${basename} --cutoff 0.45 >> ${odir}/${basename}/cluster.log 2>&1 &
+    #else
+    #  echo ""
+      #echo "Processing ${basename} with standard selection..."
+    python3 ${script}/binding_pose.py -f ${f} -trj ${trj} -tpr ${tpr} -osel "all" -sel1 "${sel2}" -sel2 "${sel1}" -o ${odir}/${basename} --cutoff 0.45 >> ${odir}/${basename}/cluster.log 2>&1 &
+    #fi
   done
 }
 
@@ -208,7 +216,6 @@ function extract_cluster(){
 
   mkdir -p ${odir}
   rm -rf ${odir}/*
-
   for trj in "${trj_arr[@]}"; do
     basename=$(basename ${trj} .xtc)
     f=${idir1}/${basename}.pdb
@@ -302,17 +309,25 @@ function reassign_chains(){
     subdirpath="${subdirpath#./}"
     python3 /martini/rubiz/thylakoid/scripts/assing_resid_chain_from_pdb.py -o ${dir}/${subdirpath}/FINAL/final.pdb  -ref ${dir}/${subdirpath}_protein_cg.pdb -i ${dir}/${subdirpath}/FINAL/final_cg2at_de_novo.pdb
     
+    special_basenames=("c_k_z" "c_s_z")
     # Align PDB to input CG structure
     chains_arr=(${subdirpath//_/ })
     # Remove the first element (the tag number)
     chains_arr=("${chains_arr[@]:1}")
     echo "Aligning ${subdirpath} using chains: ${chains_arr[*]}"
 
-    ref_pdb=${dir}/${subdirpath}_protein_cg.pdb
+    IFS=_; joined_chains="${chains_arr[*]}"
+    for sb in "${special_basenames[@]}"; do
+      if [[ "${joined_chains}" == "${sb}" ]]; then
+        chains_arr=("c")
+        echo "Special case for ${basename}, using chainID C only"
+        break
+      fi
+    done
+
+    ref_pdb="${dir}/${subdirpath}_protein_cg.pdb"
     #python ${script}/align_structures.py -mobile ${dir}/${subdirpath}/FINAL/final.pdb -ref ${ref_pdb} -sel_ref "name BB and chainID ${chains_arr[*]}" -sel_mobile "name CA and chainID ${chains_arr[*]}" -o ${dir}/${subdirpath}/FINAL/final_aligned.pdb > ${dir}/${subdirpath}_align.log 2>&1 &
-    python ${an1}/align_structures.py -mobile ${dir}/${subdirpath}/FINAL/final.pdb -ref ${ref_pdb} -sel_ref "name BB and chainID ${chains_arr[*]}" -sel_mobile "name CA and chainID ${chains_arr[*]}" -o ${dir}/${subdirpath}/FINAL/final_aligned.pdb     
-
-
+    python "${an1}/align_structures.py" -mobile "${dir}/${subdirpath}/FINAL/final.pdb" -ref "${ref_pdb}" -sel_ref "name BB and chainID ${chains_arr[*]}" -sel_mobile "name CA and chainID ${chains_arr[*]}" -o "${dir}/${subdirpath}/FINAL/final_aligned.pdb"     
   done
 }
 
@@ -333,7 +348,7 @@ function main(){
   set -e  
 
   #lifetime_analysis_protein_protein  # Get the binding events a csv file.
-  #sleep 80m
+  #sleep 30m
 
   #extract_binding                    # Extract binding events (pdb, xtc, tpr)
   #sleep 10m
@@ -341,23 +356,25 @@ function main(){
   #write_equivalent_binding_sites     # Group binding sites
   #write_occupancy                    # !!!Change "total_frames" if the trajectory is extended
 
-  #lifetime_analysis_grouped          # Calculate contacts for each subtrajectory
-  #sleep 80m
-  #plot_lifetimes                     #TODO
+
   
   #align_trajectories             
   #sleep 20m
   
-  #binding_pose_grouped               # Clustering analysis. !!!Change "special selection" if the trajectory is extended
+  binding_pose_grouped               # Clustering analysis. !!!Change "special selection" if the binding mode does not correspond to the trajectory, select chain c instead
   #sleep 30m
   #extract_cluster                    # Extract middle structure from lasrgest cluster as gmx cluster generates corrupted PDBs
-
+  #plot_psii_binding_modes
   #cg2at 
   #sleep 20m
   #check_sucess_cg2at
   #cg2at                             # Rerun, Sometimes it fails during first try
   #reassign_chains
-  lifetimes_to_pdb_psii
+
+  #lifetime_analysis_grouped          # Calculate contacts for each subtrajectory
+  #sleep 80m
+  #plot_lifetimes                     #TODO
+  #lifetimes_to_pdb_psii
 }
 
 main

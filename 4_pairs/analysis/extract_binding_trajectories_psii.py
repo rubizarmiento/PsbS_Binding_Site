@@ -209,7 +209,7 @@ def main():
         # Select atoms
         seg_atoms = u.select_atoms(f"segid {resid_i}")
         seg_chain_ids = list(set(seg_atoms.chainIDs))
-        all_chain_ids_to_keep = [cid.upper() for cid in actual_chain_ids]
+        all_chain_ids_to_keep = actual_chain_ids
         chain_suffix = '_'.join(sorted(all_chain_ids_to_keep))
         print(f"All chain_ids to keep: {all_chain_ids_to_keep}")
         
