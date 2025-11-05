@@ -175,6 +175,17 @@ function binding_pose_grouped(){
   done
 }
 
+function plot_psii_binding_modes () {
+  script=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis
+  ref=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/base_dir/rotated.pdb
+  binding_dir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj_aligned
+  occupancy_csv=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj_aligned/occupancy.csv
+  output_dir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/psii_psbs/figures
+  mkdir -p ${output_dir}
+
+  python3 ${script}/plot_psii_binding_modes.py -ref ${ref} -binding_dir ${binding_dir} -occupancy_csv ${occupancy_csv} -output_dir ${output_dir}
+}
+
 function lifetime_analysis_grouped (){
   dir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj_grouped
   odir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/lifetimes   
@@ -361,10 +372,10 @@ function main(){
   #align_trajectories             
   #sleep 20m
   
-  binding_pose_grouped               # Clustering analysis. !!!Change "special selection" if the binding mode does not correspond to the trajectory, select chain c instead
+  #binding_pose_grouped               # Clustering analysis. !!!Change "special selection" if the binding mode does not correspond to the trajectory, select chain c instead
   #sleep 30m
   #extract_cluster                    # Extract middle structure from lasrgest cluster as gmx cluster generates corrupted PDBs
-  #plot_psii_binding_modes
+  plot_psii_binding_modes
   #cg2at 
   #sleep 20m
   #check_sucess_cg2at
