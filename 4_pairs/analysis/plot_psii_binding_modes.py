@@ -35,7 +35,7 @@ def parser():
                         default='/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj_grouped/occupancy.csv',
                         help='CSV file with occupancy data for binding sites.')
     parser.add_argument('-output_dir', type=str, required=False,
-                        default='/martini/rubiz/Github/PsbS_Binding_Site/5_psii/psii_psbs/figures',
+                        default='/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/figures',
                         help='Directory to save output figures.')
     parser.add_argument('-move_site_label', type=str, required=False,
                         default=None,
@@ -190,7 +190,7 @@ def plot_reference_chains(ax, u0, cmap):
     colors_plot = [cmap(4), cmap(5), cmap(1), cmap(7), 
                    cmap(4), cmap(5), cmap(1), cmap(7)]
     labels_plot = ["CP24", "CP29", "CP26", "CP43", 
-                   "CP24", "CP26", "CP29", "CP43"]
+                   "CP24", "CP29", "CP26", "CP43"]
     chain_sel = ["8", "r", "s", "c", "4", "R", "S", "C"]
     
     for chain, color, label in zip(chain_sel, colors_plot, labels_plot):
@@ -408,7 +408,7 @@ def main():
                        move_offset=args.move_offset)
     
     # Finalize plot
-    add_colorbar(ax, cmap_rdpu)
+    add_colorbar(ax, cmap_rdpu, vmin=0, vmax=max_occupancy)
     format_plot(ax)
     
     # Save figure

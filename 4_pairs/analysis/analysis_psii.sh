@@ -181,10 +181,19 @@ function plot_psii_binding_modes () {
   binding_dir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/middle_cluster
   occupancy_csv=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj_aligned/occupancy.csv
   output_dir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/psii_psbs/figures
-  mkdir -p ${output_dir}
-
   python3 ${script}/plot_psii_binding_modes.py -ref ${ref} -binding_dir ${binding_dir} -occupancy_csv ${occupancy_csv} -output_dir ${output_dir} -move_site_label "S10" -move_offset "0 20"
 }
+
+function plot_psii_venn_diagram () {
+  script=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis
+  ref=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/base_dir/rotated.pdb
+  binding_dir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/middle_cluster
+  occupancy_csv=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj_aligned/occupancy.csv
+  output_dir=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/figures
+  python3 ${script}/plot_VennDiagram.py -ref ${ref} -occupancy_csv ${occupancy_csv} -output_dir ${output_dir} -ref ${ref}
+}
+
+
 
 function lifetime_analysis_grouped (){
   dir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj_grouped
@@ -375,6 +384,7 @@ function main(){
   #sleep 30m
   #extract_cluster                    # Extract middle structure from lasrgest cluster as gmx cluster generates corrupted PDBs
   #plot_psii_binding_modes
+  plot_psii_venn_diagram
   #cg2at 
   #sleep 20m
   #check_success_cg2at
