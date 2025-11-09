@@ -367,7 +367,7 @@ def extract_lifetimes_vectorized(df):
     
     return lifetimes_per_column
 
-def assign_bfactor_to_universe(universe, resids, bfactor):
+def assign_bfactor_to_universe(universe, resids, bfactor, decimal_places=0):
     """
     Assigns B-factors to the atoms in a universe based on the provided residue IDs and B-factor values.
 
@@ -388,19 +388,22 @@ def assign_bfactor_to_universe(universe, resids, bfactor):
             print(f"Warning: No atoms found for resid {resid}. Skipping B-factor assignment for this resid.")
             continue
         # Assign B-factor
-        atoms.bfactors = bf
+        if decimal_places == 0:
+            # Round to nearest integer and convert to int
+            atoms.bfactors = int(round(bf))
+        else:
+            atoms.bfactors = np.round(bf, decimals=decimal_places)
     return universe
 
 def save_universe_to_pdb(universe, filename):
     """
-    Saves the universe to a PDB file.
+    Saves the universe to a PDB file with B-factors preserved.
 
     Parameters:
-    universe (MDAnalysis.Universe): The molecular universe containing the trajectory.
+    universe (MDAnalysis.Universe or AtomGroup): The molecular universe or atom group to save.
     filename (str): The name of the output PDB file.
     """
-    with mda.Writer(filename) as W:
-        W.write(universe)
+    universe.write(filename)
     print(f"Universe saved to {filename}")
 
 def compute_lifetimes_from_contacts(

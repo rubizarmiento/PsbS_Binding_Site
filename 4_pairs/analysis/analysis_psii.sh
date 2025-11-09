@@ -134,7 +134,6 @@ function align_trajectories(){
 
 function write_occupancy(){
   #Returns: /martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj_aligned/occupancy.csv
-
   dir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj_grouped
   script=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis
   total_frames=$((4950*32)) # 32 PsbS copies, 4950 frames each
@@ -328,39 +327,25 @@ function reassign_chains(){
     subdirpath="${subdirpath#./}"
     python3 /martini/rubiz/thylakoid/scripts/assing_resid_chain_from_pdb.py -o ${dir}/${subdirpath}/FINAL/final.pdb  -ref ${dir}/${subdirpath}_protein_cg.pdb -i ${dir}/${subdirpath}/FINAL/final_cg2at_de_novo.pdb
     
-    special_basenames=("c_k_z" "c_s_z")
-    # Align PDB to input CG structure
     chains_arr=(${subdirpath//_/ })
     # Remove the first element (the tag number)
     chains_arr=("${chains_arr[@]:1}")
     echo "Aligning ${subdirpath} using chains: ${chains_arr[*]}"
-
-    IFS=_; joined_chains="${chains_arr[*]}"
-    for sb in "${special_basenames[@]}"; do
-      if [[ "${joined_chains}" == "${sb}" ]]; then
-        chains_arr=("c")
-        echo "Special case for ${basename}, using chainID C only"
-        break
-      fi
-    done
-
     ref_pdb="${dir}/${subdirpath}_protein_cg.pdb"
     #python ${script}/align_structures.py -mobile ${dir}/${subdirpath}/FINAL/final.pdb -ref ${ref_pdb} -sel_ref "name BB and chainID ${chains_arr[*]}" -sel_mobile "name CA and chainID ${chains_arr[*]}" -o ${dir}/${subdirpath}/FINAL/final_aligned.pdb > ${dir}/${subdirpath}_align.log 2>&1 &
     python "${an1}/align_structures.py" -mobile "${dir}/${subdirpath}/FINAL/final.pdb" -ref "${ref_pdb}" -sel_ref "name BB and chainID ${chains_arr[*]}" -sel_mobile "name CA and chainID ${chains_arr[*]}" -o "${dir}/${subdirpath}/FINAL/final_aligned.pdb"     
   done
 }
 
-function lifetimes_to_pdb_psii(){
+function lifetimes_to_cif_psii(){
   pdb_dir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/cg2at
   lifetimes_dir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/lifetimes
-  odir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/pdbs_lifetimes
+  odir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/cifs_lifetimes
   sel_protein="not resname CLA CLB CHL *HG* HEM PLQ PL9 *GG* *SQ* *PG* DGD LMG LUT VIO XAT NEO NEX W2 HOH BCR"
   sel_cofactors="resname CLA CLB CHL *HG* HEM PLQ PL9 *GG* *SQ* *PG* DGD LMG LUT VIO XAT NEO NEX W2 HOH BCR"
   sel_psbs="chainID 9"
-  rm -rf ${odir}/*
-  python3 /martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/lifetime_to_pdb_psii.py ${pdb_dir} ${lifetimes_dir} ${odir} "${sel_protein}" "${sel_cofactors}" "${sel_psbs}"
-  sed -i '/TER/d' ${odir}/*cofactors*
-  sed -i '/ENDMDL/d' ${odir}/*cofactors*
+  rm -rf ${odir}/*pdb
+  python3 /martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/lifetime_to_cif_psii.py ${pdb_dir} ${lifetimes_dir} ${odir} "${sel_protein}" "${sel_cofactors}" "${sel_psbs}"
 }
 
 function main(){
@@ -374,27 +359,22 @@ function main(){
   
   #write_equivalent_binding_sites     # Group binding sites
   #write_occupancy                    # !!!Change "total_frames" if the trajectory is extended
+  #lifetime_analysis_grouped           # Calculate contacts for each subtrajectory
+  #plot_lifetimes                     # TODO
 
-
-  
   #align_trajectories             
   #sleep 20m
   
-  #binding_pose_grouped               # Clustering analysis. !!!Change "special selection" if the binding mode does not correspond to the trajectory, select chain c instead
+  #binding_pose_grouped               # Clustering analysis. 
   #sleep 30m
-  #extract_cluster                    # Extract middle structure from lasrgest cluster as gmx cluster generates corrupted PDBs
+  #extract_cluster                    # Extract middle structure from largest cluster as gmx cluster generates corrupted PDBs
   #plot_psii_binding_modes
-  plot_psii_venn_diagram
+  #plot_psii_venn_diagram
   #cg2at 
-  #sleep 20m
   #check_success_cg2at
   #cg2at                             # Rerun, Sometimes it fails during first try
-  #reassign_chains #TODO fix
-
-  #lifetime_analysis_grouped          # Calculate contacts for each subtrajectory
-  #sleep 80m
-  #plot_lifetimes                     #TODO
-  #lifetimes_to_pdb_psii
+  #reassign_chains 
+  #lifetimes_to_cif_psii              # CIF files allow bfactors > 999 while PDB files do not.
 }
 
 main
