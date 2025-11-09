@@ -348,6 +348,15 @@ function lifetimes_to_cif_psii(){
   python3 /martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/lifetime_to_cif_psii.py ${pdb_dir} ${lifetimes_dir} ${odir} "${sel_protein}" "${sel_cofactors}" "${sel_psbs}"
 }
 
+function lifetimes_statistics_psii(){
+  lifetimes_dir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/lifetimes
+  odir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/lifetimes_statistics
+  script=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis
+  mkdir -p ${odir}
+  rm -f ${odir}/*
+  python3 ${script}/lifetimes_statistics.py -lifetimes_dir ${lifetimes_dir} -o ${odir}/lifetimes_statistics.dat 
+}
+
 function main(){
   set -e  
 
@@ -375,6 +384,7 @@ function main(){
   #cg2at                             # Rerun, Sometimes it fails during first try
   #reassign_chains 
   #lifetimes_to_cif_psii              # CIF files allow bfactors > 999 while PDB files do not.
+  lifetimes_statistics_psii           # Max occupancy
 }
 
 main
