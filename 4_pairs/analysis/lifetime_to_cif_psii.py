@@ -47,13 +47,14 @@ def load_bfactor_mapping(lifetimes_dir, case, chains=None):
     Returns
     -------
     dict
-        Mapping of residue ID to B-factor (median_ns values).
+        Mapping of (chain, residue ID) tuple to B-factor (median_ns values) for chains,
+        or residue ID to B-factor for PSBS.
         If no data found, returns empty dict (all atoms get B-factor 0).
     """
     resid_to_bfactor = {}
     
     if chains is None:
-        # PSBS case: single file
+        # PSBS case: single file, use resid as key
         csv_file = f"{lifetimes_dir}/psbs_{case}_residue_summary_df.csv"
         if not os.path.isfile(csv_file):
             print(f"CSV file not found: {csv_file}. Using B-factor=0 for all residues.")
@@ -62,7 +63,7 @@ def load_bfactor_mapping(lifetimes_dir, case, chains=None):
         resid_to_bfactor = dict(zip(df['resid'], df['median_ns']))
         print(f"Loaded {len(resid_to_bfactor)} residue-bfactor mappings from PSBS")
     else:
-        # Protein/cofactors case: multiple chain files
+        # Protein/cofactors case: multiple chain files, use (chain, resid) as key
         for chain in chains:
             csv_file = f"{lifetimes_dir}/chain_{chain}_{case}_residue_summary_df.csv"
             if not os.path.isfile(csv_file):
@@ -70,7 +71,8 @@ def load_bfactor_mapping(lifetimes_dir, case, chains=None):
                 continue
             df_chain = pd.read_csv(csv_file)
             for resid, bfactor in zip(df_chain['resid'], df_chain['median_ns']):
-                resid_to_bfactor[resid] = bfactor
+                # Use (chain, resid) tuple as key to avoid conflicts
+                resid_to_bfactor[(chain, resid)] = bfactor
         
         if resid_to_bfactor:
             print(f"Loaded {len(resid_to_bfactor)} residue-bfactor mappings from {len(chains)} chains")
@@ -89,7 +91,7 @@ def assign_bfactors_to_structure(structure, resid_to_bfactor):
     structure : Bio.PDB.Structure
         The structure to modify.
     resid_to_bfactor : dict
-        Mapping of residue ID to B-factor value.
+        Mapping of residue ID (or (chain, residue ID) tuple) to B-factor value.
         
     Returns
     -------
@@ -98,7 +100,12 @@ def assign_bfactors_to_structure(structure, resid_to_bfactor):
     """
     for residue in structure.get_residues():
         residue_id = residue.get_id()[1]
-        bfactor = resid_to_bfactor.get(residue_id, 0.0)
+        chain_id = residue.parent.id
+        
+        # Try (chain, resid) first, then fall back to resid only
+        bfactor = resid_to_bfactor.get((chain_id, residue_id), 
+                                       resid_to_bfactor.get(residue_id, 0.0))
+        
         for atom in residue.get_atoms():
             atom.set_bfactor(bfactor)
             element = atom.element
@@ -265,12 +272,21 @@ def main():
             # Load B-factor mapping
             if struct_type == "PSBS":
                 resid_to_bfactor = load_bfactor_mapping(lifetimes_dir, case, chains=None)
+                # Save PDB file with the selected atoms only
+                u = mda.Universe(pdb_file)
+                psbs_sel = u.select_atoms(sel_psbs)
+                pdb_output_file = output_file.replace('.cif', '.pdb')
+                save_structure_to_pdb(psbs_sel, pdb_output_file)
             elif struct_type == "COFACTORS":
                 # For cofactors, load B-factor data from chain CSV files (cofactors may have lifetime data)
                 resid_to_bfactor = load_bfactor_mapping(lifetimes_dir, case, chains=chains)
             else:
                 resid_to_bfactor = load_bfactor_mapping(lifetimes_dir, case, chains=chains)
-            
+                u = mda.Universe(pdb_file)
+                protein_sel = u.select_atoms(sel_protein)
+                pdb_output_file = output_file.replace('.cif', '.pdb')
+                save_structure_to_pdb(protein_sel, pdb_output_file)
+
             # Save in appropriate format
             if config[struct_type]["format"] == "pdb":
                 # For PDB: use MDAnalysis (automatically handles bonds and capping at 12)
@@ -280,7 +296,16 @@ def main():
                 # Assign B-factors to the universe atoms from residue mapping
                 for residue in u.residues:
                     residue_id = residue.resnum
-                    bfactor = resid_to_bfactor.get(residue_id, 0.0)
+                    
+                    # Try both segid and chainID (MDAnalysis is inconsistent)
+                    chain_id = residue.segid if residue.segid else (
+                        residue.atoms[0].chainID if hasattr(residue.atoms[0], 'chainID') else ''
+                    )
+                    
+                    # Try (chain, resid) first, then fall back to resid only
+                    bfactor = resid_to_bfactor.get((chain_id, residue_id), 
+                                                   resid_to_bfactor.get(residue_id, 0.0))
+                    
                     for atom in residue.atoms:
                         atom.tempfactor = bfactor
                 
@@ -288,9 +313,9 @@ def main():
                 save_structure_to_pdb(u, output_file)
             else:
                 # For mmCIF: use Bio.PDB
-                print(f"Loading with Bio.PDB: {pdb_file}")
+                print(f"Loading with Bio.PDB: {pdb_output_file}")
                 parser = PDBParser(QUIET=True)
-                structure = parser.get_structure("struct", pdb_file)
+                structure = parser.get_structure("struct", pdb_output_file)
                 
                 # Assign B-factors to structure
                 structure = assign_bfactors_to_structure(structure, resid_to_bfactor)

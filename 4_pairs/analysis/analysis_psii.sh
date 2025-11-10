@@ -1,4 +1,3 @@
-
 function lifetime_analysis_protein_protein(){
   odir=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis_psii
   dir5="/martini/rubiz/Github/PsbS_Binding_Site/5_psii/psii_psbs"
@@ -101,7 +100,7 @@ function align_trajectories(){
   #Remove *log and *xtc files from the output directory
   rm -f ${odir}/*log ${odir}/*xtc ${odir}/*pdb ${odir}/*tpr
 
-  special_basenames=("c_k_z" "c_s_z")
+  special_basenames=("6_8_c_e_f_j_k_p_z")
 
   n_lines=$(wc -l < ${csv})
   for (( i=1; i<=n_lines; i++ )); do
@@ -341,7 +340,7 @@ function lifetimes_to_cif_psii(){
   pdb_dir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/cg2at
   lifetimes_dir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/lifetimes
   odir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/cifs_lifetimes
-  sel_protein="not resname CLA CLB CHL *HG* HEM PLQ PL9 *GG* *SQ* *PG* DGD LMG LUT VIO XAT NEO NEX W2 HOH BCR"
+  sel_protein="not resname CLA CLB CHL *HG* HEM PLQ PL9 *GG* *SQ* *PG* DGD LMG LUT VIO XAT NEO NEX W2 HOH BCR and not chainID 9"
   sel_cofactors="resname CLA CLB CHL *HG* HEM PLQ PL9 *GG* *SQ* *PG* DGD LMG LUT VIO XAT NEO NEX W2 HOH BCR"
   sel_psbs="chainID 9"
   rm -rf ${odir}/*pdb
@@ -361,10 +360,8 @@ function main(){
   set -e  
 
   #lifetime_analysis_protein_protein  # Get the binding events a csv file.
-  #sleep 30m
 
   #extract_binding                    # Extract binding events (pdb, xtc, tpr)
-  #sleep 10m
   
   #write_equivalent_binding_sites     # Group binding sites
   #write_occupancy                    # !!!Change "total_frames" if the trajectory is extended
@@ -372,10 +369,8 @@ function main(){
   #plot_lifetimes                     # TODO
 
   #align_trajectories             
-  #sleep 20m
   
   #binding_pose_grouped               # Clustering analysis. 
-  #sleep 30m
   #extract_cluster                    # Extract middle structure from largest cluster as gmx cluster generates corrupted PDBs
   #plot_psii_binding_modes
   #plot_psii_venn_diagram
@@ -384,7 +379,7 @@ function main(){
   #cg2at                             # Rerun, Sometimes it fails during first try
   #reassign_chains 
   #lifetimes_to_cif_psii              # CIF files allow bfactors > 999 while PDB files do not.
-  lifetimes_statistics_psii           # Max occupancy
+  #lifetimes_statistics_psii         # Max occupancy
 }
 
 main
