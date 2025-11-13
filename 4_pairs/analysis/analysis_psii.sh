@@ -83,7 +83,7 @@ function write_equivalent_binding_sites(){
   python3 /martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/grouped_binding_pdbs.py ${dir} ${csv} ${odir}
   python3 /martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/concatenated_grouped_trajectories.py ${dir} ${csv} ${odir}
   ocsv=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj/basenames_binding.csv
-  python3 /martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/write_unique_basenames.py ${csv} ${ocsv}
+  python3 /martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/write_unique_basenames.py ${csv} ${ocsv} 
 }
 
 function align_trajectories(){
@@ -147,12 +147,14 @@ function binding_pose_grouped(){
   mkdir -p ${odir}
   rm -rf ${odir}/*
 
+  # Test selections
+  trj_arr=("${idir}/6_8_c_e_f_j_k_p_z.xtc")
+  special_basenames=("6_8_c_e_f_j_k_p_z")
+  special_selection="chainID c and name BB"
   for trj in "${trj_arr[@]}"; do
     basename=$(basename ${trj} .xtc)
     f=${idir}/${basename}.pdb
     tpr=${idir}/${basename}.tpr
-    #special_basenames=("8_c_e_f_j_k_p_z" "c_s_z" "c_k_z")
-    #special_selection="chainID C and name BB"
     # the trajectories are named chain${chain}_${id}_${start}_${end}.xtc
     sel1="segid A1 A2 A3 A4 and name BB" # PsbS
     sel2="(not segid A1 A2 A3 A4 and (not resname *MG* *HEM* *GG* DGD *SQ* *PG* W* *HG* HOH *MG* *HG* PLQ PL9 LUT VIO XAT NEO NEX BCR)) and name BB" # Only chlorophylls and proteins
@@ -161,15 +163,14 @@ function binding_pose_grouped(){
     mkdir -p ${odir}/${basename}
     basename_no_id=$(echo ${basename} | cut -d'_' -f2-)
     #echo ${basename_no_id}
-    #if [[ " ${special_basenames[@]} " =~ " ${basename_no_id} " ]]; then
-    #  sel2="${special_selection}"
-    #  echo "Processing ${basename} with special selection: ${sel2}"
-      #python3 ${script}/binding_pose.py -f ${f} -trj ${trj} -tpr ${tpr} -osel "all" -sel1 "${sel2}" -sel2 "${sel1}" -o ${odir}/${basename} --cutoff 0.45 >> ${odir}/${basename}/cluster.log 2>&1 &
-    #else
-    #  echo ""
-      #echo "Processing ${basename} with standard selection..."
-    python3 ${script}/binding_pose.py -f ${f} -trj ${trj} -tpr ${tpr} -osel "all" -sel1 "${sel2}" -sel2 "${sel1}" -o ${odir}/${basename} --cutoff 0.45 >> ${odir}/${basename}/cluster.log 2>&1 &
-    #fi
+    if [[ " ${special_basenames[@]} " =~ " ${basename} " ]]; then
+      sel2="${special_selection}"
+      echo "Processing ${basename} with special selection: ${sel2}"
+      python3 ${script}/binding_pose.py -f ${f} -trj ${trj} -tpr ${tpr} -osel "all" -sel1 "${sel2}" -sel2 "${sel1}" -o ${odir}/${basename} --cutoff 0.45 >> ${odir}/${basename}/cluster.log 2>&1 &
+    else
+      echo "Processing ${basename} with standard selection..."
+      python3 ${script}/binding_pose.py -f ${f} -trj ${trj} -tpr ${tpr} -osel "all" -sel1 "${sel2}" -sel2 "${sel1}" -o ${odir}/${basename} --cutoff 0.45 >> ${odir}/${basename}/cluster.log 2>&1 &
+    fi
   done
 }
 
@@ -357,7 +358,7 @@ function lifetimes_statistics_psii(){
 }
 
 function main(){
-  set -e  
+  #set -e  
 
   #lifetime_analysis_protein_protein  # Get the binding events a csv file.
 
@@ -375,8 +376,6 @@ function main(){
   #plot_psii_binding_modes
   #plot_psii_venn_diagram
   #cg2at 
-  #check_success_cg2at
-  #cg2at                             # Rerun, Sometimes it fails during first try
   #reassign_chains 
   #lifetimes_to_cif_psii              # CIF files allow bfactors > 999 while PDB files do not.
   #lifetimes_statistics_psii         # Max occupancy

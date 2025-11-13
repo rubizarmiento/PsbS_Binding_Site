@@ -30,7 +30,6 @@ from Bio.PDB.mmcifio import MMCIFIO
 # Suppress MDAnalysis element guessing warnings
 warnings.filterwarnings('ignore', category=UserWarning, module='MDAnalysis')
 
-
 def load_bfactor_mapping(lifetimes_dir, case, chains=None):
     """
     Load residue-to-bfactor mapping from CSV files.
