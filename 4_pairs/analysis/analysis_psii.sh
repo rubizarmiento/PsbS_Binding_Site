@@ -357,6 +357,16 @@ function lifetimes_statistics_psii(){
   python3 ${script}/lifetimes_statistics.py -lifetimes_dir ${lifetimes_dir} -o ${odir}/lifetimes_statistics.dat 
 }
 
+function plot_lifetimes(){
+  script=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis
+  yaml=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/psii_psbs
+  #PDB with helices defined
+  psii_pdbdatabase=/martini/rubiz/Github/PsbS_Binding_Site/3_reference_proteins/5XNL.pdb
+  psbs_pdbdatabase=/martini/rubiz/Github/PsbS_Binding_Site/3_reference_proteins/4ri2.pdb
+  python3 ${script}/write_helix_yaml.py -o ${yaml}/psii_helix.yaml -f ${psii_pdbdatabase}
+  python3 ${script}/write_helix_yaml.py -o ${yaml}/psbs_helix.yaml -f ${psbs_pdbdatabase}
+}
+
 function main(){
   #set -e  
 
@@ -367,7 +377,7 @@ function main(){
   #write_equivalent_binding_sites     # Group binding sites
   #write_occupancy                    # !!!Change "total_frames" if the trajectory is extended
   #lifetime_analysis_grouped           # Calculate contacts for each subtrajectory
-  #plot_lifetimes                     # TODO
+  plot_lifetimes                     # TODO
 
   #align_trajectories             
   

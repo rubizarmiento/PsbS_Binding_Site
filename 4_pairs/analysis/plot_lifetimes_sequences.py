@@ -1,3 +1,10 @@
+"""
+Protein sequence visualization with B-factor coloring, cofactors, and helix annotations.
+
+This module generates publication-quality sequence plots for PSII and PsbS proteins,
+showing amino acid sequences with B-factor coloring, cofactor information organized
+by chain, and helix region annotations dynamically loaded from YAML configurations.
+"""
 import yaml
 import os   
 os.environ['OMP_NUM_THREADS'] = '1'
@@ -6,40 +13,76 @@ import MDAnalysis as mda
 from Bio.PDB import MMCIFParser
 import matplotlib.pyplot as plt
 import numpy as np
+from pathlib import Path
 
 #Ignore warnings
 import warnings
 warnings.filterwarnings("ignore")
 
-chain_labels_yaml = "/martini/rubiz/Github/PsbS_Binding_Site/definitions_yaml/chain_labels.yaml"
-basenames_csv = "/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj/basenames_binding.csv"
-cif_protein = "/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/cifs_lifetimes/1_n_s_protein.cif"
-pdb_cofactors = "/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/cifs_lifetimes/1_n_s_cofactors.pdb"
-color_definitions_yaml = "/martini/rubiz/Github/PsbS_Binding_Site/5_psii/psii_psbs/color_definitions.yaml"
-output_figure = "/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/figures/test.png"
+# ============================================================================
+# Configuration Paths
+# ============================================================================
 
-# If CIF file contains protein, get the case
-basename_cif = os.path.basename(cif_protein)
-case_plot = basename_cif.split("_protein.cif")[0]
-chains = case_plot.split("_")[1:]  # Extract chains from case_plot
+CHAIN_LABELS_YAML = "/martini/rubiz/Github/PsbS_Binding_Site/definitions_yaml/chain_labels.yaml"
+BASENAMES_CSV = "/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj/basenames_binding.csv"
+CIFS_LIFETIMES_DIR = "/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/cifs_lifetimes/"
+COLOR_DEFINITIONS_YAML = "/martini/rubiz/Github/PsbS_Binding_Site/5_psii/psii_psbs/color_definitions.yaml"
+HELIX_DEFINITIONS_YAML_PSII = "/martini/rubiz/Github/PsbS_Binding_Site/5_psii/psii_psbs/psii_helix.yaml"
+HELIX_DEFINITIONS_YAML_PSBS = "/martini/rubiz/Github/PsbS_Binding_Site/5_psii/psii_psbs/psbs_helix.yaml"
+OUTPUT_FIGURES_DIR = "/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/figures/lifetimes/"
 
-if basename_cif.endswith("_protein.cif"):
-    type_plot = "one_letter"
+# ============================================================================
+# Configuration Loading Functions
+# ============================================================================
+
+def load_yaml_file(file_path):
+    """Load and parse a YAML file.
+    
+    Parameters
+    ----------
+    file_path : str
+        Path to the YAML file to load.
+    
+    Returns
+    -------
+    dict
+        Parsed YAML content as a dictionary.
+    
+    Raises
+    ------
+    FileNotFoundError
+        If the file does not exist.
+    yaml.YAMLError
+        If the file is not valid YAML.
+    """
+    with open(file_path, 'r') as f:
+        return yaml.safe_load(f)
 
 
-# Read YAML file
-with open(chain_labels_yaml, 'r') as f:
-    data = yaml.safe_load(f)
-
-# Read color definitions YAML file
-with open(color_definitions_yaml, 'r') as f:
-    color_config = yaml.safe_load(f)
-
-# Helper function to extract nested config values
 def get_config_value(config, path, default=None):
     """Extract nested value from config using dot-separated path.
     
-    Example: get_config_value(config, 'text.sequence.letters.fontsize')
+    Parameters
+    ----------
+    config : dict
+        Configuration dictionary to extract from.
+    path : str
+        Dot-separated path to the value (e.g., 'text.sequence.letters.fontsize').
+    default : any, optional
+        Default value to return if path not found. Default is None.
+    
+    Returns
+    -------
+    any
+        The value at the specified path, or default if not found.
+    
+    Examples
+    --------
+    >>> config = {'text': {'sequence': {'letters': {'fontsize': 12}}}}
+    >>> get_config_value(config, 'text.sequence.letters.fontsize')
+    12
+    >>> get_config_value(config, 'missing.path', 'default_val')
+    'default_val'
     """
     keys = path.split('.')
     value = config
@@ -50,142 +93,347 @@ def get_config_value(config, path, default=None):
     except (KeyError, TypeError):
         return default
 
-# Define the config structure we need (variable_name -> yaml_path)
-config_mapping = {
-    # Colormap
-    'cmap_name': 'colormap.name',
-    'vmin': 'colormap.normalization.vmin', 
-    'vmax': 'colormap.normalization.vmax',
-    
-    # Layout
-    'box_width': 'layout.box_width',
-    'box_height': 'layout.box_height', 
-    'box_spacing': 'layout.box_spacing',
-    'sequence_y': 'layout.positions.sequence_y',
-    'resid_labels_y': 'layout.positions.resid_labels_y',
-    'helix_boxes_y': 'layout.positions.helix_boxes_y',
-    'helix_labels_y': 'layout.positions.helix_labels_y',
-    'plot_title_y': 'layout.positions.plot_title_y',
-    'cofactor_y': 'layout.positions.cofactor_y',
-    
-    # Text styling - sequence letters
-    'seq_letter_fontsize': 'text.sequence.letters.fontsize',
-    'seq_letter_color': 'text.sequence.letters.color',
-    'seq_letter_fontweight': 'text.sequence.letters.fontweight',
-    
-    # Text styling - residue labels  
-    'resid_label_fontsize': 'text.sequence.resid_labels.fontsize',
-    'resid_label_color': 'text.sequence.resid_labels.color',
-    'resid_label_fontweight': 'text.sequence.resid_labels.fontweight',
-    
-    # Text styling - cofactors
-    'cofactor_fontsize': 'text.cofactors.labels.fontsize',
-    'cofactor_color': 'text.cofactors.labels.color',
-    'cofactor_fontweight': 'text.cofactors.labels.fontweight',
-    
-    # Text styling - helix labels
-    'helix_label_fontsize': 'text.annotations.helix_labels.fontsize',
-    'helix_label_color': 'text.annotations.helix_labels.color',
-    'helix_label_fontweight': 'text.annotations.helix_labels.fontweight',
-    
-    # Text styling - region labels
-    'region_label_fontsize': 'text.annotations.region_labels.fontsize',
-    'region_label_color': 'text.annotations.region_labels.color',
-    'region_label_fontweight': 'text.annotations.region_labels.fontweight',
-    
-    # Text styling - plot title
-    'plot_title_fontsize': 'text.annotations.plot_title.fontsize',
-    'plot_title_color': 'text.annotations.plot_title.color',
-    'plot_title_fontweight': 'text.annotations.plot_title.fontweight',
-    
-    # Box styling
-    'helix_facecolor': 'boxes.helices.facecolor',
-    'helix_edgecolor': 'boxes.helices.edgecolor',
-    'helix_alpha': 'boxes.helices.alpha'
-}
 
-# Extract all config variables at once
-globals().update({var_name: get_config_value(color_config, path) 
-                  for var_name, path in config_mapping.items()})
+def merge_helix_configs(psii_yaml_path, psbs_yaml_path):
+    """Load and merge PSII and PsbS helix configuration files.
+    
+    Parameters
+    ----------
+    psii_yaml_path : str
+        Path to PSII helix definitions YAML file.
+    psbs_yaml_path : str
+        Path to PsbS helix definitions YAML file.
+    
+    Returns
+    -------
+    dict
+        Merged helix configuration with both PSII and PsbS chains.
+    """
+    helix_config_psii = load_yaml_file(psii_yaml_path)
+    helix_config_psbs = load_yaml_file(psbs_yaml_path)
+    
+    helix_config = {}
+    helix_config.update(helix_config_psii)
+    helix_config.update(helix_config_psbs)
+    
+    return helix_config
 
-# Map chain IDs to their labels if chain not in yaml add Psb before the chain ID
-chain_id_to_label = {}
-for chain_id in chains:
-    if chain_id in data:
-        chain_id_to_label[chain_id] = data[chain_id]
-    else:
-        chain_id_to_label[chain_id] = f"Psb{chain_id}"
 
-# Read basenames.csv file as dictionary
-df = pd.read_csv(basenames_csv, header=0, sep=' ')
-chains_case_dict = pd.Series(df['unique_basename'].values, index=df['tag']).to_dict()
-#TODO: Function, dict
+def extract_config_variables(color_config):
+    """Extract all configuration variables from color_config YAML.
+    
+    Parameters
+    ----------
+    color_config : dict
+        Loaded color configuration dictionary.
+    
+    Returns
+    -------
+    dict
+        Dictionary mapping variable names to their values from config.
+    """
+    config_mapping = {
+        # Colormap
+        'cmap_name': 'colormap.name',
+        'vmin': 'colormap.normalization.vmin', 
+        'vmax': 'colormap.normalization.vmax',
+        
+        # Layout
+        'box_width': 'layout.box_width',
+        'box_height': 'layout.box_height', 
+        'box_spacing': 'layout.box_spacing',
+        'sequence_y': 'layout.positions.sequence_y',
+        'resid_labels_y': 'layout.positions.resid_labels_y',
+        'helix_boxes_y': 'layout.positions.helix_boxes_y',
+        'helix_labels_y': 'layout.positions.helix_labels_y',
+        'plot_title_y': 'layout.positions.plot_title_y',
+        'cofactor_y': 'layout.positions.cofactor_y',
+        
+        # Text styling - sequence letters
+        'seq_letter_fontsize': 'text.sequence.letters.fontsize',
+        'seq_letter_color': 'text.sequence.letters.color',
+        'seq_letter_fontweight': 'text.sequence.letters.fontweight',
+        
+        # Text styling - residue labels  
+        'resid_label_fontsize': 'text.sequence.resid_labels.fontsize',
+        'resid_label_color': 'text.sequence.resid_labels.color',
+        'resid_label_fontweight': 'text.sequence.resid_labels.fontweight',
+        
+        # Text styling - cofactors
+        'cofactor_fontsize': 'text.cofactors.labels.fontsize',
+        'cofactor_color': 'text.cofactors.labels.color',
+        'cofactor_fontweight': 'text.cofactors.labels.fontweight',
+        
+        # Text styling - helix labels
+        'helix_label_fontsize': 'text.annotations.helix_labels.fontsize',
+        'helix_label_color': 'text.annotations.helix_labels.color',
+        'helix_label_fontweight': 'text.annotations.helix_labels.fontweight',
+        
+        # Text styling - region labels
+        'region_label_fontsize': 'text.annotations.region_labels.fontsize',
+        'region_label_color': 'text.annotations.region_labels.color',
+        'region_label_fontweight': 'text.annotations.region_labels.fontweight',
+        
+        # Text styling - plot title
+        'plot_title_fontsize': 'text.annotations.plot_title.fontsize',
+        'plot_title_color': 'text.annotations.plot_title.color',
+        'plot_title_fontweight': 'text.annotations.plot_title.fontweight',
+        
+        # Box styling
+        'helix_facecolor': 'boxes.helices.facecolor',
+        'helix_edgecolor': 'boxes.helices.edgecolor',
+        'helix_alpha': 'boxes.helices.alpha'
+    }
+    
+    return {var_name: get_config_value(color_config, path) 
+            for var_name, path in config_mapping.items()}
 
-# Load the CIF file using Biopython
-# One-letter code mapping
-def resnames_arr_to_one_letter_arr(resnames):
+
+# Load configuration files
+chain_labels = load_yaml_file(CHAIN_LABELS_YAML)
+color_config = load_yaml_file(COLOR_DEFINITIONS_YAML)
+helix_config = merge_helix_configs(HELIX_DEFINITIONS_YAML_PSII, HELIX_DEFINITIONS_YAML_PSBS)
+
+# Extract and set all configuration variables globally
+config_vars = extract_config_variables(color_config)
+globals().update(config_vars)
+
+# Load tags from basenames CSV
+basenames_df = pd.read_csv(BASENAMES_CSV, header=0, sep=' ')
+all_tags = basenames_df['unique_basename'].values
+
+# Helper function to extract nested config values
+def get_config_value(config, path, default=None):
+    """Extract nested value from config using dot-separated path.
+    
+    Parameters
+    ----------
+    config : dict
+        Configuration dictionary to extract from.
+    path : str
+        Dot-separated path to the value (e.g., 'text.sequence.letters.fontsize').
+    default : any, optional
+        Default value to return if path not found. Default is None.
+    
+    Returns
+    -------
+    any
+        The value at the specified path, or default if not found.
+    
+    Examples
+    --------
+    >>> config = {'text': {'sequence': {'letters': {'fontsize': 12}}}}
+    >>> get_config_value(config, 'text.sequence.letters.fontsize')
+    12
+    >>> get_config_value(config, 'missing.path', 'default_val')
+    'default_val'
+    """
+    keys = path.split('.')
+    value = config
+    try:
+        for key in keys:
+            value = value[key]
+        return value
+    except (KeyError, TypeError):
+        return default
+
+
+
+
+# ============================================================================
+# Sequence Processing Functions
+# ============================================================================
+
+def resnames_to_one_letter(resnames):
+    """Convert three-letter residue names to single-letter code.
+    
+    Parameters
+    ----------
+    resnames : list of str
+        List of three-letter residue names (e.g., ['ALA', 'GLY', 'VAL']).
+    
+    Returns
+    -------
+    list of str
+        List of single-letter amino acid codes (e.g., ['A', 'G', 'V']).
+        Unknown residues are represented as 'X'.
+    
+    Examples
+    --------
+    >>> resnames_to_one_letter(['ALA', 'GLY', 'VAL'])
+    ['A', 'G', 'V']
+    """
     three_to_one = {
         'ALA': 'A', 'ARG': 'R', 'ASN': 'N', 'ASP': 'D', 'CYS': 'C',
         'GLN': 'Q', 'GLU': 'E', 'GLY': 'G', 'HIS': 'H', 'ILE': 'I',
         'LEU': 'L', 'LYS': 'K', 'MET': 'M', 'PHE': 'F', 'PRO': 'P',
         'SER': 'S', 'THR': 'T', 'TRP': 'W', 'TYR': 'Y', 'VAL': 'V'
     }
-    one_letter_codes = [three_to_one.get(resname, 'X') for resname in resnames]  # X for unknown
-    return one_letter_codes
-#TODO: Function, dict
+    return [three_to_one.get(resname, 'X') for resname in resnames]
 
 
+def extract_chain_sequences_from_cif(cif_path):
+    """Extract protein sequences and B-factors from a CIF file.
+    
+    Parameters
+    ----------
+    cif_path : str
+        Path to the CIF structure file.
+    
+    Returns
+    -------
+    dict
+        Dictionary with keys as chain IDs and values as dicts containing:
+        - 'sequence': str, single-letter amino acid codes
+        - 'bfactors': list of float, B-factors per residue
+    
+    Examples
+    --------
+    >>> chains_data = extract_chain_sequences_from_cif('protein.cif')
+    >>> chains_data['A']['sequence']
+    'MKVLSPAD...'
+    >>> len(chains_data['A']['bfactors'])
+    350
+    """
+    parser = MMCIFParser()
+    structure = parser.get_structure('protein', cif_path)
+    
+    chains_data = {}
+    for model in structure:
+        for chain in model:
+            resnames_arr = []
+            bfactors_arr = []
+            
+            for residue in chain:
+                resnames_arr.append(residue.get_resname())
+                bfactors = [atom.get_bfactor() for atom in residue]
+                avg_bfactor = sum(bfactors) / len(bfactors) if bfactors else 0.0
+                bfactors_arr.append(avg_bfactor)
+            
+            one_letter_seq = ''.join(resnames_to_one_letter(resnames_arr))
+            chains_data[chain.id] = {
+                'sequence': one_letter_seq,
+                'bfactors': bfactors_arr
+            }
+    
+    return chains_data
 
 
-parser = MMCIFParser()
-structure = parser.get_structure('protein', cif_protein)
-one_letter_arr_of_arr = []
-bfactors_arr_of_arr = []
-chains = []
-for model in structure:
-    for chain in model:
-        resnames_arr = []
-        bfactors_arr = []
-        for residue in chain:
-            resname = residue.get_resname()
-            resnames_arr.append(resname)
-            # Get B-factors from all atoms in the residue and average them
-            bfactors = [atom.get_bfactor() for atom in residue]
-            avg_bfactor = sum(bfactors) / len(bfactors) if bfactors else 0.0
-            bfactors_arr.append(avg_bfactor)
-        one_letter_seq_arr = resnames_arr_to_one_letter_arr(resnames_arr)
-        one_letter_seq = ''.join(one_letter_seq_arr)
-        one_letter_arr_of_arr.append(one_letter_seq)
-        bfactors_arr_of_arr.append(bfactors_arr)
-        chains.append(chain.id)
-
-dict_chain_oneletter_bfactor = {}
-for chain_id, one_letter_seq, bfactor_arr in zip(chains, one_letter_arr_of_arr, bfactors_arr_of_arr):
-    dict_chain_oneletter_bfactor[chain_id] = {
-        'sequence': one_letter_seq,
-        'bfactors': bfactor_arr
+def split_psbs_sequence(sequence, bfactors, split_point=212):
+    """Split PsbS sequence into two segments.
+    
+    Parameters
+    ----------
+    sequence : str
+        Single-letter amino acid sequence.
+    bfactors : list of float
+        B-factor values for each residue.
+    split_point : int, optional
+        Position to split the sequence (default 212).
+    
+    Returns
+    -------
+    dict
+        Dictionary with keys 'n_psbs_1' and 'n_psbs_2', each containing:
+        - 'sequence': str, single-letter codes for that segment
+        - 'bfactors': list of float, B-factors for that segment
+    
+    Examples
+    --------
+    >>> seq_data = split_psbs_sequence(psbs_seq, psbs_bfactors, split_point=212)
+    >>> len(seq_data['n_psbs_1']['sequence'])
+    212
+    >>> len(seq_data['n_psbs_2']['sequence'])
+    212
+    """
+    return {
+        'n_psbs_1': {
+            'sequence': sequence[:split_point],
+            'bfactors': bfactors[:split_point]
+        },
+        'n_psbs_2': {
+            'sequence': sequence[split_point:],
+            'bfactors': bfactors[split_point:]
+        }
     }
 
 
+def extract_cofactors_by_chain(pdb_path):
+    """Extract cofactor information organized by chain.
+    
+    Parameters
+    ----------
+    pdb_path : str
+        Path to the PDB file containing cofactors.
+    
+    Returns
+    -------
+    dict
+        Dictionary with keys as chain IDs and values as dicts containing:
+        - 'labels': list of str, cofactor labels (resid + resname)
+        - 'bfactors': list of float, B-factors for each cofactor
+    
+    Examples
+    --------
+    >>> cofactors = extract_cofactors_by_chain('cofactors.pdb')
+    >>> cofactors['A']['labels']
+    ['1CLH', '2HEM', ...]
+    >>> len(cofactors['A']['bfactors'])
+    2
+    """
+    u = mda.Universe(pdb_path)
+    cofactors_by_chain = {}
+    
+    for residue in u.residues:
+        chain_id = residue.atoms[0].chainID if hasattr(residue.atoms[0], 'chainID') else 'unknown'
+        
+        if chain_id not in cofactors_by_chain:
+            cofactors_by_chain[chain_id] = {'labels': [], 'bfactors': []}
+        
+        label = str(residue.resid) + residue.resname
+        bfactor = residue.atoms.tempfactors.mean()
+        
+        cofactors_by_chain[chain_id]['labels'].append(label)
+        cofactors_by_chain[chain_id]['bfactors'].append(bfactor)
+    
+    return cofactors_by_chain
 
-#TODO: Function, dict
-u = mda.Universe(pdb_cofactors)
 
-# Organize cofactors by chain
-cofactors_by_chain = {}
-for residue in u.residues:
-    # Get chain from first atom in residue
-    chain_id = residue.atoms[0].chainID if hasattr(residue.atoms[0], 'chainID') else 'unknown'
+def build_chain_mapping(chains, chain_labels):
+    """Build mapping of chain IDs to display labels.
     
-    if chain_id not in cofactors_by_chain:
-        cofactors_by_chain[chain_id] = {'labels': [], 'bfactors': []}
+    Parameters
+    ----------
+    chains : list of str
+        Chain identifiers from CIF file.
+    chain_labels : dict
+        Dictionary of known chain labels from YAML config.
     
-    label = str(residue.resid) + residue.resname
-    bfactor = residue.atoms.tempfactors.mean()
+    Returns
+    -------
+    dict
+        Mapping of chain ID to display label.
     
-    cofactors_by_chain[chain_id]['labels'].append(label)
-    cofactors_by_chain[chain_id]['bfactors'].append(bfactor)
-#TODO: Function, dict
+    Examples
+    --------
+    >>> mapping = build_chain_mapping(['n', 's'], {'n': 'PSII-n'})
+    >>> mapping['n']
+    'PSII-n'
+    >>> mapping['s']
+    'Psbs'
+    """
+    chain_id_to_label = {}
+    for chain_id in chains:
+        if chain_id in chain_labels:
+            chain_id_to_label[chain_id] = chain_labels[chain_id]
+        else:
+            chain_id_to_label[chain_id] = f"Psb{chain_id}"
+    
+    # Add labels for PsbS segments
+    chain_id_to_label['n_psbs_1'] = "PsbS (A)"
+    chain_id_to_label['n_psbs_2'] = "PsbS (B)"
+    
+    return chain_id_to_label
 
 
 
@@ -193,7 +441,7 @@ for residue in u.residues:
 
 
 # Function to plot a single sequence in a given axes
-def plot_sequence(ax, one_letter_seq, lifetime_values, label, cmap, norm):
+def plot_sequence(ax, one_letter_seq, lifetime_values, label, cmap, norm, helix_definitions=None):
     """Plot a single protein sequence with B-factor coloring."""
     
     for i in range(-1, len(one_letter_seq)):
@@ -251,26 +499,23 @@ def plot_sequence(ax, one_letter_seq, lifetime_values, label, cmap, norm):
             fontsize=resid_label_fontsize, color=resid_label_color, fontweight=resid_label_fontweight)
 
     # Add region rectangles above the sequence
-    # Rectangle for residues 1-20 with label H1
-    rect1_left = 0 * box_spacing - 0.8
-    rect1_right = 19 * box_spacing + 0.8
-    rect1_width = rect1_right - rect1_left
-    rect1_center = (rect1_left + rect1_right) / 2
-    ax.add_patch(plt.Rectangle((rect1_left, helix_boxes_y), rect1_width, 0.2,
-                              facecolor=helix_facecolor, edgecolor=helix_edgecolor, alpha=helix_alpha))
-    ax.text(rect1_center, helix_labels_y, 'H1', ha='center', va='center', 
-            fontsize=helix_label_fontsize, color=helix_label_color, fontweight=helix_label_fontweight)
-
-    # Rectangle for residues 100-150 with label "100 to 150"
-    if len(one_letter_seq) > 150:  # Only draw if sequence is long enough 
-        rect2_left = 99 * box_spacing - 0.8
-        rect2_right = 149 * box_spacing + 0.8
-        rect2_width = rect2_right - rect2_left
-        rect2_center = (rect2_left + rect2_right) / 2
-        ax.add_patch(plt.Rectangle((rect2_left, helix_boxes_y), rect2_width, 0.2,
-                                  facecolor=helix_facecolor, edgecolor=helix_edgecolor, alpha=helix_alpha))
-        ax.text(rect2_center, helix_labels_y, '100 to 150', ha='center', va='center', 
-                fontsize=region_label_fontsize, color=region_label_color, fontweight=region_label_fontweight)
+    # Draw helices from definitions if available
+    if helix_definitions:
+        for helix_id, helix_info in helix_definitions.items():
+            start_res = helix_info['start']
+            end_res = helix_info['end']
+            
+            # Only draw if helix is within the sequence bounds
+            if start_res < len(one_letter_seq) and end_res <= len(one_letter_seq):
+                helix_left = (start_res - 1) * box_spacing - 0.8
+                helix_right = (end_res - 1) * box_spacing + 0.8
+                helix_width = helix_right - helix_left
+                helix_center = (helix_left + helix_right) / 2
+                
+                ax.add_patch(plt.Rectangle((helix_left, helix_boxes_y), helix_width, 0.2,
+                                          facecolor=helix_facecolor, edgecolor=helix_edgecolor, alpha=helix_alpha))
+                ax.text(helix_center, helix_labels_y, helix_id, ha='center', va='center', 
+                        fontsize=helix_label_fontsize, color=helix_label_color, fontweight=helix_label_fontweight)
 
     # Set axis limits and styling
     ax.set_ylim(-0.5, plot_title_y + 0.5)
@@ -338,54 +583,213 @@ def plot_cofactors(ax, cofactor_labels, cofactor_bfactors, cmap, norm, max_seq_l
     # Update y-axis limits to include cofactors
     ax.set_ylim(-0.3, plot_title_y + 0.3)
 
-# Get number of chains to plot
-num_chains = len(dict_chain_oneletter_bfactor)
-if num_chains == 0:
-    raise ValueError("No chains found in the CIF file")
 
-# Find the maximum sequence length for figure width calculation
-max_seq_length = max(len(data['sequence']) for data in dict_chain_oneletter_bfactor.values())
+# ============================================================================
+# Plotting Support Functions
+# ============================================================================
 
-# Pad sequences with trailing empty spaces to match max length
-for chain_id in dict_chain_oneletter_bfactor:
-    seq_len = len(dict_chain_oneletter_bfactor[chain_id]['sequence'])
-    if seq_len < max_seq_length:
-        # Pad sequence with spaces (represented as gaps)
-        padding_needed = max_seq_length - seq_len
-        dict_chain_oneletter_bfactor[chain_id]['sequence'] += '-' * padding_needed
-        # Pad b-factors with zeros (invisible in plot)
-        dict_chain_oneletter_bfactor[chain_id]['bfactors'] += [0] * padding_needed
-
-total_width = (max_seq_length - 1) * box_spacing + box_width
-figure_width = max(20, total_width * 0.1)  # Scale factor to make it reasonable
-figure_height = 2.5 * num_chains  # Height per subplot
-
-# Create figure with subplots
-fig, axes = plt.subplots(num_chains, 1, figsize=(figure_width, figure_height), sharex=False)
-if num_chains == 1:
-    axes = [axes]  # Ensure axes is always a list
-
-# Setup colormap and normalization (shared across all subplots)
-cmap = getattr(plt.cm, cmap_name)
-norm = plt.Normalize(vmin=vmin, vmax=vmax)
-
-# Plot each chain in its subplot
-for idx, (chain_id, chain_data) in enumerate(dict_chain_oneletter_bfactor.items()):
-    one_letter_seq = chain_data['sequence']
-    lifetime_values = chain_data['bfactors']
-    label = chain_id_to_label[chain_id]
+def get_helix_key_for_chain(chain_id):
+    """Map chain ID to its helix definition key.
     
-    plot_sequence(axes[idx], one_letter_seq, lifetime_values, label, cmap, norm)
+    Parameters
+    ----------
+    chain_id : str
+        Chain identifier from CIF file.
     
-    # Plot cofactors specific to this chain below the sequence
-    if chain_id in cofactors_by_chain:
-        chain_cofactors = cofactors_by_chain[chain_id]
-        plot_cofactors(axes[idx], chain_cofactors['labels'], chain_cofactors['bfactors'], 
-                       cmap, norm, max_seq_length)
+    Returns
+    -------
+    str
+        Key to use for looking up helix definitions.
+        PsbS segments are mapped to chain_A and chain_B.
+    
+    Examples
+    --------
+    >>> get_helix_key_for_chain('n')
+    'chain_n'
+    >>> get_helix_key_for_chain('n_psbs_1')
+    'chain_A'
+    """
+    if chain_id == 'n_psbs_1':
+        return 'chain_A'
+    elif chain_id == 'n_psbs_2':
+        return 'chain_B'
     else:
-        # No cofactors for this chain, just update ylim
-        axes[idx].set_ylim(-0.3, plot_title_y + 0.3)
+        return f"chain_{chain_id}"
 
-plt.tight_layout()
-plt.savefig(output_figure, dpi=300, bbox_inches='tight')
-print(f"Saved sequence plots for {num_chains} chains to {output_figure}")
+
+def pad_sequences_to_max_length(chains_data):
+    """Pad all sequences to the same maximum length.
+    
+    Parameters
+    ----------
+    chains_data : dict
+        Dictionary of chain sequences and B-factors.
+        Modified in-place to add padding.
+    
+    Returns
+    -------
+    int
+        The maximum sequence length after padding.
+    """
+    max_seq_length = max(len(data['sequence']) for data in chains_data.values())
+    
+    for chain_id in chains_data:
+        seq_len = len(chains_data[chain_id]['sequence'])
+        if seq_len < max_seq_length:
+            padding_needed = max_seq_length - seq_len
+            chains_data[chain_id]['sequence'] += '-' * padding_needed
+            chains_data[chain_id]['bfactors'] += [0] * padding_needed
+    
+    return max_seq_length
+
+
+def create_figure_and_axes(num_chains, max_seq_length, box_spacing, box_width):
+    """Create matplotlib figure and axes for multi-chain plotting.
+    
+    Parameters
+    ----------
+    num_chains : int
+        Number of chains to plot.
+    max_seq_length : int
+        Maximum length of sequences.
+    box_spacing : float
+        Spacing between sequence boxes.
+    box_width : float
+        Width of each sequence box.
+    
+    Returns
+    -------
+    tuple
+        (fig, axes) - matplotlib Figure and Axes objects.
+    """
+    total_width = (max_seq_length - 1) * box_spacing + box_width
+    figure_width = max(20, total_width * 0.1)
+    figure_height = 2.5 * num_chains
+    
+    fig, axes = plt.subplots(num_chains, 1, figsize=(figure_width, figure_height), sharex=False)
+    if num_chains == 1:
+        axes = [axes]
+    
+    return fig, axes
+
+
+def plot_all_chains(axes, chains_data, chain_id_to_label, cofactors_data, 
+                    helix_config, cmap, norm, max_seq_length):
+    """Plot all chains on their respective axes.
+    
+    Parameters
+    ----------
+    axes : list of matplotlib.axes.Axes
+        List of axes for each chain.
+    chains_data : dict
+        Sequences and B-factors for all chains.
+    chain_id_to_label : dict
+        Mapping of chain IDs to display labels.
+    cofactors_data : dict
+        Cofactor information by chain.
+    helix_config : dict
+        Helix definitions by chain.
+    cmap : matplotlib.cm.Colormap
+        Colormap for B-factor visualization.
+    norm : matplotlib.colors.Normalize
+        Normalization for B-factor values.
+    max_seq_length : int
+        Maximum sequence length.
+    """
+    for idx, (chain_id, chain_data) in enumerate(chains_data.items()):
+        one_letter_seq = chain_data['sequence']
+        lifetime_values = chain_data['bfactors']
+        label = chain_id_to_label[chain_id]
+        
+        helix_key = get_helix_key_for_chain(chain_id)
+        chain_helices = helix_config.get(helix_key, {})
+        
+        plot_sequence(axes[idx], one_letter_seq, lifetime_values, label, cmap, norm, 
+                     helix_definitions=chain_helices)
+        
+        if chain_id in cofactors_data:
+            chain_cofactors = cofactors_data[chain_id]
+            plot_cofactors(axes[idx], chain_cofactors['labels'], chain_cofactors['bfactors'], 
+                          cmap, norm, max_seq_length)
+        else:
+            axes[idx].set_ylim(-0.3, plot_title_y + 0.3)
+
+
+# ============================================================================
+# Main Execution Loop
+# ============================================================================
+
+def main():
+    """Main function to process all cases and generate plots."""
+    # Create output directory if it doesn't exist
+    Path(OUTPUT_FIGURES_DIR).mkdir(parents=True, exist_ok=True)
+    
+    # Setup colormap and normalization (shared across all plots)
+    cmap = getattr(plt.cm, cmap_name)
+    norm = plt.Normalize(vmin=vmin, vmax=vmax)
+    
+    # Iterate over all tags/cases
+    for current_case in all_tags:
+        print(f"Processing case: {current_case}")
+        
+        # Build file paths for this case
+        cif_protein = f"{CIFS_LIFETIMES_DIR}/{current_case}_protein.cif"
+        cif_psbs = f"{CIFS_LIFETIMES_DIR}/{current_case}_psbs.cif"
+        pdb_cofactors = f"{CIFS_LIFETIMES_DIR}/{current_case}_cofactors.pdb"
+        output_figure = f"{OUTPUT_FIGURES_DIR}/{current_case}.png"
+        
+        # Check if files exist
+        if not os.path.exists(cif_protein):
+            print(f"  Warning: {cif_protein} not found, skipping")
+            continue
+        
+        try:
+            # Extract chain sequences from protein CIF
+            chains_data = extract_chain_sequences_from_cif(cif_protein)
+            chains_list = list(chains_data.keys())
+            
+            # Extract PsbS sequences and split
+            psbs_chains = extract_chain_sequences_from_cif(cif_psbs)
+            for chain_id, chain_data in psbs_chains.items():
+                psbs_segments = split_psbs_sequence(chain_data['sequence'], chain_data['bfactors'])
+                chains_data.update(psbs_segments)
+            
+            # Extract cofactors
+            cofactors_data = extract_cofactors_by_chain(pdb_cofactors)
+            
+            # Build chain labels
+            chain_id_to_label = build_chain_mapping(chains_list, chain_labels)
+            
+            # Validate chains
+            num_chains = len(chains_data)
+            if num_chains == 0:
+                print(f"  Warning: No chains found in {cif_protein}")
+                continue
+            
+            # Pad sequences and get max length
+            max_seq_length = pad_sequences_to_max_length(chains_data)
+            
+            # Create figure and axes
+            fig, axes = create_figure_and_axes(num_chains, max_seq_length, box_spacing, box_width)
+            
+            # Plot all chains
+            plot_all_chains(axes, chains_data, chain_id_to_label, cofactors_data,
+                          helix_config, cmap, norm, max_seq_length)
+            
+            # Save figure
+            plt.tight_layout()
+            plt.savefig(output_figure, dpi=300, bbox_inches='tight')
+            plt.close(fig)
+            
+            print(f"  ✓ Saved sequence plots for {num_chains} chains to {output_figure}")
+            
+        except Exception as e:
+            print(f"  Error processing {current_case}: {e}")
+            plt.close('all')
+            continue
+
+
+if __name__ == '__main__':
+    main()
+    print("\nAll cases processed successfully!")
+
