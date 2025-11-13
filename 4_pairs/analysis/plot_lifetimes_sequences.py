@@ -17,9 +17,26 @@ cif_protein = "/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/cifs
 pdb_cofactors = "/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/cifs_lifetimes/1_n_s_cofactors.pdb"
 output_figure = "/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/figures/test.png"
 
+# If CIF file contains protein, get the case
+basename_cif = os.path.basename(cif_protein)
+case_plot = basename_cif.split("_protein.cif")[0]
+chains = case_plot.split("_")[1:]  # Extract chains from case_plot
+
+if basename_cif.endswith("_protein.cif"):
+    type_plot = "one_letter"
+
+
 # Read YAML file
 with open(chain_labels_yaml, 'r') as f:
     data = yaml.safe_load(f)
+
+# Map chain IDs to their labels if chain not in yaml add Psb before the chain ID
+chain_id_to_label = {}
+for chain_id in chains:
+    if chain_id in data:
+        chain_id_to_label[chain_id] = data[chain_id]
+    else:
+        chain_id_to_label[chain_id] = f"Psb{chain_id}"
 
 # Read basenames.csv file as dictionary
 df = pd.read_csv(basenames_csv, header=0, sep=' ')
@@ -82,15 +99,13 @@ cofactor_bfactors = [residue.atoms.tempfactors.mean() for residue in u.residues]
 
 
 
-# If CIF file contains protein, get the case
-basename_cif = os.path.basename(cif_protein)
-if basename_cif.endswith("_protein.cif"):
-    type_plot = "one_letter"
+
 
 # Test first sequence in dict CIF
 first_chain_id = list(dict_chain_oneletter_bfactor.keys())[0]
 one_letter_seq = dict_chain_oneletter_bfactor[first_chain_id]['sequence']
 lifetime_values = dict_chain_oneletter_bfactor[first_chain_id]['bfactors']  # Placeholder for actual lifetime values
+label = chain_id_to_label[first_chain_id]
 
 # Calculate figure width dynamically based on sequence length for consistent spacing
 box_width = 1.6
@@ -157,7 +172,7 @@ plt.gca().add_patch(plt.Rectangle((rect1_left, 1.5), rect1_width, 0.2,
 plt.text(rect1_center, 1.6, 'H1', ha='center', va='center', fontsize=10, color='blue', fontweight='bold')
 
 # Rectangle for residues 100-150 with label "100 to 150"
-if len(one_letter_seq) > 150:  # Only draw if sequence is long enough
+if len(one_letter_seq) > 150:  # Only draw if sequence is long enough 
     rect2_left = 99 * spacing - 0.8
     rect2_right = 149 * spacing + 0.8
     rect2_width = rect2_right - rect2_left
@@ -175,6 +190,9 @@ plt.gca().spines['top'].set_visible(False)
 plt.gca().spines['right'].set_visible(False)
 plt.gca().spines['left'].set_visible(False)
 plt.gca().spines['bottom'].set_visible(False)
+
+# Add plot title/label in top left
+plt.text(-1.5, 2.00, label, ha='left', va='top', fontsize=12, fontweight='bold')
 
 # Add a colorbar to show the scale
 # Note: Colorbar removed due to text-only plot - colors are visible in the letters
