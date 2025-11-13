@@ -15,7 +15,6 @@ chain_labels_yaml = "/martini/rubiz/Github/PsbS_Binding_Site/definitions_yaml/ch
 basenames_csv = "/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj/basenames_binding.csv"
 cif_protein = "/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/cifs_lifetimes/1_n_s_protein.cif"
 pdb_cofactors = "/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/cifs_lifetimes/1_n_s_cofactors.pdb"
-fasta_aligned = "/martini/rubiz/Github/PsbS_Binding_Site/fasta/5xnl_lhc_set_aligned.fasta"
 output_figure = "/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/figures/test.png"
 
 # Read YAML file
@@ -80,23 +79,6 @@ cofactor_resnames = [residue.resname for residue in u.residues]
 cofactor_bfactors = [residue.atoms.tempfactors.mean() for residue in u.residues]
 #TODO: Function, dict
 
-fasta_arr = []
-fasta_labels = []
-with open(fasta_aligned, 'r') as fasta_file:
-    sequence = ''
-    for line in fasta_file:
-        line = line.strip()
-        if line.startswith('>'):
-            if sequence:
-                fasta_arr.append(sequence)
-            fasta_labels.append(line[1:])  # Remove '>' and keep the label
-            sequence = ''
-        else:
-            sequence += line
-    if sequence:
-        fasta_arr.append(sequence)
-
-
 
 
 
@@ -104,8 +86,6 @@ with open(fasta_aligned, 'r') as fasta_file:
 basename_cif = os.path.basename(cif_protein)
 if basename_cif.endswith("_protein.cif"):
     type_plot = "one_letter"
-
-
 
 # Test first sequence in dict CIF
 first_chain_id = list(dict_chain_oneletter_bfactor.keys())[0]
