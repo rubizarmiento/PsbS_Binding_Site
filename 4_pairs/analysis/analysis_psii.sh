@@ -4,7 +4,11 @@ function lifetime_analysis_protein_protein(){
   gro=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/psii_psbs/sim_1/tem4.pdb
   
   #xtc=test_u  # Special case for 5_8_c_e_f_j_k_p_z - swap chainIDs B and f
-  #cp ${odir2}/clust_c075/fix_5_8_c_e_f_j_k_p_z.pdb ${odir2}/clust_c075/temp_step1.pdb
+  #cp ${odir2}/clust_c075/fix_5_8_c_e_f_j_k_p_z.pdb ${odir2}/clust_c075  #cg2at 
+  #reassign_chains 
+  lifetimes_to_cif_psii              # CIF files allow bfactors > 999 while PDB files do not.
+  #lifetimes_statistics_psii         # Max occupancy
+  plot_lifetimes                     # Generate sequence plots with B-factor coloring and helix annotations_step1.pdb
   ## Step 1: Change chainID B to temporary segid 'tmpB'
   #python3 ${script}/modify_structure.py -f ${odir2}/clust_c075/temp_step1.pdb -o ${odir2}/clust_c075/temp_step2.pdb -sel "chainID B" -segid "tmpB"
   ## Step 2: Change chainID f to chainID B
@@ -209,7 +213,7 @@ function lifetime_analysis_grouped (){
     chains_part=$(echo ${basename} | cut -d'_' -f2-)
     chains_arr=(${chains_part//_/ })
     sel1="segid A*" # PsbS
-    sel2="not segid A* and (not resname *GG* *SQ* *PG* *MG* W* HOH *HG*)" # Only chlorophylls, HEME and proteins, carotenoids
+    sel2="not segid A* and (not resname *GG* *SQ* *PG* *MG* W* HOH *HG* *DS* *DP*)" # Only chlorophylls, HEME and proteins, carotenoids
     cutoff=8
     dt=2 # time step between frames
     min_event_ns=100
@@ -359,12 +363,35 @@ function lifetimes_statistics_psii(){
 
 function plot_lifetimes(){
   script=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis
-  yaml=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/psii_psbs
-  #PDB with helices defined
+  yaml=/martini/rubiz/Github/PsbS_Binding_Site/definitions_yaml
+  cifs_dir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/cifs_lifetimes
+  basenames_csv=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj/basenames_binding.csv
+  chain_labels_yaml=/martini/rubiz/Github/PsbS_Binding_Site/definitions_yaml/chain_labels.yaml
+  color_config_yaml=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/psii_psbs/color_definitions.yaml
+  psii_helix_yaml=/martini/rubiz/Github/PsbS_Binding_Site/definitions_yaml/psii_helix.yaml
+  psbs_helix_yaml=/martini/rubiz/Github/PsbS_Binding_Site/definitions_yaml/psbs_helix.yaml
+  output_dir=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/figures/lifetimes
+  
+  # PDB with helices defined (for reference)
   psii_pdbdatabase=/martini/rubiz/Github/PsbS_Binding_Site/3_reference_proteins/5XNL.pdb
   psbs_pdbdatabase=/martini/rubiz/Github/PsbS_Binding_Site/3_reference_proteins/4ri2.pdb
-  python3 ${script}/write_helix_yaml.py -o ${yaml}/psii_helix.yaml -f ${psii_pdbdatabase}
-  python3 ${script}/write_helix_yaml.py -o ${yaml}/psbs_helix.yaml -f ${psbs_pdbdatabase}
+  
+  # Generate helix YAML files from PDB (if needed)
+  python3 ${script}/write_helix_yaml.py -o ${psii_helix_yaml} -f ${psii_pdbdatabase}
+  python3 ${script}/write_helix_yaml.py -o ${psbs_helix_yaml} -f ${psbs_pdbdatabase}
+  
+  # Generate protein sequence plots with B-factor coloring and helix annotations
+  echo "Generating protein sequence plots with lifetimes visualization..."
+  python3 ${script}/plot_lifetimes_sequences.py \
+    -d ${cifs_dir} \
+    -b ${basenames_csv} \
+    -l ${chain_labels_yaml} \
+    -c ${color_config_yaml} \
+    -p ${psii_helix_yaml} \
+    -s ${psbs_helix_yaml} \
+    -o ${output_dir}
+  
+  echo "✓ Sequence plots saved to: ${output_dir}"
 }
 
 function main(){
@@ -377,7 +404,6 @@ function main(){
   #write_equivalent_binding_sites     # Group binding sites
   #write_occupancy                    # !!!Change "total_frames" if the trajectory is extended
   #lifetime_analysis_grouped           # Calculate contacts for each subtrajectory
-  plot_lifetimes                     # TODO
 
   #align_trajectories             
   
@@ -387,8 +413,10 @@ function main(){
   #plot_psii_venn_diagram
   #cg2at 
   #reassign_chains 
-  #lifetimes_to_cif_psii              # CIF files allow bfactors > 999 while PDB files do not.
+  #lifetimes_to_cif_psii             # CIF files allow bfactors > 999 while PDB files do not.
   #lifetimes_statistics_psii         # Max occupancy
+  #plot_lifetimes                     # Generate protein sequence plots with B-factor coloring
+
 }
 
 main

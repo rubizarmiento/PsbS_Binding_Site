@@ -9,7 +9,6 @@ import yaml
 import os   
 os.environ['OMP_NUM_THREADS'] = '1'
 import pandas as pd
-import MDAnalysis as mda
 from Bio.PDB import MMCIFParser
 import matplotlib.pyplot as plt
 import numpy as np
@@ -27,8 +26,8 @@ CHAIN_LABELS_YAML = "/martini/rubiz/Github/PsbS_Binding_Site/definitions_yaml/ch
 BASENAMES_CSV = "/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj/basenames_binding.csv"
 CIFS_LIFETIMES_DIR = "/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/cifs_lifetimes/"
 COLOR_DEFINITIONS_YAML = "/martini/rubiz/Github/PsbS_Binding_Site/5_psii/psii_psbs/color_definitions.yaml"
-HELIX_DEFINITIONS_YAML_PSII = "/martini/rubiz/Github/PsbS_Binding_Site/5_psii/psii_psbs/psii_helix.yaml"
-HELIX_DEFINITIONS_YAML_PSBS = "/martini/rubiz/Github/PsbS_Binding_Site/5_psii/psii_psbs/psbs_helix.yaml"
+HELIX_DEFINITIONS_YAML_PSII = "/martini/rubiz/Github/PsbS_Binding_Site/definitions_yaml/psii_helix.yaml"
+HELIX_DEFINITIONS_YAML_PSBS = "/martini/rubiz/Github/PsbS_Binding_Site/definitions_yaml/psbs_helix.yaml"
 OUTPUT_FIGURES_DIR = "/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/figures/lifetimes/"
 
 # ============================================================================
@@ -358,13 +357,13 @@ def split_psbs_sequence(sequence, bfactors, split_point=212):
     }
 
 
-def extract_cofactors_by_chain(pdb_path):
-    """Extract cofactor information organized by chain.
+def extract_cofactors_by_chain(cif_path):
+    """Extract cofactor information organized by chain from CIF file.
     
     Parameters
     ----------
-    pdb_path : str
-        Path to the PDB file containing cofactors.
+    cif_path : str
+        Path to the CIF file containing cofactors.
     
     Returns
     -------
@@ -375,26 +374,30 @@ def extract_cofactors_by_chain(pdb_path):
     
     Examples
     --------
-    >>> cofactors = extract_cofactors_by_chain('cofactors.pdb')
+    >>> cofactors = extract_cofactors_by_chain('cofactors.cif')
     >>> cofactors['A']['labels']
     ['1CLH', '2HEM', ...]
     >>> len(cofactors['A']['bfactors'])
     2
     """
-    u = mda.Universe(pdb_path)
-    cofactors_by_chain = {}
+    parser = MMCIFParser()
+    structure = parser.get_structure('cofactors', cif_path)
     
-    for residue in u.residues:
-        chain_id = residue.atoms[0].chainID if hasattr(residue.atoms[0], 'chainID') else 'unknown'
-        
-        if chain_id not in cofactors_by_chain:
-            cofactors_by_chain[chain_id] = {'labels': [], 'bfactors': []}
-        
-        label = str(residue.resid) + residue.resname
-        bfactor = residue.atoms.tempfactors.mean()
-        
-        cofactors_by_chain[chain_id]['labels'].append(label)
-        cofactors_by_chain[chain_id]['bfactors'].append(bfactor)
+    cofactors_by_chain = {}
+    for model in structure:
+        for chain in model:
+            chain_id = chain.id
+            if chain_id not in cofactors_by_chain:
+                cofactors_by_chain[chain_id] = {'labels': [], 'bfactors': []}
+            
+            for residue in chain:
+                # Get B-factor from first atom in the residue
+                bfactors = [atom.get_bfactor() for atom in residue]
+                avg_bfactor = sum(bfactors) / len(bfactors) if bfactors else 0.0
+                
+                label = str(residue.get_id()[1]) + residue.get_resname()
+                cofactors_by_chain[chain_id]['labels'].append(label)
+                cofactors_by_chain[chain_id]['bfactors'].append(avg_bfactor)
     
     return cofactors_by_chain
 
@@ -719,8 +722,132 @@ def plot_all_chains(axes, chains_data, chain_id_to_label, cofactors_data,
 # Main Execution Loop
 # ============================================================================
 
+def create_argument_parser():
+    """Create and return the command-line argument parser.
+    
+    Returns
+    -------
+    argparse.ArgumentParser
+        Configured argument parser with all available options.
+    
+    Examples
+    --------
+    >>> parser = create_argument_parser()
+    >>> args = parser.parse_args(['-o', '/custom/path'])
+    >>> args.output_dir
+    '/custom/path'
+    """
+    import argparse
+    
+    parser = argparse.ArgumentParser(
+        description='Generate protein sequence plots with B-factor coloring, cofactors, and helix annotations.',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  # Run with default configuration
+  python plot_lifetimes_sequences.py
+  
+  # Use custom color configuration
+  python plot_lifetimes_sequences.py -c /path/to/colors.yaml
+  
+  # Use custom output directory
+  python plot_lifetimes_sequences.py -o /custom/output/path
+  
+  # Combine multiple options
+  python plot_lifetimes_sequences.py \\
+    -d /data/cifs_lifetimes/ \\
+    -o /results/plots/ \\
+    -c /configs/colors.yaml
+        """
+    )
+    
+    parser.add_argument(
+        '-d', '--cifs-dir',
+        dest='cifs_dir',
+        default=CIFS_LIFETIMES_DIR,
+        help=f'Directory containing CIF files (default: {CIFS_LIFETIMES_DIR})'
+    )
+    
+    parser.add_argument(
+        '-b', '--basenames-csv',
+        dest='basenames_csv',
+        default=BASENAMES_CSV,
+        help=f'Path to basenames CSV file (default: {BASENAMES_CSV})'
+    )
+    
+    parser.add_argument(
+        '-l', '--chain-labels',
+        dest='chain_labels',
+        default=CHAIN_LABELS_YAML,
+        help=f'Path to chain labels YAML file (default: {CHAIN_LABELS_YAML})'
+    )
+    
+    parser.add_argument(
+        '-c', '--color-config',
+        dest='color_config',
+        default=COLOR_DEFINITIONS_YAML,
+        help=f'Path to color definitions YAML (default: {COLOR_DEFINITIONS_YAML})'
+    )
+    
+    parser.add_argument(
+        '-p', '--helix-psii',
+        dest='helix_psii',
+        default=HELIX_DEFINITIONS_YAML_PSII,
+        help=f'Path to PSII helix definitions YAML (default: {HELIX_DEFINITIONS_YAML_PSII})'
+    )
+    
+    parser.add_argument(
+        '-s', '--helix-psbs',
+        dest='helix_psbs',
+        default=HELIX_DEFINITIONS_YAML_PSBS,
+        help=f'Path to PsbS helix definitions YAML (default: {HELIX_DEFINITIONS_YAML_PSBS})'
+    )
+    
+    parser.add_argument(
+        '-o', '--output-dir',
+        dest='output_dir',
+        default=OUTPUT_FIGURES_DIR,
+        help=f'Output directory for generated plots (default: {OUTPUT_FIGURES_DIR})'
+    )
+    
+    return parser
+
+
 def main():
     """Main function to process all cases and generate plots."""
+    # Parse command-line arguments
+    parser = create_argument_parser()
+    args = parser.parse_args()
+    
+    # Update global paths with command-line arguments
+    global CIFS_LIFETIMES_DIR, BASENAMES_CSV, CHAIN_LABELS_YAML
+    global COLOR_DEFINITIONS_YAML, HELIX_DEFINITIONS_YAML_PSII
+    global HELIX_DEFINITIONS_YAML_PSBS, OUTPUT_FIGURES_DIR
+    
+    CIFS_LIFETIMES_DIR = args.cifs_dir
+    BASENAMES_CSV = args.basenames_csv
+    CHAIN_LABELS_YAML = args.chain_labels
+    COLOR_DEFINITIONS_YAML = args.color_config
+    HELIX_DEFINITIONS_YAML_PSII = args.helix_psii
+    HELIX_DEFINITIONS_YAML_PSBS = args.helix_psbs
+    OUTPUT_FIGURES_DIR = args.output_dir
+    
+    # Reload configurations with updated paths
+    global chain_labels, color_config, helix_config, all_tags
+    global config_vars
+    
+    chain_labels = load_yaml_file(CHAIN_LABELS_YAML)
+    color_config = load_yaml_file(COLOR_DEFINITIONS_YAML)
+    helix_config = merge_helix_configs(HELIX_DEFINITIONS_YAML_PSII, HELIX_DEFINITIONS_YAML_PSBS)
+    
+    # Extract and set all configuration variables globally
+    config_vars = extract_config_variables(color_config)
+    globals().update(config_vars)
+    
+    # Load tags from basenames CSV
+    basenames_df = pd.read_csv(BASENAMES_CSV, header=0, sep=' ')
+    all_tags = basenames_df['unique_basename'].values
+    
     # Create output directory if it doesn't exist
     Path(OUTPUT_FIGURES_DIR).mkdir(parents=True, exist_ok=True)
     
@@ -735,7 +862,7 @@ def main():
         # Build file paths for this case
         cif_protein = f"{CIFS_LIFETIMES_DIR}/{current_case}_protein.cif"
         cif_psbs = f"{CIFS_LIFETIMES_DIR}/{current_case}_psbs.cif"
-        pdb_cofactors = f"{CIFS_LIFETIMES_DIR}/{current_case}_cofactors.pdb"
+        cif_cofactors = f"{CIFS_LIFETIMES_DIR}/{current_case}_cofactors.cif"
         output_figure = f"{OUTPUT_FIGURES_DIR}/{current_case}.png"
         
         # Check if files exist
@@ -755,7 +882,7 @@ def main():
                 chains_data.update(psbs_segments)
             
             # Extract cofactors
-            cofactors_data = extract_cofactors_by_chain(pdb_cofactors)
+            cofactors_data = extract_cofactors_by_chain(cif_cofactors)
             
             # Build chain labels
             chain_id_to_label = build_chain_mapping(chains_list, chain_labels)
