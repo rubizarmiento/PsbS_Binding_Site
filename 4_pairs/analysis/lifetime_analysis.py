@@ -27,6 +27,7 @@ python3 contact_analysis.py -f topol.gro -traj traj.xtc -sel1 "name CA" -sel2 "n
 """
 
 from lib_contacts import *
+import os
 
 def parser_args():
     parser = argparse.ArgumentParser(description="Run contact analysis.")
@@ -42,6 +43,7 @@ def parser_args():
     parser.add_argument("-dt", type=float, default=1, help="Time step between frames in ns.")
     parser.add_argument("-min_event_ns", type=float, default=0, help="Minimum event duration in ns.")
     parser.add_argument("-n_frames", type=int, default=None, help="Maximum number of frames to process (for testing). If not specified, processes all frames.")
+    parser.add_argument("-split_every_n_frames", type=int, default=None, help="If specified, splits the trajectory into chunks of this many frames for processing.")
     return parser.parse_args()
 
 def main():
@@ -57,6 +59,9 @@ def main():
     dt = args.dt
     min_event_ns = args.min_event_ns
     max_frames = args.n_frames
+
+    # Create output directory if it doesn't exist
+    os.makedirs(odir, exist_ok=True)
 
     u = mda.Universe(gro, xtc)
     
@@ -74,29 +79,38 @@ def main():
     n_frames = total_frames
     print(f"Processing {n_frames} frames")
 
+
+
     contact_matrix_obj = ContactMatrix(u, sel1, sel2, cutoff, group_by1=group_by1, group_by2=group_by2)
-    contact_matrix_list = contact_matrix_obj.calculate_contact_pairs_matrix_per_observation(n_frames=n_frames-1)
+    if args.split_every_n_frames is not None:
+        contact_matrix_list = contact_matrix_obj.calculate_contact_pairs_matrix_per_observation(n_frames=args.split_every_n_frames)
+        events_arr = []
+        residue_summaries = []
+        for matrix in contact_matrix_list:
+            events_df, residue_summary_df, _ = compute_lifetimes_from_contacts(matrix, dt, min_event_ns)
+            events_arr.append(events_df)
+            residue_summaries.append(residue_summary_df)
+        # Concatenate all events dataframes
+        events_df = pd.concat(events_arr, ignore_index=True)
+        residue_summary_df = pd.concat(residue_summaries, ignore_index=True)
+    else:
+        contact_matrix_list = contact_matrix_obj.calculate_contact_pairs_matrix_per_observation(n_frames=n_frames-1)
+        # If no contacts found, exit and print message
+        if contact_matrix_list[0].empty:
+            print("No contacts found with the given selections and cutoff.")
+            exit()
 
-    # If no contacts found, exit and print message
-    if contact_matrix_list[0].empty:
-        print("No contacts found with the given selections and cutoff.")
-        exit()
+        events_df, residue_summary_df, _ = compute_lifetimes_from_contacts(contact_matrix_list[0], dt, min_event_ns)
 
-    events_df, residue_summary_df, protein_summary = compute_lifetimes_from_contacts(
-    contact_matrix_list[0], dt,min_event_ns)
-    
-    #Save dataframes 
-    #Sort events_df by lifetime
-    #events_df = events_df.sort_values(by='lifetime_ns', ascending=False)
-    events_df.to_csv(f"{odir}/{args.prefix}_events_df.csv", index=False,float_format='%.2f')
-    
+    #Save dataframes
+    events_df.to_csv(f"{odir}/{args.prefix}_events_df.csv", index=False, float_format='%.2f')
+
     #Sort summary by resid - convert to numeric for proper sorting
     if 'resid' in residue_summary_df.columns:
         residue_summary_df['resid_numeric'] = pd.to_numeric(residue_summary_df['resid'], errors='coerce')
         residue_summary_df = residue_summary_df.sort_values(by='resid_numeric').drop('resid_numeric', axis=1).reset_index(drop=True)
 
     residue_summary_df.to_csv(f"{odir}/{args.prefix}_residue_summary_df.csv", index=False,float_format='%.2f')
-    #protein_summary.to_csv(f"{odir}/{args.prefix}_protein_summary.csv", index=False)
 
 #Run main
 if __name__ == "__main__":

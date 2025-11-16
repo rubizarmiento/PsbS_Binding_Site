@@ -1,38 +1,53 @@
-an1=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis
-odir=${an1}/csv_files
+analysis_dir=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/analysis_pairs
+scripts_dir=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis
 chains=("4" "c" "r" "s")
 
-function lifetime_analysis_protein_protein(){
+function check_selections(){
   for chain in "${chains[@]}"; do
-    cd ${an1}/chain_${chain}
-    pdb=initial_fit_merged.pdb
-    #xtc=test_ultrashort.xtc
-    xtc=aligned_5000ns.xtc
+    wdir=${analysis_dir}/chain_${chain}/trj
+    idir=${wdir}
+    pdb=${idir}/initial_fit_merged.pdb
+    sel3="chainID ${chain} and (not resname *GG* *SQ* *PG* W* HOH *HG* PLQ PL9 LUT VIO XAT NEO NEX BCR LMG DGD)" # Only chlorophylls and proteins
+    python3 ${scripts_dir}/return_non_protein_residues.py -f ${pdb} -sel "${sel3}" 
+  done
+}
+
+function lifetime_analysis_classification(){
+  for chain in "${chains[@]}"; do
+    wdir=${analysis_dir}/chain_${chain}
+    odir=${wdir}/lifetimes_classification
+    idir=${wdir}/trj
+    pdb=${idir}/initial_fit_merged.pdb
+    xtc=${idir}/test_ultrashort.xtc
+    #xtc=${idir}/aligned_5000ns.xtc
     sel1="chainID A"
-    sel3="chainID ${chain} and (not resname *GG* *SQ* *PG* W* HOH *HG* PLQ PL9 LUT VIO XAT NEO NEX BCR)" # Only chlorophylls and proteins
+    sel3="chainID ${chain} and (not resname *GG* *SQ* *PG* W* HOH *HG* PLQ PL9 LUT VIO XAT NEO NEX BCR LMG DGD)" # Only chlorophylls and proteins
     cutoff=8
     dt=2 # time step between frames
-    min_event_ns=1000
+    min_event_ns=0
     echo "Starting contact analysis for chain ${chain}..."
-    python3 ${an1}/lifetime_analysis.py -dt ${dt} -min_event_ns ${min_event_ns} -cutoff "${cutoff}" -f ${pdb} -traj ${xtc} -sel1 "${sel3}" -sel2 "${sel1}" -o ${odir}/lifetime -prefix lifetime_protein_chain_${chain} -group_by1 "chainIDs" -group_by2 "chainIDs" > ${odir}/lifetime/lifetime_protein_chain_${chain}.log 2>&1 &
+    echo "LOG: ${odir}/lifetime_protein.log"
+    mkdir -p ${odir}  
+    rm -f ${odir}/*  
+    python3 ${scripts_dir}/lifetime_analysis.py -split_every_n_frames 125 -dt ${dt} -min_event_ns ${min_event_ns} -cutoff "${cutoff}" -f ${pdb} -traj ${xtc} -sel1 "${sel3}" -sel2 "${sel1}" -o ${odir} -prefix lifetime_protein -group_by1 "chainIDs" -group_by2 "chainIDs" > ${odir}/lifetime_protein.log 2>&1 &
   done
 }
 
 function save_trj_lifetimes(){
-  mkdir -p ${an1}/top_lifetimes_pdbs
-  cd ${an1}/top_lifetimes_pdbs
+  mkdir -p ${analysis_dir}/top_lifetimes_pdbs
+  cd ${analysis_dir}/top_lifetimes_pdbs
   sel="all"
   for chain in "${chains[@]}"; do
     df=${odir}/lifetime/lifetime_protein_chain_${chain}_events_df.csv
-    f=${an1}/chain_${chain}/initial_fit_merged.pdb
-    trj=${an1}/chain_${chain}/aligned_5000ns.xtc
-    python3 ${an1}/extract_trajectories_from_dataframe.py -sort "lifetime_ns" -sel ${sel} -i ${df} -f ${f} -trj ${trj} -o . -prefix chain_${chain} > chain_${chain}.log 2>&1 &
+    f=${analysis_dir}/chain_${chain}/initial_fit_merged.pdb
+    trj=${analysis_dir}/chain_${chain}/aligned_5000ns.xtc
+    python3 ${scripts_dir}/extract_trajectories_from_dataframe.py -sort "lifetime_ns" -sel ${sel} -i ${df} -f ${f} -trj ${trj} -o . -prefix chain_${chain} > chain_${chain}.log 2>&1 &
   done
 }
 
 function binding_pose_pdb(){
   chain=${1}
-  odir=${an1}/binding_poses_pairs
+  odir=${analysis_dir}/binding_poses_pairs
   
   
   mkdir -p ${odir}
@@ -43,20 +58,19 @@ function binding_pose_pdb(){
   # the trajectories are named chain${chain}_${id}_${start}_${end}.xtc
   sel1="chainID A B"
   sel2="chainID ${chain} and (not resname *GG* *SQ* *PG* W* HOH *HG* PLQ PL9 LUT VIO XAT NEO NEX BCR DP* DS*)" # Only chlorophylls and proteins
-  f=${an1}/chain_${chain}/initial_fit_merged.pdb
-  trj_arr=($(ls ${an1}/top_lifetimes_pdbs/chain_${chain}_*.xtc))
+  f=${analysis_dir}/chain_${chain}/initial_fit_merged.pdb
+  trj_arr=($(ls ${analysis_dir}/top_lifetimes_pdbs/chain_${chain}_*.xtc))
   # 'counter' is used to generate unique output file names for each trajectory in the loop.
   counter=0
   rm -f chain_${chain}_*.log
   for trj in "${trj_arr[@]}"; do
     counter=$((counter + 1))
-    python3 ${an1}/binding_pose.py -f ${f} -trj ${trj} -tpr ${an1}/chain_${chain}/protein.tpr -sel1 "${sel2}" -sel2 "${sel1}" -o chain_${chain}_${counter} --cutoff 0.45 >> chain_${chain}_binding.log 2>&1 &
+    python3 ${scripts_dir}/binding_pose.py -f ${f} -trj ${trj} -tpr ${analysis_dir}/chain_${chain}/protein.tpr -sel1 "${sel2}" -sel2 "${sel1}" -o chain_${chain}_${counter} --cutoff 0.45 >> chain_${chain}_binding.log 2>&1 &
   done
 }
 
 function extract_cluster(){
   # Returns: /martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/biggest_clusters_c075 
-  script=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis
   idir1=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj_aligned
   idir2=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj_cluster
   odir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/middle_cluster
@@ -69,7 +83,7 @@ function extract_cluster(){
     f=${idir1}/${basename}.pdb
     trj=${idir1}/${basename}.xtc
     log=${idir2}/${basename}/clust_c045/cluster.log
-    python3 ${script}/extract_cluster.py -f ${f} -trj ${trj} -g ${log} -o ${odir}/${basename}.pdb
+    python3 ${scripts_dir}/extract_cluster.py -f ${f} -trj ${trj} -g ${log} -o ${odir}/${basename}.pdb
   done
 }
 
@@ -80,7 +94,7 @@ function extract_cluster(){
   idir1=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj_aligned
   idir2=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/binding_poses_pairs
   odir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/middle_cluster
-  trj_arr=($(ls ${an1}/top_lifetimes_pdbs/chain_${chain}_*.xtc))
+  trj_arr=($(ls ${analysis_dir}/top_lifetimes_pdbs/chain_${chain}_*.xtc))
 
   mkdir -p ${odir}
   rm -rf ${odir}/*
@@ -89,7 +103,7 @@ function extract_cluster(){
     f=${idir1}/${basename}.pdb
     trj=${idir1}/${basename}.xtc
     log=${idir2}/${basename}/clust_c045/cluster.log
-    python3 ${script}/extract_cluster.py -f ${f} -trj ${trj} -g ${log} -o ${odir}/${basename}.pdb
+    python3 ${scripts_dir}/extract_cluster.py -f ${f} -trj ${trj} -g ${log} -o ${odir}/${basename}.pdb
   done
 }
 
@@ -161,7 +175,7 @@ function lifetimes_to_cif_psii(){
 function lifetime_analysis_chain_resname(){
   chains=("4" "r" "s")
   for chain in "${chains[@]}"; do
-    cd ${an1}/chain_${chain}
+    cd ${analysis_dir}/chain_${chain}
     gro=initial_fit_merged.pdb
     sel1="chainID A"
     sel2="chainID ${chain} and (not resname *GG* *SQ* *PG* W* HOH *HG* PLQ PL9 LUT VIO XAT NEO NEX BCR)" # Only chlorophylls and proteins
@@ -178,7 +192,7 @@ function lifetime_analysis_chain_resname(){
       trj=$(find ${dir} -name "chain_${chain}_${i}*.xtc")
       if [ -n "$trj" ]; then
         echo "Using trajectory: $trj"
-        python3 ${an1}/lifetime_analysis.py -dt ${dt} -min_event_ns ${min_event_ns} -cutoff "${cutoff}" -f ${gro} -traj ${trj} -sel1 "${sel1}" -sel2 "${sel2}" -o ${dir}/lifetimes_chain_${chain} -prefix lifetime_analysis_chain_${chain}_${i}_resname -group_by1 "chainIDs" -group_by2 "resnames" >> "${log_file}" 2>&1 &
+        python3 ${analysis_dir}/lifetime_analysis.py -dt ${dt} -min_event_ns ${min_event_ns} -cutoff "${cutoff}" -f ${gro} -traj ${trj} -sel1 "${sel1}" -sel2 "${sel2}" -o ${dir}/lifetimes_chain_${chain} -prefix lifetime_analysis_chain_${chain}_${i}_resname -group_by1 "chainIDs" -group_by2 "resnames" >> "${log_file}" 2>&1 &
       else
         echo "No trajectory found for chain ${chain}, event ${i}" >> "${log_file}"
       fi
@@ -189,7 +203,7 @@ function lifetime_analysis_chain_resname(){
 function lifetime_analysis_classified(){
   chains=("4" "r" "s")
   for chain in "${chains[@]}"; do
-    gro=${an1}/chain_${chain}/initial_fit_merged.pdb
+    gro=${analysis_dir}/chain_${chain}/initial_fit_merged.pdb
     #xtc=test_ultrashort.xtc
     sel1="chainID A" # PsbS
     sel2="chainID ${chain} and (not resname *GG* *SQ* *PG* W* HOH *HG* PLQ PL9 LUT VIO XAT NEO NEX BCR)" # Only chlorophylls and proteins
@@ -197,34 +211,28 @@ function lifetime_analysis_classified(){
     dt=2 # time step between frames
     min_event_ns=100
     odir=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/top_lifetimes_pdbs/lifetimes_chain_${chain}    
-    trj=${an1}/top_lifetimes_pdbs/joined/chain_${chain}_non_chl.xtc
-    python3 ${an1}/lifetime_analysis.py -dt ${dt} -min_event_ns ${min_event_ns} -cutoff "${cutoff}" -f ${gro} -traj ${trj} -sel1 "${sel1}" -sel2 "${sel2}" -o ${odir} -prefix chain_${chain}_psbs_non_chl -group_by1 "chainIDs" -group_by2 "resids" > ${odir}/chain_${chain}_psbs_non_chl 2>&1 &
-    python3 ${an1}/lifetime_analysis.py -dt ${dt} -min_event_ns ${min_event_ns} -cutoff "${cutoff}" -f ${gro} -traj ${trj} -sel1 "${sel2}" -sel2 "${sel1}" -o ${odir} -prefix psbs_chain_${chain}_non_chl -group_by1 "chainIDs" -group_by2 "resids" > ${odir}/psbs_chain_${chain}_non_chl 2>&1 &
-    trj=${an1}/top_lifetimes_pdbs/joined/chain_${chain}_chl.xtc
-    python3 ${an1}/lifetime_analysis.py -dt ${dt} -min_event_ns ${min_event_ns} -cutoff "${cutoff}" -f ${gro} -traj ${trj} -sel1 "${sel1}" -sel2 "${sel2}" -o ${odir} -prefix chain_${chain}_psbs_chl -group_by1 "chainIDs" -group_by2 "resids" > ${odir}/chain_${chain}_psbs_chl.log 2>&1 &
-    python3 ${an1}/lifetime_analysis.py -dt ${dt} -min_event_ns ${min_event_ns} -cutoff "${cutoff}" -f ${gro} -traj ${trj} -sel1 "${sel2}" -sel2 "${sel1}" -o ${odir} -prefix psbs_chain_${chain}_chl -group_by1 "chainIDs" -group_by2 "resids" > ${odir}/psbs_chain_${chain}_chl.log 2>&1 &
+    trj=${analysis_dir}/top_lifetimes_pdbs/joined/chain_${chain}_non_chl.xtc
+    python3 ${analysis_dir}/lifetime_analysis.py -dt ${dt} -min_event_ns ${min_event_ns} -cutoff "${cutoff}" -f ${gro} -traj ${trj} -sel1 "${sel1}" -sel2 "${sel2}" -o ${odir} -prefix chain_${chain}_psbs_non_chl -group_by1 "chainIDs" -group_by2 "resids" > ${odir}/chain_${chain}_psbs_non_chl 2>&1 &
+    python3 ${analysis_dir}/lifetime_analysis.py -dt ${dt} -min_event_ns ${min_event_ns} -cutoff "${cutoff}" -f ${gro} -traj ${trj} -sel1 "${sel2}" -sel2 "${sel1}" -o ${odir} -prefix psbs_chain_${chain}_non_chl -group_by1 "chainIDs" -group_by2 "resids" > ${odir}/psbs_chain_${chain}_non_chl 2>&1 &
+    trj=${analysis_dir}/top_lifetimes_pdbs/joined/chain_${chain}_chl.xtc
+    python3 ${analysis_dir}/lifetime_analysis.py -dt ${dt} -min_event_ns ${min_event_ns} -cutoff "${cutoff}" -f ${gro} -traj ${trj} -sel1 "${sel1}" -sel2 "${sel2}" -o ${odir} -prefix chain_${chain}_psbs_chl -group_by1 "chainIDs" -group_by2 "resids" > ${odir}/chain_${chain}_psbs_chl.log 2>&1 &
+    python3 ${analysis_dir}/lifetime_analysis.py -dt ${dt} -min_event_ns ${min_event_ns} -cutoff "${cutoff}" -f ${gro} -traj ${trj} -sel1 "${sel2}" -sel2 "${sel1}" -o ${odir} -prefix psbs_chain_${chain}_chl -group_by1 "chainIDs" -group_by2 "resids" > ${odir}/psbs_chain_${chain}_chl.log 2>&1 &
   done
 }
 
 function cluster_trajectories(){
   chains=("4" "r" "s")
   for chain in "${chains[@]}"; do
-    python3 ${an1}/cluster_trajectories.py ${chain}
+    python3 ${analysis_dir}/cluster_trajectories.py ${chain}
   done
 }
 
 #python binding_pose.py -f chain_4/initial_fit.pdb -trj chain_4/test.xtc -tpr chain_4/protein.tpr -sel1 "chainID 4" -sel2 "chainID A B" -o binding_poses_main_test -filter 0.8 --cutoff 0.15 0.30 0.45 0.60
 
 function main(){
-  #contact_analysis_protein
-  #contact_analysis_cofactors
-  #contact_analysis_cofactors_resids
-  #python3 ${an1}/contacts_to_pdb.py
-
-  #lifetime_analysis_cofactors 
-  #lifetime_analysis_protein
-  #lifetime_analysis_protein_protein
-  
+  set -e
+  #check_selections
+  lifetime_analysis_classification
 
   
   #save_trj_lifetimes
@@ -232,9 +240,9 @@ function main(){
   #binding_pose_pdb "4"
   #binding_pose_pdb "r"
   #binding_pose_pdb "s"
-  #python3 ${an1}/summary_clusters_per_chain.py
+  #python3 ${analysis_dir}/summary_clusters_per_chain.py
 
-  extract_cluster
+  #extract_cluster
 
 
   #lifetime_analysis_chain_resname # Use to classify interactions between Chl and non-chls
