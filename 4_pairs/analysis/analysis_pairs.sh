@@ -2,46 +2,10 @@ an1=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis
 odir=${an1}/csv_files
 chains=("4" "c" "r" "s")
 
-function lifetime_analysis_protein(){
-  for chain in "${chains[@]}"; do
-    cd ${an1}/chain_${chain}
-    gro=initial_fit.pdb
-    #xtc=test_ultrashort.xtc
-    xtc=aligned_5000ns.xtc
-    sel1="chainID A B"
-    sel2="chainID ${chain} and not resname CLA CLB CHL *HG* PLQ PL9 *GG* *SQ* *PG* LUT VIO XAT NEO NEX BCR"
-    sel3="chainID ${chain}"
-    cutoff=8
-    dt=2
-    min_event_ns=1000
-    echo "Starting contact analysis for chain ${chain}..."
-    python3 ${an1}/lifetime_analysis.py -dt ${dt} -min_event_ns ${min_event_ns} -cutoff "${cutoff}" -f ${gro} -traj ${xtc} -sel1 "${sel1}" -sel2 "${sel3}" -o ${odir}/lifetime -prefix lifetime_psbs_chain_${chain} -group_by1 "resids" -group_by2 "chainIDs" > ${odir}/lifetime/lifetime_psbs_chain_${chain}.log 2>&1 &
-    python3 ${an1}/lifetime_analysis.py -dt ${dt} -min_event_ns ${min_event_ns} -cutoff "${cutoff}" -f ${gro} -traj ${xtc} -sel1 "${sel2}" -sel2 "${sel1}" -o ${odir}/lifetime -prefix lifetime_chain${chain} -group_by1 "resids" -group_by2 "chainIDs" > ${odir}/lifetime/lifetime_chain_${chain}.log 2>&1 &
-  done
-}
-
-function lifetime_analysis_cofactors(){
-  for chain in "${chains[@]}"; do
-    cd ${an1}/chain_${chain}
-    gro=initial_fit.pdb
-    #xtc=test_ultrashort.xtc
-    xtc=aligned_5000ns.xtc
-    sel1="chainID A B"
-    sel2="resname CLA CLB CHL PLQ PL9 LUT VIO XAT NEO NEX BCR"
-    sel3="chainID ${chain}"
-    cutoff=8
-    dt=2
-    min_event_ns=100
-    echo "Starting contact analysis for chain ${chain}..."
-    python3 ${an1}/lifetime_analysis.py -dt ${dt} -min_event_ns ${min_event_ns} -cutoff "${cutoff}" -f ${gro} -traj ${xtc} -sel1 "${sel1}" -sel2 "${sel3}" -o ${odir}/lifetime -prefix lifetime_cofactors_psbs_chain_${chain} -group_by1 "resids" -group_by2 "chainIDs" > ${odir}/lifetime/lifetime_psbs_chain_${chain}.log 2>&1 &
-    python3 ${an1}/lifetime_analysis.py -dt ${dt} -min_event_ns ${min_event_ns} -cutoff "${cutoff}" -f ${gro} -traj ${xtc} -sel1 "${sel2}" -sel2 "${sel1}" -o ${odir}/lifetime -prefix lifetime_cofactors_chain_${chain} -group_by1 "resids" -group_by2 "chainIDs" > ${odir}/lifetime/lifetime_chain_${chain}.log 2>&1 &
-  done
-}
-
 function lifetime_analysis_protein_protein(){
   for chain in "${chains[@]}"; do
     cd ${an1}/chain_${chain}
-    gro=initial_fit_merged.pdb
+    pdb=initial_fit_merged.pdb
     #xtc=test_ultrashort.xtc
     xtc=aligned_5000ns.xtc
     sel1="chainID A"
@@ -50,7 +14,7 @@ function lifetime_analysis_protein_protein(){
     dt=2 # time step between frames
     min_event_ns=1000
     echo "Starting contact analysis for chain ${chain}..."
-    python3 ${an1}/lifetime_analysis.py -dt ${dt} -min_event_ns ${min_event_ns} -cutoff "${cutoff}" -f ${gro} -traj ${xtc} -sel1 "${sel3}" -sel2 "${sel1}" -o ${odir}/lifetime -prefix lifetime_protein_chain_${chain} -group_by1 "chainIDs" -group_by2 "chainIDs" > ${odir}/lifetime/lifetime_protein_chain_${chain}.log 2>&1 &
+    python3 ${an1}/lifetime_analysis.py -dt ${dt} -min_event_ns ${min_event_ns} -cutoff "${cutoff}" -f ${pdb} -traj ${xtc} -sel1 "${sel3}" -sel2 "${sel1}" -o ${odir}/lifetime -prefix lifetime_protein_chain_${chain} -group_by1 "chainIDs" -group_by2 "chainIDs" > ${odir}/lifetime/lifetime_protein_chain_${chain}.log 2>&1 &
   done
 }
 
