@@ -9,7 +9,7 @@ function contact_analysis_protein(){
     #xtc=test_ultrashort.xtc
     xtc=aligned_5000ns.xtc
     sel1="chainID A B"
-    sel2="chainID ${chain} and not resname CLA CLB CHL *HG* PLQ PL9 *GG* *SQ* *PG* LUT VIO XAT NEO NEX W2 HOH BCR"
+    sel2="chainID ${chain} +and not resname CLA CLB CHL *HG* PLQ PL9 *GG* *SQ* *PG* LUT VIO XAT NEO NEX W2 HOH BCR"
     cutoff=8
     echo "Starting contact analysis for chain ${chain}..."
     python3 ${an1}/contact_analysis.py -cutoff "${cutoff}" -f ${gro} -traj ${xtc} -sel1 "${sel1}" -sel2 "${sel2}" -o ${odir}/contact_matrix_protein_chain${chain}_5000ns.csv -group_by1 "resids" -group_by2 "resids" > ${odir}/lifetime/contact_matrix_protein_chain${chain}_5000ns.log 2>&1 &
@@ -110,13 +110,17 @@ function save_trj_lifetimes(){
 
 function binding_pose_pdb(){
   chain=${1}
-  mkdir -p ${an1}/binding_poses
-  cd ${an1}/binding_poses
+  odir=${an1}/binding_poses_pairs
+  
+  
+  mkdir -p ${odir}
+  cd ${odir}
   mkdir -p chain_${chain}
+  
   cd chain_${chain}
   # the trajectories are named chain${chain}_${id}_${start}_${end}.xtc
   sel1="chainID A B"
-  sel2="chainID ${chain} and (not resname *GG* *SQ* *PG* W* HOH *HG* PLQ PL9 LUT VIO XAT NEO NEX BCR)" # Only chlorophylls and proteins
+  sel2="chainID ${chain} and (not resname *GG* *SQ* *PG* W* HOH *HG* PLQ PL9 LUT VIO XAT NEO NEX BCR DP* DS*)" # Only chlorophylls and proteins
   f=${an1}/chain_${chain}/initial_fit_merged.pdb
   trj_arr=($(ls ${an1}/top_lifetimes_pdbs/chain_${chain}_*.xtc))
   # 'counter' is used to generate unique output file names for each trajectory in the loop.
@@ -128,36 +132,109 @@ function binding_pose_pdb(){
   done
 }
 
-# Experiment didn't work as the RMS based classification did not yield meaningful clusters
-# A resid contact pairs cluster is a better fit, but as the data is limited, we can assign the clustering manually.
-# Cut-off tried 0.4-1
-function cluster_binding_modes(){
-  chains=("4" "r" "s")
-  cutoffs=("0.1" "0.1" "0.1") 
-  sel1="id 1:913 and name BB" #Backbone Psbs
-  sel2="not id 1:914 and name BB" # Backbone chain
-  cd ${an1}/binding_poses
-  cluster=clust_c075 #Chosen cut-off after visualizing the structures
-  n_chains=${#chains[@]}
+function extract_cluster(){
+  # Returns: /martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/biggest_clusters_c075 
+  script=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis
+  idir1=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj_aligned
+  idir2=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj_cluster
+  odir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/middle_cluster
+  trj_arr=($(ls ${idir1}/*.xtc))
 
-  for i in $(seq 0 $((n_chains-1))); do
-    cutoff=${cutoffs[i]}
-    chain=${chains[i]}
-    #sel1="chainID A and name BB" #Backbone
-    #sel2="chainID M and name BB" # Backbone
-    dir=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/binding_poses/chain_${chain}
-    mkdir -p ${dir}/clustering
-    python ${an1}/df_column_to_npy.py -df /martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/csv_files/lifetime/lifetime_protein_chain_${chain}_events_df.csv -columns "lifetime_ns" -output ${dir}
-    n_subdir_in_dir=$(find ${dir} -mindepth 1 -maxdepth 1 -type d | wc -l) # One dir per binding event
-    echo "Number of binding events for chain ${chain}: ${n_subdir_in_dir}"
-    arr_pdbs=()
-    for i in $(seq 1 $((n_subdir_in_dir-1))); do
-      pdb=${dir}/chain_${chain}_${i}/${cluster}/centers.pdb
-      arr_pdbs+=(${pdb})
-    done
-    python3 ${an1}/cluster_binding_modes.py -f ${arr_pdbs[@]} -npy ${dir}/lifetime_ns.npy -receptor_sel "${sel1}" -ligand_sel "${sel2}" -odir ${dir}/clustering -cutoff ${cutoff}
+  mkdir -p ${odir}
+  rm -rf ${odir}/*
+  for trj in "${trj_arr[@]}"; do
+    basename=$(basename ${trj} .xtc)
+    f=${idir1}/${basename}.pdb
+    trj=${idir1}/${basename}.xtc
+    log=${idir2}/${basename}/clust_c045/cluster.log
+    python3 ${script}/extract_cluster.py -f ${f} -trj ${trj} -g ${log} -o ${odir}/${basename}.pdb
   done
 }
+
+
+function extract_cluster(){
+  # Returns: /martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/biggest_clusters_c075 
+  script=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis
+  idir1=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj_aligned
+  idir2=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/binding_poses_pairs
+  odir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/middle_cluster
+  trj_arr=($(ls ${an1}/top_lifetimes_pdbs/chain_${chain}_*.xtc))
+
+  mkdir -p ${odir}
+  rm -rf ${odir}/*
+  for trj in "${trj_arr[@]}"; do
+    basename=$(basename ${trj} .xtc)
+    f=${idir1}/${basename}.pdb
+    trj=${idir1}/${basename}.xtc
+    log=${idir2}/${basename}/clust_c045/cluster.log
+    python3 ${script}/extract_cluster.py -f ${f} -trj ${trj} -g ${log} -o ${odir}/${basename}.pdb
+  done
+}
+
+function cg2at(){
+  script=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis
+  dir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/middle_cluster   # pdb files: 9_c_s_z.pdb -> ${basename}.pdb 
+  tpr_dir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj_grouped
+  odir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/cg2at          
+  cg2at_path=/martini/rubiz/thylakoid/scripts/para/bin/cg2at
+  scripts=/martini/rubiz/thylakoid/scripts
+  rewrite=${1:-"false"}  # Default to false if not provided
+  if [ "$rewrite" == "true" ]; then
+    rm -rf ${odir}/*
+  fi
+  
+  files=("$dir"/*.pdb)
+
+  cd $odir
+  for file in "${files[@]}"; do
+      basename=$(basename ${file} .pdb)  # Get filename without path and extension
+      o=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/cg2at/${basename}/FINAL/final_cg2at_de_novo.pdb
+      
+    # Skip if output exists
+    if [ -f ${o} ]; then
+      echo "Skipping ${file}, output already exists."
+      continue
+    else
+      echo "Processing ${file}..."
+      rm -rf ${odir}/${basename}/*
+
+      sel="not resname CLA CLB CHL *HG* HEM PLQ PL9 *GG* *SQ* *PG* DGD LMG LUT VIO XAT NEO NEX W2 HOH BCR"
+      cofactors="resname CLA CLB CHL *HG* HEM PLQ PL9 *GG* *SQ* *PG* DGD LMG LUT VIO XAT NEO NEX W2 HOH BCR"
+
+      python3 ${script}/sel_to_ndx.py -f ${dir}/${basename}.pdb -sel "${sel}" -name "Protein" -o ${odir}/${basename}_protein_cg.ndx
+      python3 ${script}/sel_to_ndx.py -f ${dir}/${basename}.pdb -sel "${cofactors}" -name "Cofactors" -o ${odir}/${basename}_cofactors_cg.ndx
+      gmx editconf -f ${file} -n ${odir}/${basename}_protein_cg.ndx -o ${odir}/${basename}_protein_cg.pdb
+      
+      # Check if ndx is empty
+      if [ -s ${odir}/${basename}_cofactors_cg.ndx ]; then
+        gmx editconf -f ${file} -n ${odir}/${basename}_cofactors_cg.ndx -o ${odir}/${basename}_cofactors_cg_1.pdb
+        echo -e "0\n" | gmx trjconv -f ${odir}/${basename}_cofactors_cg_1.pdb -s ${tpr_dir}/${basename}_cofactors.tpr -conect -o ${odir}/${basename}_cofactors_cg.pdb
+        python3 /martini/rubiz/thylakoid/scripts/assing_resid_chain_from_pdb.py -o ${odir}/${basename}_cofactors_cg.pdb  -ref ${odir}/${basename}_cofactors_cg_1.pdb -i ${odir}/${basename}_cofactors_cg.pdb
+      fi
+      
+      # Some proteins have no cofactors, check if ndx is empty
+      if [ -s ${odir}/${basename}_cofactors_cg.ndx ]; then
+        gmx editconf -f ${file} -n ${odir}/${basename}_cofactors_cg.ndx -o ${odir}/${basename}_cofactors_cg_nb.pdb # No bonds info, but ok chains
+        echo "Cofactors\n" | gmx trjconv -f ${file} -s ${tpr_dir}/${basename}.tpr -n ${odir}/${basename}_cofactors_cg.ndx -conect -o ${odir}/${basename}_cofactors_cg_1.pdb # Bonds info but wrong chains
+        python3 /martini/rubiz/thylakoid/scripts/assing_resid_chain_from_pdb.py -o ${odir}/${basename}_cofactors_cg.pdb  -ref ${odir}/${basename}_cofactors_cg_nb.pdb -i ${odir}/${basename}_cofactors_cg_1.pdb
+      fi
+      #cg2at
+      ${cg2at_path} -c ${basename}_protein_cg.pdb -ff charmm36-jul2020-updated -fg martini_3-0_charmm36 -w tip3p -loc ${basename} >> ${odir}/${basename}.log 2>&1 &
+      fi
+  done
+}
+
+function lifetimes_to_cif_psii(){
+  pdb_dir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/cg2at
+  lifetimes_dir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/lifetimes
+  odir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/cifs_lifetimes
+  sel_protein="not resname CLA CLB CHL *HG* HEM PLQ PL9 *GG* *SQ* *PG* DGD LMG LUT VIO XAT NEO NEX W2 HOH BCR and not chainID 9"
+  sel_cofactors="resname CLA CLB CHL *HG* HEM PLQ PL9 *GG* *SQ* *PG* DGD LMG LUT VIO XAT NEO NEX W2 HOH BCR"
+  sel_psbs="chainID 9"
+  rm -rf ${odir}/*pdb
+  python3 /martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/lifetime_to_cif_psii.py ${pdb_dir} ${lifetimes_dir} ${odir} "${sel_protein}" "${sel_cofactors}" "${sel_psbs}"
+}
+
 
 function lifetime_analysis_chain_resname(){
   chains=("4" "r" "s")
@@ -229,14 +306,14 @@ function main(){
 
   
   #save_trj_lifetimes
+  #Chain c is not being analyzed as it has no binding events longer than 1000 ns.
   #binding_pose_pdb "4"
   #binding_pose_pdb "r"
   #binding_pose_pdb "s"
-  #binding_pose_pdb "c"
-  python3 ${an1}/summary_clusters_per_chain.py
+  #python3 ${an1}/summary_clusters_per_chain.py
 
+  extract_cluster
 
-  #extract_cluster
 
   #lifetime_analysis_chain_resname # Use to classify interactions between Chl and non-chls
   #lifetime_analysis_classified

@@ -400,7 +400,6 @@ function main(){
   #lifetime_analysis_protein_protein  # Get the binding events a csv file.
 
   #extract_binding                    # Extract binding events (pdb, xtc, tpr)
-  
   #write_equivalent_binding_sites     # Group binding sites
   #write_occupancy                    # !!!Change "total_frames" if the trajectory is extended
   #lifetime_analysis_grouped           # Calculate contacts for each subtrajectory
