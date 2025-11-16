@@ -154,7 +154,7 @@ class ContactMatrix:
                 names.append(f"{attr1}_{attr2}")
 
         print("Shape of contact pairs matrix: ", len(names), self.n_frames)
-        current_frame = 0
+        chunk_start_frame = 0  # Track the starting frame of the current chunk
         for frame in self.universe.trajectory:
             # Stop if the largest save point is reached
             if frame.frame > largest_save_point:
@@ -176,16 +176,15 @@ class ContactMatrix:
             # Check if the current frame is a point at which to save the contact matrix
             if frame.frame in saves_at:
                 print(f"Saving matrix at frame: {frame.frame}")
-                # array with frames
-                frame_indices = np.arange(current_frame, frame.frame+1, 1)
-                current_frame = frame.frame
-
                 # Convert to numpy array first for better performance, then to DataFrame
                 contact_matrix_array = np.array(contact_pairs_matrix, dtype=np.uint8)
+                # Create frame indices starting from chunk_start_frame, add 1 to skip frame 0 (structure file)
+                frame_indices = np.arange(chunk_start_frame + 1, chunk_start_frame + 1 + len(contact_pairs_matrix))
                 contact_matrix_df = pd.DataFrame(contact_matrix_array, index=frame_indices, columns=names)
                 contact_matrix_list.append(contact_matrix_df)
                 # Reset contact matrix for the next period
                 contact_pairs_matrix = []
+                chunk_start_frame = frame.frame + 1  # Next chunk starts after this frame
         print("Number of contact matrices saved: ", len(contact_matrix_list))
         
         return contact_matrix_list
