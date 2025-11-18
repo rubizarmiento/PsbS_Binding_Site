@@ -224,13 +224,13 @@ function align_trajectories() {
     ref_pdb="initial_fit.pdb"
     ref_tpr="fit.tpr"
     traj_0="proteins_5000ns_concat.xtc"
-    dir_a="/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis"
+    dir_a="/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/analysis_pairs"
     output="aligned_5000ns.xtc"
-    chains=("r")
+    chains=("4" "s" "r" "c")
     #chains=("s")
 
     for chain in "${chains[@]}"; do 
-        cd ${dir_a}/chain_${chain}
+        cd ${dir_a}/chain_${chain}/1_trj
         align_structures -reference_s ${ref_tpr} -reference_f ${ref_pdb} -target ${traj_0} -o aligned_5000ns.xtc -sel "name BB and not chainID A B"
     done
 }
@@ -396,10 +396,10 @@ function concatenate_trajectories() {
 
     #-----------ITERATE OVER CHAINS AND SEEDS----------------
     dir4="/martini/rubiz/Github/PsbS_Binding_Site/4_pairs"
-    #chains=("4" "s" "r" "c")
+    chains=("4" "s" "r" "c")
     #chains=("s" "r" "c")
 
-    chains=("r")
+    #chains=("r")
 
     rotations=20
     #rotations=1
@@ -432,8 +432,8 @@ function concatenate_trajectories() {
         done
         #echo "${time_str}"
         #gmx trjcat -f "${array_chain[@]}" -o ${dir4}/chain_${chain}/concat.xtc -settime true -b ${b} -e ${e}
-
-        echo -e "${time_str}" | gmx trjcat -f "${array_chain[@]}" -o ${dir4}/analysis/chain_${chain}/${output} -settime "true" 
+        mkdir -p ${dir4}/analysis/analysis_pairs/chain_${chain}/1_trj
+        echo -e "${time_str}" | gmx trjcat -f "${array_chain[@]}" -o ${dir4}/analysis/analysis_pairs/chain_${chain}/1_trj/${output} -settime "true" 
     done
 }
 
@@ -442,7 +442,6 @@ function concatenate_trajectories() {
 function chain_trajectories() {
     #copy_useful_files
     align_trajectories
-
 }
 
 function special_rename(){
@@ -483,6 +482,17 @@ function check_trajectories() {
     done
 }
 
+function copy_analysis_files() {
+    dir_a="/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/analysis_pairs"
+    chains=("4" "s" "r" "c")
+    files=("protein.tpr" "initial_fit.pdb" "fit.tpr" "no_nb.top")
+    for chain in "${chains[@]}"; do 
+        dir="/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/chain_${chain}/seed242/chain_${chain}/initial-0001"
+        for file in "${files[@]}"; do 
+            cp ${dir}/${file} ${dir_a}/chain_${chain}/1_trj/
+        done
+    done
+}
 
 function special_cases() {
     echo "Special cases handled."
@@ -501,8 +511,10 @@ function main() {
     set -e
     #special_cases
 
-    individual_trajectories
+    #individual_trajectories
     #concatenate_trajectories
+    copy_analysis_files
+    
     #chain_trajectories
 
     #check_trajectories

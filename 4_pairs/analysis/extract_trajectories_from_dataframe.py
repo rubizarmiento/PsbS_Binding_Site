@@ -23,6 +23,8 @@ import MDAnalysis as mda
 import pandas as pd
 import argparse
 import os 
+import warnings
+warnings.filterwarnings("ignore")
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Extract trajectories from a lifetime DataFrame.")
