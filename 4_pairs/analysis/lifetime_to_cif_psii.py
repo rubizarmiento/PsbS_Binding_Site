@@ -238,8 +238,8 @@ def main():
         },
         "COFACTORS": {
             "pdb_pattern": "{pdb_dir}/{case}_cofactors_cg.pdb",
-            "output": "{odir}/{case}_cofactors.pdb",
-            "format": "pdb",
+            "output": "{odir}/{case}_cofactors.cif",
+            "format": "mmcif",
         },
         "PSBS": {
             "pdb_pattern": "{pdb_dir}/{case}/FINAL/final_aligned.pdb",
@@ -268,38 +268,40 @@ def main():
             # Get chain identifiers from case name
             chains = case.split("_")[1:]
             
-            # Load B-factor mapping
+            # Load B-factor mapping and create intermediate PDB with selection
+            pdb_output_file = output_file.replace('.cif', '.pdb')
+            
             if struct_type == "PSBS":
                 resid_to_bfactor = load_bfactor_mapping(lifetimes_dir, case, chains=None)
                 # Save PDB file with the selected atoms only
                 u = mda.Universe(pdb_file)
                 psbs_sel = u.select_atoms(sel_psbs)
-                pdb_output_file = output_file.replace('.cif', '.pdb')
                 save_structure_to_pdb(psbs_sel, pdb_output_file)
             elif struct_type == "COFACTORS":
-                # For cofactors, load B-factor data from chain CSV files (cofactors may have lifetime data)
+                # For cofactors, load B-factor data from chain CSV files
                 resid_to_bfactor = load_bfactor_mapping(lifetimes_dir, case, chains=chains)
-            else:
+                # Save PDB file with the selected cofactor atoms only
+                u = mda.Universe(pdb_file)
+                cofactors_sel = u.select_atoms(sel_cofactors)
+                save_structure_to_pdb(cofactors_sel, pdb_output_file)
+            else:  # PROTEIN
                 resid_to_bfactor = load_bfactor_mapping(lifetimes_dir, case, chains=chains)
                 u = mda.Universe(pdb_file)
                 protein_sel = u.select_atoms(sel_protein)
-                pdb_output_file = output_file.replace('.cif', '.pdb')
                 save_structure_to_pdb(protein_sel, pdb_output_file)
 
             # Save in appropriate format
             if config[struct_type]["format"] == "pdb":
                 # For PDB: use MDAnalysis (automatically handles bonds and capping at 12)
-                print(f"Loading with MDAnalysis: {pdb_file}")
-                u = mda.Universe(pdb_file)
+                print(f"Loading with MDAnalysis: {pdb_output_file}")
+                u = mda.Universe(pdb_output_file)
                 
                 # Assign B-factors to the universe atoms from residue mapping
                 for residue in u.residues:
                     residue_id = residue.resnum
                     
-                    # Try both segid and chainID (MDAnalysis is inconsistent)
-                    chain_id = residue.segid if residue.segid else (
-                        residue.atoms[0].chainID if hasattr(residue.atoms[0], 'chainID') else ''
-                    )
+                    # Try chainID first (more reliable), then fall back to segid
+                    chain_id = (residue.atoms[0].chainID if hasattr(residue.atoms[0], 'chainID') else '') or residue.segid
                     
                     # Try (chain, resid) first, then fall back to resid only
                     bfactor = resid_to_bfactor.get((chain_id, residue_id), 

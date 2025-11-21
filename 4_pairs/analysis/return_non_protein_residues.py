@@ -50,8 +50,17 @@ def return_non_protein_residues(f: str, sel: str) -> List[str]:
     ]
     return list(set(non_protein_residues))  # Return unique residue names
 
+def check_if_file_exists(f: str) -> bool:
+    """Check if the given file exists."""
+    import os
+    return os.path.isfile(f)
+
 def main():
     args = parser()
+    if not check_if_file_exists(args.f):
+        print(f"File not found: {args.f}")
+        exit(1)
+
     non_protein_residues = return_non_protein_residues(args.f, args.sel)
     print("Non-protein residues found:", non_protein_residues)
 

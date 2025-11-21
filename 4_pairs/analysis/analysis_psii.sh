@@ -3,20 +3,6 @@ function lifetime_analysis_protein_protein(){
   dir5="/martini/rubiz/Github/PsbS_Binding_Site/5_psii/psii_psbs"
   gro=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/psii_psbs/sim_1/tem4.pdb
   
-  #xtc=test_u  # Special case for 5_8_c_e_f_j_k_p_z - swap chainIDs B and f
-  #cp ${odir2}/clust_c075/fix_5_8_c_e_f_j_k_p_z.pdb ${odir2}/clust_c075  #cg2at 
-  #reassign_chains 
-  lifetimes_to_cif_psii              # CIF files allow bfactors > 999 while PDB files do not.
-  #lifetimes_statistics_psii         # Max occupancy
-  plot_lifetimes                     # Generate sequence plots with B-factor coloring and helix annotations_step1.pdb
-  ## Step 1: Change chainID B to temporary segid 'tmpB'
-  #python3 ${script}/modify_structure.py -f ${odir2}/clust_c075/temp_step1.pdb -o ${odir2}/clust_c075/temp_step2.pdb -sel "chainID B" -segid "tmpB"
-  ## Step 2: Change chainID f to chainID B
-  #python3 ${script}/modify_structure.py -f ${odir2}/clust_c075/temp_step2.pdb -o ${odir2}/clust_c075/temp_step3.pdb -sel "chainID f" -chain "B"
-  ## Step 3: Change segid tmpB to chainID f
-  #python3 ${script}/modify_structure.py -f ${odir2}/clust_c075/temp_step3.pdb -o ${odir2}/clust_c075/fix_5_8_c_e_f_j_k_p_z.pdb -sel "segid tmpB" -chain "f"
-  # Clean up temp files
-  rm -f ${odir2}/clust_c075/temp_step*.pdb.xtc
   xtc=analysis.xtc
   sel1="not segid A1 A2 A3 A4 and not resname *GG* DGD *SQ* *MG* *HEM* *PG* W* HOH *HG* *MG* PLQ PL9 LUT VIO XAT NEO NEX BCR" # Only chlorophylls and proteins
   cutoff=8
@@ -52,6 +38,7 @@ function extract_binding(){
 }
 
 function binding_pose_pdb(){
+  script=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis
   cd chain_${chain}
   # the trajectories are named chain${chain}_${id}_${start}_${end}.xtc
   sel1="chainID A B"
@@ -64,7 +51,7 @@ function binding_pose_pdb(){
 
   for trj in "${trj_arr[@]}"; do
     counter=$((counter + 1))
-    python3 ${an1}/binding_pose.py -f ${f} -trj ${trj} -tpr ${an1}/chain_${chain}/protein.tpr -sel1 "${sel2}" -sel2 "${sel1}" -o chain_${chain}_${counter} --cutoff 0.5 0.75 1 1.5 2 >> chain_${chain}_binding.log 2>&1 &
+    python3 ${script}/binding_pose.py -f ${f} -trj ${trj} -tpr ${an1}/chain_${chain}/protein.tpr -sel1 "${sel2}" -sel2 "${sel1}" -o chain_${chain}_${counter} --cutoff 0.5 0.75 1 1.5 2 >> chain_${chain}_binding.log 2>&1 &
   done
 }
 
@@ -196,7 +183,17 @@ function plot_psii_venn_diagram () {
   python3 ${script}/plot_VennDiagram.py -ref ${ref} -occupancy_csv ${occupancy_csv} -output_dir ${output_dir} -ref ${ref}
 }
 
-
+function check_selections(){
+    scripts_dir=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis
+    dir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj_grouped
+    tpr_files=($(ls ${dir}/*.tpr))
+    for tpr_file in "${tpr_files[@]}"; do
+      basename=$(basename ${tpr_file} .tpr)
+      f=${dir}/${basename}.pdb
+      sel="not segid A* and (not resname *GG* *SQ* *PG* *MG* W* HOH *HG* *DS* *DP* *DG*)"
+      python3 ${scripts_dir}/return_non_protein_residues.py -f ${f} -sel "${sel}" 
+    done
+}
 
 function lifetime_analysis_grouped (){
   dir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj_grouped
@@ -213,7 +210,7 @@ function lifetime_analysis_grouped (){
     chains_part=$(echo ${basename} | cut -d'_' -f2-)
     chains_arr=(${chains_part//_/ })
     sel1="segid A*" # PsbS
-    sel2="not segid A* and (not resname *GG* *SQ* *PG* *MG* W* HOH *HG* *DS* *DP*)" # Only chlorophylls, HEME and proteins, carotenoids
+    sel2="not segid A* and (not resname *GG* *SQ* *PG* *MG* W* HOH *HG* *DS* *DP* *DG*)" # Only chlorophylls, HEME and proteins, carotenoids
     cutoff=8
     dt=2 # time step between frames
     min_event_ns=100
@@ -224,7 +221,8 @@ function lifetime_analysis_grouped (){
     python3 ${script}/lifetime_analysis.py -dt ${dt} -min_event_ns ${min_event_ns} -cutoff "${cutoff}" -f ${f} -traj ${trj} -sel1 "${sel1}" -sel2 "${sel2}" -o ${odir} -prefix psbs_${basename} -group_by1 "resids" -group_by2 "resids" > ${odir}/psbs_${basename}.log 2>&1 &
     for chain in "${chains_arr[@]}"; do
       # Contacts chains and PsbS
-      python3 ${script}/lifetime_analysis.py -dt ${dt} -min_event_ns ${min_event_ns} -cutoff "${cutoff}" -f ${f} -traj ${trj} -sel1 "chainID ${chain}" -sel2 "${sel1}" -o ${odir} -prefix chain_${chain}_${basename} -group_by1 "resids" -group_by2 "segids" > ${odir}/chain_${chain}_${basename}.log 2>&1 &
+      sel3="chainID ${chain} and (not resname *GG* *SQ* *PG* *MG* W* HOH *HG* *DS* *DP* *DG*)" # Only chlorophylls and proteins
+      python3 ${script}/lifetime_analysis.py -dt ${dt} -min_event_ns ${min_event_ns} -cutoff "${cutoff}" -f ${f} -traj ${trj} -sel1 "${sel3}" -sel2 "${sel1}" -o ${odir} -prefix chain_${chain}_${basename} -group_by1 "resids" -group_by2 "segids" > ${odir}/chain_${chain}_${basename}.log 2>&1 &
     done
   done
 }
@@ -389,9 +387,10 @@ function plot_lifetimes(){
     -c ${color_config_yaml} \
     -p ${psii_helix_yaml} \
     -s ${psbs_helix_yaml} \
-    -o ${output_dir}
+    -o ${output_dir} \
+    --split-sequences 220
   
-  echo "✓ Sequence plots saved to: ${output_dir}"
+  echo "Sequence plots saved to: ${output_dir}"
 }
 
 function main(){
@@ -402,6 +401,7 @@ function main(){
   #extract_binding                    # Extract binding events (pdb, xtc, tpr)
   #write_equivalent_binding_sites     # Group binding sites
   #write_occupancy                    # !!!Change "total_frames" if the trajectory is extended
+  #check_selections
   #lifetime_analysis_grouped           # Calculate contacts for each subtrajectory
 
   #align_trajectories             
@@ -414,7 +414,7 @@ function main(){
   #reassign_chains 
   #lifetimes_to_cif_psii             # CIF files allow bfactors > 999 while PDB files do not.
   #lifetimes_statistics_psii         # Max occupancy
-  #plot_lifetimes                     # Generate protein sequence plots with B-factor coloring
+  plot_lifetimes                     # Generate protein sequence plots with B-factor coloring
 
 }
 
