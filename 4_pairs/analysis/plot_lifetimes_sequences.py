@@ -139,16 +139,26 @@ def extract_config_variables(color_config):
         
         # Layout
         'box_width': 'layout.box_width',
-        'box_height': 'layout.box_height', 
-        'box_spacing': 'layout.box_spacing',
+        'box_height': 'layout.box_height',
+        'helix_box_height': 'layout.helix_box_height',
+        'cofactor_box_width': 'layout.cofactor_box_width',
+        'cofactor_box_height': 'layout.cofactor_box_height',
+        'cofactor_box_spacing': 'layout.cofactor_box_spacing',
+        'cofactor_box_padding': 'layout.cofactor_box_padding',
         'left_margin': 'layout.left_margin',
         'right_margin': 'layout.right_margin',
+        'upper_margin': 'layout.upper_margin',
         'sequence_y': 'layout.positions.sequence_y',
         'resid_labels_y': 'layout.positions.resid_labels_y',
-        'helix_boxes_y': 'layout.positions.helix_boxes_y',
+        'annotations_y': 'layout.positions.annotations_y',
         'helix_labels_y': 'layout.positions.helix_labels_y',
-        'plot_title_y': 'layout.positions.plot_title_y',
         'cofactor_y': 'layout.positions.cofactor_y',
+        
+        # Tight layout settings
+        'tight_layout_enabled': 'layout.tight_layout.enabled',
+        'tight_layout_pad': 'layout.tight_layout.pad',
+        'tight_layout_w_pad': 'layout.tight_layout.w_pad',
+        'tight_layout_h_pad': 'layout.tight_layout.h_pad',
         
         # Text styling - sequence letters
         'seq_letter_fontsize': 'text.sequence.letters.fontsize',
@@ -175,11 +185,6 @@ def extract_config_variables(color_config):
         'helix_label_color': 'text.annotations.helix_labels.color',
         'helix_label_fontweight': 'text.annotations.helix_labels.fontweight',
         
-        # Text styling - region labels
-        'region_label_fontsize': 'text.annotations.region_labels.fontsize',
-        'region_label_color': 'text.annotations.region_labels.color',
-        'region_label_fontweight': 'text.annotations.region_labels.fontweight',
-        
         # Text styling - plot title
         'plot_title_fontsize': 'text.annotations.plot_title.fontsize',
         'plot_title_color': 'text.annotations.plot_title.color',
@@ -189,7 +194,6 @@ def extract_config_variables(color_config):
         'helix_facecolor': 'boxes.helices.facecolor',
         'helix_edgecolor': 'boxes.helices.edgecolor',
         'helix_alpha': 'boxes.helices.alpha',
-        'helix_box_height': 'boxes.helices.height',
         'helix_side_padding': 'boxes.helices.side_padding'
     }
     
@@ -439,15 +443,21 @@ def build_chain_mapping(chains, chain_labels):
     for chain_id in chains:
         # Check if this is a split segment
         if '_seg' in chain_id:
-            # Extract base chain ID from segment (e.g., 'c_seg1' → 'c')
+            # Extract base chain ID from segment (e.g., 'c_seg1' → 'c' or 'n_psbs_1_seg1' → 'n_psbs_1')
             base_id = chain_id.rsplit('_seg', 1)[0]
             
-            # Get base label (same as the base chain, no segment info)
-            if base_id in chain_labels:
-                base_label = chain_labels[base_id]
+            # Check if this is a PsbS segment
+            if base_id == 'n_psbs_1':
+                base_label = "PsbS (Chain A)"
+            elif base_id == 'n_psbs_2':
+                base_label = "PsbS (Chain B)"
             else:
-                # Generate label: capitalize chain ID (e.g., 'c' → 'PsbC')
-                base_label = f"Psb{base_id.upper()}"
+                # Get base label from chain_labels if available
+                if base_id in chain_labels:
+                    base_label = chain_labels[base_id]
+                else:
+                    # Generate label: capitalize chain ID (e.g., 'c' → 'PsbC')
+                    base_label = f"Psb{base_id.upper()}"
             
             chain_id_to_label[chain_id] = base_label
         else:
@@ -458,9 +468,9 @@ def build_chain_mapping(chains, chain_labels):
                 # Generate label: capitalize chain ID (e.g., 'c' → 'PsbC')
                 chain_id_to_label[chain_id] = f"Psb{chain_id.upper()}"
     
-    # Add labels for PsbS segments
-    chain_id_to_label['n_psbs_1'] = "PsbS (A)"
-    chain_id_to_label['n_psbs_2'] = "PsbS (B)"
+    # Add labels for PsbS (in case they were not added via split segments)
+    chain_id_to_label['n_psbs_1'] = "PsbS (Chain A)"
+    chain_id_to_label['n_psbs_2'] = "PsbS (Chain B)"
     
     return chain_id_to_label
 
@@ -517,7 +527,7 @@ def split_long_sequences(chains_data, split_threshold):
 
 
 # Function to plot a single sequence in a given axes
-def plot_sequence(ax, one_letter_seq, lifetime_values, label, cmap, norm, helix_definitions=None, residue_offset=0, show_label=True):
+def plot_sequence(ax, one_letter_seq, lifetime_values, label, cmap, norm, helix_definitions=None, residue_offset=0, show_label=True, debug=False):
     """Plot a single protein sequence with B-factor coloring.
     
     Parameters
@@ -540,16 +550,46 @@ def plot_sequence(ax, one_letter_seq, lifetime_values, label, cmap, norm, helix_
         Offset to add to residue numbering (for split segments). Default: 0.
     show_label : bool, optional
         Whether to display the label (True for first segment only). Default: True.
+    debug : bool, optional
+        Whether to show debug visualization. Default: False.
     """
+    
+    # Use fixed box dimensions (centered on letter position)
+    seq_box_width = globals()['box_width']
+    seq_box_height = globals()['box_height']
+    seq_letter_fontsize = globals()['seq_letter_fontsize']
+    seq_letter_color = globals()['seq_letter_color']
+    seq_letter_fontweight = globals()['seq_letter_fontweight']
+    seq_box_edgecolor = globals()['seq_box_edgecolor']
+    seq_box_edgewidth = globals()['seq_box_edgewidth']
+    seq_box_alpha = globals()['seq_box_alpha']
+    sequence_y = globals()['sequence_y']
+    resid_labels_y = globals()['resid_labels_y']
+    resid_label_fontsize = globals()['resid_label_fontsize']
+    resid_label_color = globals()['resid_label_color']
+    resid_label_fontweight = globals()['resid_label_fontweight']
+    helix_side_padding = globals()['helix_side_padding']
+    helix_label_fontsize = globals()['helix_label_fontsize']
+    helix_labels_y = globals()['helix_labels_y']
+    helix_facecolor = globals()['helix_facecolor']
+    helix_edgecolor = globals()['helix_edgecolor']
+    helix_alpha = globals()['helix_alpha']
+    helix_label_color = globals()['helix_label_color']
+    helix_label_fontweight = globals()['helix_label_fontweight']
+    annotations_y = globals()['annotations_y']
+    upper_margin = globals()['upper_margin']
+    right_margin = globals()['right_margin']
+    left_margin = globals()['left_margin']
+    plot_title_fontsize = globals()['plot_title_fontsize']
+    plot_title_color = globals()['plot_title_color']
+    plot_title_fontweight = globals()['plot_title_fontweight']
     
     for i in range(-1, len(one_letter_seq)):
         if i == -1:
             # Draw empty padding box at the beginning
-            rect_x = i * box_spacing - 0.8
-            rect_y = sequence_y
-            rect_width = box_width
-            rect_height = box_height
-            ax.add_patch(plt.Rectangle((rect_x, rect_y), rect_width, rect_height,
+            rect_x = i * seq_box_width - seq_box_width / 2
+            rect_y = sequence_y - seq_box_height / 2
+            ax.add_patch(plt.Rectangle((rect_x, rect_y), seq_box_width, seq_box_height,
                                       facecolor='white', edgecolor='none', alpha=0.0))
             continue
 
@@ -565,40 +605,49 @@ def plot_sequence(ax, one_letter_seq, lifetime_values, label, cmap, norm, helix_
         rgba = cmap(norm(value))
         hex_color = '#{:02x}{:02x}{:02x}'.format(int(rgba[0]*255), int(rgba[1]*255), int(rgba[2]*255))
 
-        # Draw fixed-size rectangle
-        rect_x = i * box_spacing - 0.8  # Center the rectangle
-        rect_y = sequence_y
-        rect_width = box_width
-        rect_height = box_height
-
+        # Draw fixed-size rectangle (aligned with text position at i * seq_box_width)
+        rect_x = i * seq_box_width - seq_box_width / 2  # Position box centered on text
+        rect_y = sequence_y - seq_box_height / 2
+        
         # Draw rectangle with color based on value
-        ax.add_patch(plt.Rectangle((rect_x, rect_y), rect_width, rect_height,
+        ax.add_patch(plt.Rectangle((rect_x, rect_y), seq_box_width, seq_box_height,
                                   facecolor=hex_color, edgecolor=seq_box_edgecolor, 
                                   linewidth=seq_box_edgewidth, alpha=seq_box_alpha))
 
         # Place letter centered in the rectangle
-        ax.text(i * box_spacing, rect_y + rect_height/2, letter, ha='center', va='center', 
+        ax.text(i * seq_box_width, sequence_y, letter, ha='center', va='center', 
                 fontsize=seq_letter_fontsize, color=seq_letter_color, fontweight=seq_letter_fontweight)
 
     # Find the actual sequence length (excluding padding)
     actual_seq_length = len(one_letter_seq.rstrip('-'))
     
+    # Determine if this is a split segment
+    is_split_segment = '_seg' in one_letter_seq  # This will be False, need to pass it as param
+    # For now, check if chain_id has _seg (we need access to it)
+    # We'll determine this by checking if residue_offset > 0
+    is_intermediate_segment = residue_offset > 0
+    
     # Add position labels above the boxes (positioned at resid_labels_y)
-    # Label first residue number (with offset)
+    # Label first residue number (with offset) - always show
     first_resid = 1 + residue_offset
-    ax.text(0 * box_spacing, resid_labels_y, str(first_resid), ha='center', va='bottom', 
+    ax.text(0 * seq_box_width, resid_labels_y, str(first_resid), ha='center', va='bottom', 
             fontsize=resid_label_fontsize, color=resid_label_color, fontweight=resid_label_fontweight)
 
-    # Add labels every 20 residues
-    for pos in range(20, actual_seq_length, 20):
-        resid = pos + residue_offset
-        ax.text(pos * box_spacing, resid_labels_y, str(resid), ha='center', va='bottom', 
+    # Add labels every 20 residues (at positions 19, 39, 59, etc. which correspond to residues 20, 40, 60, etc.)
+    labeled_positions = {0}  # Track which positions we've labeled
+    for pos in range(19, actual_seq_length, 20):
+        resid = pos + 1 + residue_offset
+        ax.text(pos * seq_box_width, resid_labels_y, str(resid), ha='center', va='bottom', 
                 fontsize=resid_label_fontsize, color=resid_label_color, fontweight=resid_label_fontweight)
+        labeled_positions.add(pos)
 
     # Label sequence length above the last actual residue (not padding)
-    final_resid = actual_seq_length + residue_offset
-    ax.text((actual_seq_length - 1) * box_spacing, resid_labels_y, str(final_resid), ha='center', va='bottom', 
-            fontsize=resid_label_fontsize, color=resid_label_color, fontweight=resid_label_fontweight)
+    # Only show on the final segment of a chain (not on intermediate split segments)
+    final_pos_in_segment = actual_seq_length - 1
+    if final_pos_in_segment not in labeled_positions and final_pos_in_segment > 0 and not is_intermediate_segment:
+        final_resid = actual_seq_length + residue_offset
+        ax.text(final_pos_in_segment * seq_box_width, resid_labels_y, str(final_resid), ha='center', va='bottom', 
+                fontsize=resid_label_fontsize, color=resid_label_color, fontweight=resid_label_fontweight)
 
     # Add region rectangles above the sequence
     # Draw helices from definitions if available
@@ -617,21 +666,34 @@ def plot_sequence(ax, one_letter_seq, lifetime_values, label, cmap, norm, helix_
                 start_in_segment = max(1, start_in_segment)
                 end_in_segment = min(actual_seq_length, end_in_segment)
                 
-                helix_left = (start_in_segment - 1) * box_spacing - helix_side_padding
-                helix_right = (end_in_segment - 1) * box_spacing + helix_side_padding
-                helix_width = helix_right - helix_left
-                helix_center = (helix_left + helix_right) / 2
-                helix_label_y = helix_boxes_y + helix_box_height / 2  # Center label vertically in box
+                # Get box dimensions from config
+                box_width_val = globals()['box_width']
                 
-                ax.add_patch(plt.Rectangle((helix_left, helix_boxes_y), helix_width, helix_box_height,
+                # Calculate helix width based on number of residues
+                # Helix width = num_residues * box_width (exact span, no padding)
+                num_residues_in_helix = end_in_segment - start_in_segment + 1
+                helix_width = num_residues_in_helix * box_width_val
+                
+                # Calculate left position: first residue box left edge
+                first_residue_center = (start_in_segment - 1) * seq_box_width
+                helix_left = first_residue_center - box_width_val / 2
+                # Center is at the middle of the helix width
+                helix_center = helix_left + helix_width / 2
+                
+                # Use fixed helix box height (from config)
+                helix_box_height_val = globals()['helix_box_height']
+                
+                # Center helix box at helix_labels_y (box center aligned with label anchor point)
+                helix_box_bottom = helix_labels_y - helix_box_height_val / 2
+                ax.add_patch(plt.Rectangle((helix_left, helix_box_bottom), helix_width, helix_box_height_val,
                                           facecolor=helix_facecolor, edgecolor=helix_edgecolor, alpha=helix_alpha))
-                ax.text(helix_center, helix_label_y, helix_id, ha='center', va='center', 
+                ax.text(helix_center, helix_labels_y, helix_id, ha='center', va='center', 
                         fontsize=helix_label_fontsize, color=helix_label_color, fontweight=helix_label_fontweight)
 
     # Set axis limits and styling
-    ax.set_ylim(-0.5, plot_title_y + 0.5)
-    # Right limit: account for the last box width (0.85 = box_width/2 on each side) + right margin
-    right_xlim = (len(one_letter_seq) - 1) * box_spacing + 0.85 + right_margin
+    ax.set_ylim(0.0, annotations_y + upper_margin)
+    # Right limit: account for the last box width (seq_box_width/2 on each side) + right margin
+    right_xlim = (len(one_letter_seq) - 1) * seq_box_width + seq_box_width / 2 + right_margin
     ax.set_xlim(-left_margin, right_xlim)
     ax.set_yticks([])
     ax.set_xticks([])
@@ -643,12 +705,31 @@ def plot_sequence(ax, one_letter_seq, lifetime_values, label, cmap, norm, helix_
 
     # Add plot title/label in top left (only if show_label is True)
     if show_label:
-        ax.text(-1.5, plot_title_y, label, ha='left', va='top', 
+        # Position label at the left edge of the first sequence box
+        label_x = -seq_box_width / 2
+        ax.text(label_x, helix_labels_y, label, ha='left', va='center', 
                 fontsize=plot_title_fontsize, color=plot_title_color, fontweight=plot_title_fontweight)
+    
+    # DEBUG: Draw subplot bounds (red for sequences) - only if debug is enabled
+    if debug:
+        plot_subplot_limits_debug(ax, 'sequence', alpha=0.1)
 
 # Function to plot cofactors as a heatmap row
-def plot_cofactors(ax, cofactor_labels, cofactor_bfactors, cmap, norm, max_seq_length):
+def plot_cofactors(ax, cofactor_labels, cofactor_bfactors, cmap, norm, max_seq_length, debug=False):
     """Plot only non-zero cofactors with B-factor coloring below the sequence, within sequence bounds."""
+    
+    # Extract config variables from globals
+    cofactor_y = globals()['cofactor_y']
+    cofactor_fontsize = globals()['cofactor_fontsize']
+    cofactor_color = globals()['cofactor_color']
+    cofactor_fontweight = globals()['cofactor_fontweight']
+    cofactor_box_padding = globals()['cofactor_box_padding']
+    cofactor_box_spacing = globals()['cofactor_box_spacing']
+    seq_box_width = globals()['box_width']
+    annotations_y = globals()['annotations_y']
+    upper_margin = globals()['upper_margin']
+    left_margin = globals()['left_margin']
+    right_margin = globals()['right_margin']
     
     # Filter cofactors with non-zero B-factors
     active_cofactors = [(label, bfactor) for label, bfactor in zip(cofactor_labels, cofactor_bfactors) 
@@ -660,6 +741,10 @@ def plot_cofactors(ax, cofactor_labels, cofactor_bfactors, cmap, norm, max_seq_l
     # Get y position for cofactors from configuration
     cofactor_y_pos = cofactor_y  # Use global config variable (from color_definitions.yaml)
     
+    # Use fixed cofactor box dimensions from configuration
+    cofactor_box_height_val = globals()['cofactor_box_height']
+    cofactor_box_width_val = globals()['cofactor_box_width']
+    
     # Limit number of cofactors to display to max_seq_length (to fit within sequence width)
     num_cofactors_to_plot = min(len(active_cofactors), max_seq_length)
     
@@ -669,15 +754,14 @@ def plot_cofactors(ax, cofactor_labels, cofactor_bfactors, cmap, norm, max_seq_l
     for i in range(num_cofactors_to_plot):
         cofactor_label, bfactor = active_cofactors[i]
         
-        # Scale box width based on label length (number of letters)
-        label_length = len(cofactor_label)
-        cofactor_box_width = box_width * label_length
+        # Use fixed box width from configuration
+        cofactor_box_width = cofactor_box_width_val
         
         # Position each cofactor at current_x (no longer at i * box_spacing)
         rect_x = current_x
-        rect_y = cofactor_y_pos
+        rect_y = cofactor_y_pos - cofactor_box_height_val / 2
         rect_width = cofactor_box_width
-        rect_height = box_height
+        rect_height = cofactor_box_height_val
         
         # Color based on B-factor value
         rgba = cmap(norm(bfactor))
@@ -688,14 +772,54 @@ def plot_cofactors(ax, cofactor_labels, cofactor_bfactors, cmap, norm, max_seq_l
                                   facecolor=hex_color, edgecolor='black', alpha=0.8))
         
         # Place cofactor label centered in the rectangle
-        ax.text(current_x + cofactor_box_width/2, rect_y + rect_height/2, cofactor_label, ha='center', va='center', 
+        ax.text(current_x + cofactor_box_width/2, cofactor_y_pos, cofactor_label, ha='center', va='center', 
                 fontsize=cofactor_fontsize, color=cofactor_color, fontweight=cofactor_fontweight)
         
-        # Move to next position (add spacing between cofactors)
-        current_x += cofactor_box_width + box_spacing
+        # Move to next position (add cofactor spacing between boxes)
+        current_x += cofactor_box_width + cofactor_box_spacing
     
-    # Update y-axis limits to include cofactors
-    ax.set_ylim(-0.3, plot_title_y + 0.3)
+    # Update axis limits and styling to match sequence plots
+    ax.set_ylim(0.0, annotations_y + upper_margin)
+    # Set x-axis limits to match the sequence plot dimensions (boxes are adjacent with no spacing)
+    right_xlim = (max_seq_length - 1) * seq_box_width + seq_box_width / 2 + right_margin
+    ax.set_xlim(-left_margin, right_xlim)
+    ax.set_yticks([])
+    ax.set_xticks([])
+    # Hide all axis spines like in sequence plots
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.spines['left'].set_visible(False)
+    ax.spines['bottom'].set_visible(False)
+    
+    # DEBUG: Draw subplot bounds (blue for cofactors) - only if debug is enabled
+    if debug:
+        plot_subplot_limits_debug(ax, 'cofactor', alpha=0.1)
+
+
+def plot_subplot_limits_debug(ax, subplot_type, alpha=0.1):
+    """
+    Plot the subplot limits as a debug visualization.
+    
+    Parameters
+    ----------
+    ax : matplotlib.axes.Axes
+        The axis to debug.
+    subplot_type : str
+        Type of subplot: 'sequence' (red) or 'cofactor' (blue).
+    alpha : float, optional
+        Transparency of the debug box (default: 0.1).
+    """
+    # Get current limits
+    xlim = ax.get_xlim()
+    ylim = ax.get_ylim()
+    
+    # Choose color based on type
+    color = 'red' if subplot_type == 'sequence' else 'blue' if subplot_type == 'cofactor' else 'green'
+    
+    # Draw a rectangle showing the subplot bounds
+    rect = plt.Rectangle((xlim[0], ylim[0]), xlim[1] - xlim[0], ylim[1] - ylim[0],
+                         facecolor=color, alpha=alpha, edgecolor=color, linewidth=2, zorder=-1)
+    ax.add_patch(rect)
 
 
 # ============================================================================
@@ -725,17 +849,19 @@ def get_helix_key_for_chain(chain_id):
     'chain_A'
     >>> get_helix_key_for_chain('c_seg1')
     'chain_c'
+    >>> get_helix_key_for_chain('n_psbs_1_seg1')
+    'chain_A'
     """
-    if chain_id == 'n_psbs_1':
+    # Remove segment suffix if present (e.g., 'n_psbs_1_seg1' → 'n_psbs_1')
+    base_chain_id = chain_id.rsplit('_seg', 1)[0] if '_seg' in chain_id else chain_id
+    
+    # Check for PsbS chains
+    if base_chain_id == 'n_psbs_1':
         return 'chain_A'
-    elif chain_id == 'n_psbs_2':
+    elif base_chain_id == 'n_psbs_2':
         return 'chain_B'
-    elif '_seg' in chain_id:
-        # Extract base chain ID from segment (e.g., 'c_seg1' → 'c')
-        base_id = chain_id.rsplit('_seg', 1)[0]
-        return f"chain_{base_id}"
     else:
-        return f"chain_{chain_id}"
+        return f"chain_{base_chain_id}"
 
 
 def get_residue_offset_for_chain(chain_id, original_chains_data, split_threshold):
@@ -792,7 +918,7 @@ def pad_sequences_to_max_length(chains_data):
     return max_seq_length
 
 
-def create_figure_and_axes(num_chains, max_seq_length, box_spacing, box_width):
+def create_figure_and_axes(num_chains, max_seq_length, box_width, num_cofactor_chains=0, height_ratios=None):
     """Create matplotlib figure and axes for multi-chain plotting.
     
     Parameters
@@ -801,30 +927,116 @@ def create_figure_and_axes(num_chains, max_seq_length, box_spacing, box_width):
         Number of chains to plot.
     max_seq_length : int
         Maximum length of sequences.
-    box_spacing : float
-        Spacing between sequence boxes.
     box_width : float
-        Width of each sequence box.
+        Width of each sequence box (boxes are adjacent with no spacing).
+    num_cofactor_chains : int, optional
+        Number of chains with cofactors (default: 0, will be estimated as num_chains/2).
+    height_ratios : list of float, optional
+        Height ratios for each subplot. If None, all subplots have equal height.
     
     Returns
     -------
     tuple
         (fig, axes) - matplotlib Figure and Axes objects.
     """
-    total_width = (max_seq_length - 1) * box_spacing + box_width
+    total_width = (max_seq_length - 1) * box_width + box_width
     figure_width = max(20, total_width * 0.1)
-    figure_height = 2.5 * num_chains
     
-    fig, axes = plt.subplots(num_chains, 1, figsize=(figure_width, figure_height), sharex=False)
-    if num_chains == 1:
+    # Estimate number of axes: each chain + estimate of cofactor chains
+    if num_cofactor_chains == 0:
+        num_cofactor_chains = max(1, num_chains // 2)  # Rough estimate
+    
+    num_axes = num_chains + num_cofactor_chains
+    figure_height = 2.5 * num_axes
+    
+    # Create axes for sequences and cofactors with optional height ratios
+    if height_ratios is not None:
+        gridspec_kw = {'height_ratios': height_ratios}
+        fig, axes = plt.subplots(num_axes, 1, figsize=(figure_width, figure_height), 
+                                sharex=False, gridspec_kw=gridspec_kw)
+    else:
+        fig, axes = plt.subplots(num_axes, 1, figsize=(figure_width, figure_height), sharex=False)
+    
+    if num_axes == 1:
         axes = [axes]
     
     return fig, axes
 
 
+def calculate_subplot_heights_and_count(chains_data, cofactors_data, box_height, helix_box_height, 
+                                        resid_label_fontsize, cofactor_fontsize, 
+                                        split_threshold=None):
+    """Calculate subplot heights dynamically based on box sizes and font sizes.
+    
+    Parameters
+    ----------
+    chains_data : dict
+        Dictionary of all chains with their sequences.
+    cofactors_data : dict
+        Dictionary of cofactors by base chain ID.
+    box_height : float
+        Height of sequence boxes (in data coordinates, typically 0.5).
+    helix_box_height : float
+        Height of helix boxes (in data coordinates, typically 0.5).
+    resid_label_fontsize : float
+        Font size for residue labels (in points).
+    cofactor_fontsize : float
+        Font size for cofactor labels (in points).
+    split_threshold : int or None, optional
+        The split threshold used for segments.
+    
+    Returns
+    -------
+    tuple of (list of float, int, float)
+        Height ratios for GridSpec, exact number of axes needed, and total figure height in inches.
+    """
+    # Calculate sequence subplot height based on content:
+    # - Helix boxes: ~0.3-0.4 inches
+    # - Residue labels (10pt font): ~0.2 inches
+    # - Sequence boxes (10pt font): ~0.2 inches
+    # - Padding and spacing: ~0.3 inches
+    # Total: ~1.0-1.2 inches per sequence
+    sequence_height = 1.1
+    
+    # Calculate cofactor subplot height based on content:
+    # - Cofactor labels (10pt font): ~0.2 inches
+    # - Padding: ~0.2 inches
+    # Total: ~0.4 inches per cofactor
+    cofactor_height = 0.4
+    
+    heights = []
+    previous_base_chain_id = None
+    
+    for chain_id in chains_data.keys():
+        # Extract base chain ID
+        base_chain_id = chain_id.split('_seg')[0] if '_seg' in chain_id else chain_id
+        
+        # If we've moved to a new base chain, add cofactor height for the previous chain
+        if previous_base_chain_id is not None and base_chain_id != previous_base_chain_id:
+            if previous_base_chain_id in cofactors_data:
+                heights.append(cofactor_height)
+        
+        # Add sequence height for current chain
+        heights.append(sequence_height)
+        
+        previous_base_chain_id = base_chain_id
+    
+    # Add cofactor height for the last chain
+    if previous_base_chain_id is not None and previous_base_chain_id in cofactors_data:
+        heights.append(cofactor_height)
+    
+    num_axes = len(heights)
+    total_height = sum(heights)  # No extra margin, use exact sum of subplot heights
+    
+    # Convert absolute heights to ratios for GridSpec
+    height_ratios = [h / sum(heights) for h in heights]
+    
+    return height_ratios, num_axes, total_height
+
+
 def plot_all_chains(axes, chains_data, chain_id_to_label, cofactors_data, 
-                    helix_config, cmap, norm, max_seq_length, split_threshold=None):
-    """Plot all chains on their respective axes.
+                    helix_config, cmap, norm, max_seq_length, split_threshold=None, debug=False):
+    """Plot all chains on their respective axes with configurable spacing.
     
     Parameters
     ----------
@@ -845,35 +1057,56 @@ def plot_all_chains(axes, chains_data, chain_id_to_label, cofactors_data,
     max_seq_length : int
         Maximum sequence length.
     split_threshold : int or None, optional
-        The split threshold used for segments (for residue offset calculation).
+        The split threshold used for segments.
+    debug : bool, optional
+        Whether to show debug visualization. Default: False.
+    
+    Returns
+    -------
+    int
+        Number of axes actually used.
     """
-    for idx, (chain_id, chain_data) in enumerate(chains_data.items()):
+    axis_idx = 0
+    previous_base_chain_id = None
+    
+    for chain_id, chain_data in chains_data.items():
         one_letter_seq = chain_data['sequence']
         lifetime_values = chain_data['bfactors']
         label = chain_id_to_label[chain_id]
         
-        # Calculate residue offset for split segments
+        # Calculate residue offset
         residue_offset = get_residue_offset_for_chain(chain_id, chains_data, split_threshold)
-        
-        # Only show label for first segment (segment 1 has offset 0)
         show_label = (residue_offset == 0)
         
         helix_key = get_helix_key_for_chain(chain_id)
         chain_helices = helix_config.get(helix_key, {})
         
-        plot_sequence(axes[idx], one_letter_seq, lifetime_values, label, cmap, norm, 
-                     helix_definitions=chain_helices, residue_offset=residue_offset, show_label=show_label)
-        
-        # Extract base chain ID for cofactors lookup (handle split chains like "c_seg1" -> "c")
+        # Extract base chain ID
         base_chain_id = chain_id.split('_seg')[0] if '_seg' in chain_id else chain_id
         
-        # Only plot cofactors on the first segment (residue_offset == 0) to avoid duplication
-        if base_chain_id in cofactors_data and residue_offset == 0:
-            chain_cofactors = cofactors_data[base_chain_id]
-            plot_cofactors(axes[idx], chain_cofactors['labels'], chain_cofactors['bfactors'], 
-                          cmap, norm, max_seq_length)
-        else:
-            axes[idx].set_ylim(-0.3, plot_title_y + 0.3)
+        # If we've moved to a new base chain, plot cofactors for the previous chain
+        if previous_base_chain_id is not None and base_chain_id != previous_base_chain_id:
+            if previous_base_chain_id in cofactors_data:
+                chain_cofactors = cofactors_data[previous_base_chain_id]
+                plot_cofactors(axes[axis_idx], chain_cofactors['labels'], chain_cofactors['bfactors'],
+                              cmap, norm, max_seq_length, debug=debug)
+                axis_idx += 1
+        
+        # Plot sequence
+        plot_sequence(axes[axis_idx], one_letter_seq, lifetime_values, label, cmap, norm,
+                     helix_definitions=chain_helices, residue_offset=residue_offset, show_label=show_label, debug=debug)
+        axis_idx += 1
+        
+        previous_base_chain_id = base_chain_id
+    
+    # Plot cofactors for the last chain
+    if previous_base_chain_id is not None and previous_base_chain_id in cofactors_data:
+        chain_cofactors = cofactors_data[previous_base_chain_id]
+        plot_cofactors(axes[axis_idx], chain_cofactors['labels'], chain_cofactors['bfactors'],
+                      cmap, norm, max_seq_length, debug=debug)
+        axis_idx += 1
+    
+    return axis_idx
 
 
 # ============================================================================
@@ -976,6 +1209,14 @@ Examples:
         help='Split sequences longer than this value across multiple rows (e.g., 250). Default: None (no splitting)'
     )
     
+    parser.add_argument(
+        '--debug',
+        dest='debug',
+        action='store_true',
+        default=False,
+        help='Enable debug visualization (shows subplot bounds). Default: False'
+    )
+    
     return parser
 
 
@@ -1010,6 +1251,16 @@ def main():
     config_vars = extract_config_variables(color_config)
     globals().update(config_vars)
     
+    # NOTE: Automatic rescaling of box_spacing disabled to allow direct control via config
+    # If you want automatic rescaling based on sequence length, enable the code below:
+    # max_expected_seq_length = 550  # Maximum expected sequence length
+    # max_data_units = 100  # Target max data coordinate range
+    # seq_box_width_expected = globals()['box_width']
+    # expected_width = (max_expected_seq_length - 1) * globals()['box_spacing'] + seq_box_width_expected
+    # if expected_width > max_data_units:
+    #     scale_factor = max_data_units / expected_width
+    #     globals()['box_spacing'] = globals()['box_spacing'] * scale_factor
+    
     # Load tags from basenames CSV
     basenames_df = pd.read_csv(BASENAMES_CSV, header=0, sep=' ')
     all_tags = basenames_df['unique_basename'].values
@@ -1018,6 +1269,9 @@ def main():
     Path(OUTPUT_FIGURES_DIR).mkdir(parents=True, exist_ok=True)
     
     # Setup colormap and normalization (shared across all plots)
+    cmap_name = globals()['cmap_name']
+    vmin = globals()['vmin']
+    vmax = globals()['vmax']
     cmap = getattr(plt.cm, cmap_name)
     norm = plt.Normalize(vmin=vmin, vmax=vmax)
     
@@ -1066,15 +1320,43 @@ def main():
             # Pad sequences and get max length
             max_seq_length = pad_sequences_to_max_length(chains_data)
             
-            # Create figure and axes
-            fig, axes = create_figure_and_axes(num_chains, max_seq_length, box_spacing, box_width)
+            # Use fixed box dimensions (all in globals after config update)
+            seq_box_width = globals()['box_width']
+            seq_box_height = globals()['box_height']
+            helix_box_height = globals()['helix_box_height']
             
-            # Plot all chains
-            plot_all_chains(axes, chains_data, chain_id_to_label, cofactors_data,
-                          helix_config, cmap, norm, max_seq_length, args.split_sequences)
+            # Calculate figure width based on sequence length (boxes are adjacent with no spacing)
+            total_width = (max_seq_length - 1) * seq_box_width + seq_box_width
+            figure_width = max(20, total_width * 0.1)
+            
+            # Calculate subplot heights dynamically based on box sizes and font sizes
+            height_ratios, num_axes_exact, figure_height = calculate_subplot_heights_and_count(
+                chains_data, cofactors_data, 
+                seq_box_height, helix_box_height,
+                globals()['resid_label_fontsize'], globals()['cofactor_fontsize'],
+                args.split_sequences)
+            
+            # Create figure and axes with height ratios
+            fig, axes = plt.subplots(num_axes_exact, 1, figsize=(figure_width, figure_height), 
+                                    sharex=False, gridspec_kw={'height_ratios': height_ratios})
+            if num_axes_exact == 1:
+                axes = [axes]
+            
+            # Plot all chains and get number of axes used
+            axes_used = plot_all_chains(axes, chains_data, chain_id_to_label, cofactors_data,
+                          helix_config, cmap, norm, max_seq_length, args.split_sequences, debug=args.debug)
+            
+            # Remove unused axes
+            for unused_ax in axes[axes_used:]:
+                fig.delaxes(unused_ax)
+            
+            # Apply tight layout with configurable parameters
+            if globals()['tight_layout_enabled']:
+                plt.tight_layout(pad=globals()['tight_layout_pad'], w_pad=globals()['tight_layout_w_pad'], h_pad=globals()['tight_layout_h_pad'])
+            else:
+                plt.tight_layout()
             
             # Save figure
-            plt.tight_layout()
             plt.savefig(output_figure, dpi=300, bbox_inches='tight')
             plt.close(fig)
             

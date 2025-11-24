@@ -361,14 +361,13 @@ function lifetimes_statistics_psii(){
 
 function plot_lifetimes(){
   script=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis
-  yaml=/martini/rubiz/Github/PsbS_Binding_Site/definitions_yaml
   cifs_dir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/cifs_lifetimes
   basenames_csv=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj/basenames_binding.csv
   chain_labels_yaml=/martini/rubiz/Github/PsbS_Binding_Site/definitions_yaml/chain_labels.yaml
   color_config_yaml=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/psii_psbs/color_definitions.yaml
   psii_helix_yaml=/martini/rubiz/Github/PsbS_Binding_Site/definitions_yaml/psii_helix.yaml
   psbs_helix_yaml=/martini/rubiz/Github/PsbS_Binding_Site/definitions_yaml/psbs_helix.yaml
-  output_dir=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/figures/lifetimes
+  output_dir=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/figures/lifetimes_psii
   
   # PDB with helices defined (for reference)
   psii_pdbdatabase=/martini/rubiz/Github/PsbS_Binding_Site/3_reference_proteins/5XNL.pdb
@@ -388,7 +387,7 @@ function plot_lifetimes(){
     -p ${psii_helix_yaml} \
     -s ${psbs_helix_yaml} \
     -o ${output_dir} \
-    --split-sequences 220
+    --split-sequences 106
   
   echo "Sequence plots saved to: ${output_dir}"
 }

@@ -309,6 +309,52 @@ function lifetimes_to_cif(){
     done
   done
 }
+
+
+function plot_lifetimes(){
+  script=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis
+  
+  # Share with PSII analysis
+  chain_labels_yaml=/martini/rubiz/Github/PsbS_Binding_Site/definitions_yaml/chain_labels.yaml
+  color_config_yaml=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/psii_psbs/color_definitions.yaml
+
+  # Output YAML files defining helices
+  psii_helix_yaml=/martini/rubiz/Github/PsbS_Binding_Site/definitions_yaml/psii_helix.yaml
+  psbs_helix_yaml=/martini/rubiz/Github/PsbS_Binding_Site/definitions_yaml/psbs_helix.yaml
+  output_dir=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/figures/lifetimes_pairs 
+  # PDB with helices defined (for reference)
+  psii_pdbdatabase=/martini/rubiz/Github/PsbS_Binding_Site/3_reference_proteins/5XNL.pdb
+  psbs_pdbdatabase=/martini/rubiz/Github/PsbS_Binding_Site/3_reference_proteins/4ri2.pdb
+
+  # Generate helix YAML files from PDB (if needed)
+  python3 ${script}/write_helix_yaml.py -o ${psii_helix_yaml} -f ${psii_pdbdatabase}
+  python3 ${script}/write_helix_yaml.py -o ${psbs_helix_yaml} -f ${psbs_pdbdatabase}
+
+
+  for chain in "${chains_analyze[@]}"; do
+    wdir=${analysis_dir}/chain_${chain}
+    cifs_dir=${wdir}/8_cifs_lifetimes
+    basenames_csv=${wdir}/4_trj_cluster/binding_basenames.csv
+    output_dir_chain=${output_dir}/chain_${chain}
+    mkdir -p ${output_dir_chain}
+    
+    # Generate protein sequence plots with B-factor coloring and helix annotations
+    echo "Generating protein sequence plots with lifetimes visualization for chain ${chain}..."
+    python3 ${script}/plot_lifetimes_sequences.py \
+      -d ${cifs_dir} \
+      -b ${basenames_csv} \
+      -l ${chain_labels_yaml} \
+      -c ${color_config_yaml} \
+      -p ${psii_helix_yaml} \
+      -s ${psbs_helix_yaml} \
+      -o ${output_dir_chain} \
+      --split-sequences 106
+    
+    echo "Sequence plots for chain ${chain} saved to: ${output_dir_chain}"
+  done
+}
+
+
 function main(){
   set -e
   #check_selections
@@ -331,8 +377,8 @@ function main(){
 
   
   #lifetimes_statistics_psii          # Max occupancy
-  #plot_lifetimes                     # Generate protein sequence plots with B-factor coloring
   #lifetimes_to_cif_pairs
+  plot_lifetimes
 
 }
 
