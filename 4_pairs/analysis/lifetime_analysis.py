@@ -74,6 +74,15 @@ def main():
     sel1 = u.select_atoms(sel1)
     sel2 = u.select_atoms(sel2)
     
+    # Extract chain IDs from selections (use first unique chain ID if multiple)
+    chainID_i = sel1.chainIDs[0] if len(sel1.chainIDs) > 0 else "unknown"
+    chainID_j = sel2.chainIDs[0] if len(sel2.chainIDs) > 0 else "unknown"
+    print(f"Chain IDs: sel1={chainID_i}, sel2={chainID_j}")
+    
+    # Create resid to resname mapping for both selections
+    resid_to_resname_i = {res.resid: res.resname for res in sel1.residues}
+    resid_to_resname_j = {res.resid: res.resname for res in sel2.residues}
+    
     # Determine number of frames to process
     total_frames = len(u.trajectory)
     n_frames = total_frames
@@ -101,6 +110,18 @@ def main():
             exit()
 
         events_df, residue_summary_df, _ = compute_lifetimes_from_contacts(contact_matrix_list[0], dt, min_event_ns)
+
+    # Add chain IDs to dataframes
+    events_df['chainID_i'] = chainID_i
+    events_df['chainID_j'] = chainID_j
+    
+    # Add resnames by mapping resid_i and resid_j to resnames
+    events_df['resname_i'] = events_df['resid_i'].astype(int).map(resid_to_resname_i).fillna('unknown')
+    events_df['resname_j'] = events_df['resid_j'].astype(int).map(resid_to_resname_j).fillna('unknown')
+    
+    # Add to residue summary
+    residue_summary_df['chainID_i'] = chainID_i
+    residue_summary_df['chainID_j'] = chainID_j
 
     #Save dataframes
     events_df.to_csv(f"{odir}/{args.prefix}_events_df.csv", index=False, float_format='%.2f')

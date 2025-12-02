@@ -312,21 +312,22 @@ function lifetimes_to_cif(){
 
 
 function plot_lifetimes(){
+  #Same as PSII analysis but for each pair chain
+  
   script=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis
   
-  # Share with PSII analysis
+  # Share with PSII analysis, plot costummization
   chain_labels_yaml=/martini/rubiz/Github/PsbS_Binding_Site/definitions_yaml/chain_labels.yaml
   color_config_yaml=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/psii_psbs/color_definitions.yaml
 
   # Output YAML files defining helices
   psii_helix_yaml=/martini/rubiz/Github/PsbS_Binding_Site/definitions_yaml/psii_helix.yaml
   psbs_helix_yaml=/martini/rubiz/Github/PsbS_Binding_Site/definitions_yaml/psbs_helix.yaml
-  output_dir=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/figures/lifetimes_pairs 
   # PDB with helices defined (for reference)
   psii_pdbdatabase=/martini/rubiz/Github/PsbS_Binding_Site/3_reference_proteins/5XNL.pdb
   psbs_pdbdatabase=/martini/rubiz/Github/PsbS_Binding_Site/3_reference_proteins/4ri2.pdb
 
-  # Generate helix YAML files from PDB (if needed)
+  # Generate helix YAML files from PDB (helix definitions)
   python3 ${script}/write_helix_yaml.py -o ${psii_helix_yaml} -f ${psii_pdbdatabase}
   python3 ${script}/write_helix_yaml.py -o ${psbs_helix_yaml} -f ${psbs_pdbdatabase}
 
@@ -335,9 +336,10 @@ function plot_lifetimes(){
     wdir=${analysis_dir}/chain_${chain}
     cifs_dir=${wdir}/8_cifs_lifetimes
     basenames_csv=${wdir}/4_trj_cluster/binding_basenames.csv
-    output_dir_chain=${output_dir}/chain_${chain}
-    mkdir -p ${output_dir_chain}
-    
+    output_dir=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/analysis_pairs/chain_${chain}/9_lifetimes_sequences
+
+    mkdir -p ${output_dir}
+
     # Generate protein sequence plots with B-factor coloring and helix annotations
     echo "Generating protein sequence plots with lifetimes visualization for chain ${chain}..."
     python3 ${script}/plot_lifetimes_sequences.py \
@@ -347,10 +349,10 @@ function plot_lifetimes(){
       -c ${color_config_yaml} \
       -p ${psii_helix_yaml} \
       -s ${psbs_helix_yaml} \
-      -o ${output_dir_chain} \
+      -o ${output_dir} \
       --split-sequences 106
-    
-    echo "Sequence plots for chain ${chain} saved to: ${output_dir_chain}"
+
+    echo "Sequence plots for chain ${chain} saved to: ${output_dir}"
   done
 }
 
@@ -377,7 +379,7 @@ function main(){
 
   
   #lifetimes_statistics_psii          # Max occupancy
-  #lifetimes_to_cif_pairs
+  #lifetimes_to_cif
   plot_lifetimes
 
 }

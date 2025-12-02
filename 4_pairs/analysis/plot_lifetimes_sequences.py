@@ -212,7 +212,12 @@ globals().update(config_vars)
 
 # Load tags from basenames CSV
 basenames_df = pd.read_csv(BASENAMES_CSV, header=0, sep=' ')
-all_tags = basenames_df['unique_basename'].values
+try:
+    all_tags = basenames_df['unique_basename'].values
+except KeyError:
+    print(f"Warning: Column 'unique_basename' not found in {BASENAMES_CSV}")
+    print(f"         Falling back to first column as basenames")
+    all_tags = basenames_df.iloc[:, 0].values
 
 # Helper function to extract nested config values
 def get_config_value(config, path, default=None):
@@ -1263,7 +1268,13 @@ def main():
     
     # Load tags from basenames CSV
     basenames_df = pd.read_csv(BASENAMES_CSV, header=0, sep=' ')
-    all_tags = basenames_df['unique_basename'].values
+    try:
+        all_tags = basenames_df['unique_basename'].values
+    except KeyError:
+        print(f"Warning: Column 'unique_basename' not found in {BASENAMES_CSV}")
+        print(f"         Falling back to first column as basenames")
+        basenames_df = pd.read_csv(BASENAMES_CSV, header=None, sep=' ')
+        all_tags = basenames_df.iloc[:, 0].values
     
     # Create output directory if it doesn't exist
     Path(OUTPUT_FIGURES_DIR).mkdir(parents=True, exist_ok=True)
@@ -1370,5 +1381,4 @@ def main():
 
 if __name__ == '__main__':
     main()
-    print("\nAll cases processed successfully!")
 
