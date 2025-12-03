@@ -243,7 +243,10 @@ function lifetime_analysis_grouped (){
       python3 ${scripts_dir}/lifetime_analysis.py -dt ${dt} -min_event_ns ${min_event_ns} -cutoff "${cutoff}" -f ${f} -traj ${trj} -sel1 "${sel1}" -sel2 "${sel2}" -o ${odir} -prefix psbs_${basename} -group_by1 "resids" -group_by2 "resids" > ${odir}/psbs_${basename}.log 2>&1 &
       for chain in "${chains_arr[@]}"; do
         # Contacts chains and PsbS
-        python3 ${scripts_dir}/lifetime_analysis.py -dt ${dt} -min_event_ns ${min_event_ns} -cutoff "${cutoff}" -f ${f} -traj ${trj} -sel1 "chainID ${chain}" -sel2 "${sel1}" -o ${odir} -prefix chain_${chain}_${basename} -group_by1 "resids" -group_by2 "chainIDs" > ${odir}/chain_${chain}_${basename}.log 2>&1 &
+        
+        sel3="chainID ${chain} and resname PLQ PL9 LUT VIO XAT NEO NEX BCR CLA CLB HEME CHL"
+        python3 ${scripts_dir}/lifetime_analysis.py -dt ${dt} -min_event_ns ${min_event_ns} -cutoff "${cutoff}" -f ${f} -traj ${trj} -sel1 "${sel3}" -sel2 "${sel1}" -o ${odir} -prefix chain_${chain}_${basename} -group_by1 "resids" -group_by2 "chainIDs" > ${odir}/chain_${chain}_${basename}.log 2>&1 &
+        python3 ${scripts_dir}/lifetime_analysis.py -dt ${dt} -min_event_ns ${min_event_ns} -cutoff "${cutoff}" -f ${f} -traj ${trj} -sel1 "${sel3}" -sel2 "${sel1}" -o ${odir} -prefix chain_${chain}_${basename}_respairs -group_by1 "resids" -group_by2 "resids" > ${odir}/chain_${chain}_${basename}_respairs.log 2>&1 &
       done
     done
   done
@@ -356,6 +359,29 @@ function plot_lifetimes(){
   done
 }
 
+function write_databases(){
+HELIX_DEFINITIONS_YAML_GROUP2="/martini/rubiz/Github/PsbS_Binding_Site/definitions_yaml/psbs_helix_labels_merged.yaml"
+HELIX_DEFINITIONS_YAML_GROUP1="/martini/rubiz/Github/PsbS_Binding_Site/definitions_yaml/psii_helix_labels.yaml"
+LABELS_CHAIN_YAML_GROUP1="/martini/rubiz/Github/PsbS_Binding_Site/definitions_yaml/chain_labels.yaml"
+LABELS_CHAIN_YAML_GROUP2="/martini/rubiz/Github/PsbS_Binding_Site/definitions_yaml/psbs_labels.yaml"
+for chain in "${chains_analyze[@]}"; do
+  wdir=${analysis_dir}/chain_${chain}
+  odir=${wdir}/10_database
+  idir7=${wdir}/7_lifetimes_grouped
+  mkdir -p ${odir}
+  python3 ${scripts_dir}/write_databases.py \
+    --helix_def_yaml_group1 ${HELIX_DEFINITIONS_YAML_GROUP1} \
+    --helix_def_yaml_group2 ${HELIX_DEFINITIONS_YAML_GROUP2} \
+    --output ${odir}/database.csv \
+    --csv_files "${idir7}/*respairs_events*.csv" \
+    --add_labels_colname "sim_type" \
+    --add_labels_values "pairs" \
+    --labels_chain_yaml_group1 ${LABELS_CHAIN_YAML_GROUP1} \
+    --labels_chain_yaml_group2 ${LABELS_CHAIN_YAML_GROUP2}
+done
+}
+
+
 
 function main(){
   set -e
@@ -380,7 +406,8 @@ function main(){
   
   #lifetimes_statistics_psii          # Max occupancy
   #lifetimes_to_cif
-  plot_lifetimes
+  #plot_lifetimes
+  write_databases
 
 }
 

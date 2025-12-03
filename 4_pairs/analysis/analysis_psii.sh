@@ -200,7 +200,7 @@ function lifetime_analysis_grouped (){
   odir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/lifetimes   
   script=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis
   mkdir -p ${odir}
-  rm -f ${odir}/*
+  #rm -f ${odir}/*
   tpr_files=($(ls ${dir}/*.tpr))
   for tpr_file in "${tpr_files[@]}"; do
     basename=$(basename ${tpr_file} .tpr)
@@ -218,11 +218,13 @@ function lifetime_analysis_grouped (){
 
     #python3 ${script}/lifetime_analysis.py -prefix test -n_frames 100 -dt ${dt} -min_event_ns 0 -cutoff "${cutoff}" -f ${f} -traj ${trj} -sel1 "${sel1}" -sel2 "${sel2}" -o ${odir} -prefix test_${basename} -group_by1 "resids" -group_by2 "resids" > ${odir}/psbs_${basename}.log 2>&1 &
     #Contacts PsbS and chains
-    python3 ${script}/lifetime_analysis.py -dt ${dt} -min_event_ns ${min_event_ns} -cutoff "${cutoff}" -f ${f} -traj ${trj} -sel1 "${sel1}" -sel2 "${sel2}" -o ${odir} -prefix psbs_${basename} -group_by1 "resids" -group_by2 "resids" > ${odir}/psbs_${basename}.log 2>&1 &
+    #python3 ${script}/lifetime_analysis.py -dt ${dt} -min_event_ns ${min_event_ns} -cutoff "${cutoff}" -f ${f} -traj ${trj} -sel1 "${sel1}" -sel2 "${sel2}" -o ${odir} -prefix psbs_${basename} -group_by1 "resids" -group_by2 "resids" > ${odir}/psbs_${basename}.log 2>&1 &
     for chain in "${chains_arr[@]}"; do
       # Contacts chains and PsbS
       sel3="chainID ${chain} and (not resname *GG* *SQ* *PG* *MG* W* HOH *HG* *DS* *DP* *DG*)" # Only chlorophylls and proteins
-      python3 ${script}/lifetime_analysis.py -dt ${dt} -min_event_ns ${min_event_ns} -cutoff "${cutoff}" -f ${f} -traj ${trj} -sel1 "${sel3}" -sel2 "${sel1}" -o ${odir} -prefix chain_${chain}_${basename} -group_by1 "resids" -group_by2 "segids" > ${odir}/chain_${chain}_${basename}.log 2>&1 &
+      #python3 ${script}/lifetime_analysis.py -dt ${dt} -min_event_ns ${min_event_ns} -cutoff "${cutoff}" -f ${f} -traj ${trj} -sel1 "${sel3}" -sel2 "${sel1}" -o ${odir} -prefix chain_${chain}_${basename} -group_by1 "resids" -group_by2 "segids" > ${odir}/chain_${chain}_${basename}.log 2>&1 &
+      python3 ${script}/lifetime_analysis.py -dt ${dt} -min_event_ns ${min_event_ns} -cutoff "${cutoff}" -f ${f} -traj ${trj} -sel1 "${sel3}" -sel2 "${sel1}" -o ${odir} -prefix chain_${chain}_${basename}_respairs -group_by1 "resids" -group_by2 "resids" > ${odir}/chain_${chain}_${basename}_respairs.log 2>&1 &
+
     done
   done
 }
@@ -392,6 +394,38 @@ function plot_lifetimes(){
   echo "Sequence plots saved to: ${output_dir}"
 }
 
+function write_databases(){
+HELIX_DEFINITIONS_YAML_GROUP2="/martini/rubiz/Github/PsbS_Binding_Site/definitions_yaml/psbs_helix_labels_merged_psii.yaml"
+HELIX_DEFINITIONS_YAML_GROUP1="/martini/rubiz/Github/PsbS_Binding_Site/definitions_yaml/psii_helix_labels.yaml"
+analysis_dir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites
+scripts_dir=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis
+wdir=${analysis_dir}
+odir=${wdir}/10_database
+idir7=${wdir}/lifetimes
+mkdir -p ${odir}
+python3 ${scripts_dir}/write_databases.py \
+  --helix_def_yaml_group1 ${HELIX_DEFINITIONS_YAML_GROUP1} \
+  --helix_def_yaml_group2 ${HELIX_DEFINITIONS_YAML_GROUP2} \
+  --output ${odir}/database.csv \
+  --csv_files "${idir7}/*respairs_events*.csv" \
+  --add_labels_colname "sim_type" \
+  --add_labels_values "psii_lhcii"
+
+}
+
+function join_databases(){
+  file1=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/analysis_pairs/chain_4/10_database/database.csv
+  file2=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/analysis_pairs/chain_r/10_database/database.csv
+  file3=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/analysis_pairs/chain_s/10_database/database.csv
+  file4=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/10_database/database.csv
+  
+  odir=/martini/rubiz/Github/PsbS_Binding_Site/combined_database
+  mkdir -p ${odir}
+  python3 /martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/join_databases.py \
+    --input_files ${file1} ${file2} ${file3} ${file4} \
+    --output_file ${odir}/combined_database.csv
+}
+
 function main(){
   #set -e  
 
@@ -413,8 +447,9 @@ function main(){
   #reassign_chains 
   #lifetimes_to_cif_psii             # CIF files allow bfactors > 999 while PDB files do not.
   #lifetimes_statistics_psii         # Max occupancy
-  plot_lifetimes                     # Generate protein sequence plots with B-factor coloring
-
+  #plot_lifetimes                     # Generate protein sequence plots with B-factor coloring
+  #write_databases
+  join_databases
 }
 
 main
