@@ -212,7 +212,7 @@ function lifetime_analysis_grouped (){
     sel1="segid A*" # PsbS
     sel2="not segid A* and (not resname *GG* *SQ* *PG* *MG* W* HOH *HG* *DS* *DP* *DG*)" # Only chlorophylls, HEME and proteins, carotenoids
     cutoff=8
-    dt=2 # time step between frames
+    dt=1 # time step between frames
     min_event_ns=100
 
 
@@ -397,6 +397,8 @@ function plot_lifetimes(){
 function write_databases(){
 HELIX_DEFINITIONS_YAML_GROUP2="/martini/rubiz/Github/PsbS_Binding_Site/definitions_yaml/psbs_helix_labels_merged_psii.yaml"
 HELIX_DEFINITIONS_YAML_GROUP1="/martini/rubiz/Github/PsbS_Binding_Site/definitions_yaml/psii_helix_labels.yaml"
+LABELS_CHAIN_YAML_GROUP1="/martini/rubiz/Github/PsbS_Binding_Site/definitions_yaml/chain_labels.yaml"
+LABELS_CHAIN_YAML_GROUP2="/martini/rubiz/Github/PsbS_Binding_Site/definitions_yaml/psbs_labels.yaml"
 analysis_dir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites
 scripts_dir=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis
 wdir=${analysis_dir}
@@ -409,8 +411,9 @@ python3 ${scripts_dir}/write_databases.py \
   --output ${odir}/database.csv \
   --csv_files "${idir7}/*respairs_events*.csv" \
   --add_labels_colname "sim_type" \
-  --add_labels_values "psii_lhcii"
-
+  --add_labels_values "psii_lhcii" \
+  --labels_chain_yaml_group1 ${LABELS_CHAIN_YAML_GROUP1} \
+  --labels_chain_yaml_group2 ${LABELS_CHAIN_YAML_GROUP2} 
 }
 
 function join_databases(){
@@ -448,7 +451,7 @@ function main(){
   #lifetimes_to_cif_psii             # CIF files allow bfactors > 999 while PDB files do not.
   #lifetimes_statistics_psii         # Max occupancy
   #plot_lifetimes                     # Generate protein sequence plots with B-factor coloring
-  #write_databases
+  write_databases
   join_databases
 }
 

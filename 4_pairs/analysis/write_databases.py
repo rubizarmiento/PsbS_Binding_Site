@@ -155,7 +155,8 @@ def get_restype_dict():
     'VIO': 'carotenoid',
     'XAT': 'carotenoid',
     'NEO': 'carotenoid',
-    'BCR': 'carotenoid'
+    'BCR': 'carotenoid',
+    'NEX': 'carotenoid'
 }
 
 def get_type_dict():
@@ -184,17 +185,17 @@ def get_type_dict():
     'CYS': 'protein',
 
     # Chlorophylls
-    'CLA': 'cofactor',
-    'CLB': 'cofactor',
-    'CHL': 'cofactor',
+    'CLA': 'chlorophyll',
+    'CLB': 'chlorophyll',
+    'CHL': 'chlorophyll',
 
     # Carotenoids
-    'LUT': 'cofactor',
-    'VIO': 'cofactor',
-    'XAT': 'cofactor',
-    'NEO':  'cofactor',
-    'BCR':  'cofactor',
-    'NEX':  'cofactor'  
+    'LUT': 'LUT',
+    'VIO': 'VIO',
+    'XAT': 'XAT',
+    'NEO': 'NEO',
+    'BCR': 'BCR',
+    'NEX': 'NEO'
 
 }
 
@@ -290,6 +291,11 @@ def add_helix_to_dfs(df, helix_dict, resid_col='resid_i', helix_col='helix_i', t
     
     return df
 
+def add_col_if_match(df, dict_map, key_col, new_col, default_value='NA'):
+    """Add a new column to the dataframe based on a mapping dictionary."""
+    df[new_col] = df[key_col].map(dict_map).fillna(default_value)
+    return df
+
 def write_df(df, output):
     """Write dataframe to CSV file."""
     output_path = Path(output)
@@ -342,6 +348,17 @@ def main():
         print("ERROR: No data to process")
         exit(1)
 
+    # Convert chainID columns to string
+    concat_df['chainID_i'] = concat_df['chainID_i'].astype(str)
+    concat_df['chainID_j'] = concat_df['chainID_j'].astype(str)
+
+    # Add resid+resname column
+    concat_df['resid_resname_i'] = concat_df['resid_i'].astype(str) + concat_df['resname_i'].astype(str)
+    concat_df['resid_resname_j'] = concat_df['resid_j'].astype(str) + concat_df['resname_j'].astype(str)
+
+    #Add resid_resname_i+resid_resname_j column
+    concat_df['resid_resname_pair'] = concat_df['resid_resname_i'] + "-" + concat_df['resid_resname_j']
+
     # Add lifetime stats
     concat_df = stats_to_dfs(concat_df, 
                             group_by=["resid_i", "resid_j"],
@@ -366,10 +383,10 @@ def main():
     if args.labels_chain_yaml_group1:
         dict_chain_labels_group1 = yaml_to_dict(args.labels_chain_yaml_group1)
     if args.labels_chain_yaml_group1:
-        concat_df = add_helix_to_dfs(concat_df, dict_chain_labels_group1, resid_col='resid_i', helix_col='chain_label_i', type_col='type_i', chain_col='chainID_i')
+        concat_df = add_col_if_match(concat_df, dict_chain_labels_group1, key_col='chainID_i', new_col='chain_label_i', default_value='NA')
     if args.labels_chain_yaml_group2:
         dict_chain_labels_group2 = yaml_to_dict(args.labels_chain_yaml_group2)
-        concat_df = add_helix_to_dfs(concat_df, dict_chain_labels_group2, resid_col='resid_j', helix_col='chain_label_j', type_col='type_j', chain_col='chainID_j')
+        concat_df = add_col_if_match(concat_df, dict_chain_labels_group2, key_col='chainID_j', new_col='chain_label_j', default_value='NA')
 
     # Add additional labels
     concat_df = add_labels_dfs(concat_df, args.add_labels_colname, args.add_labels_values)
