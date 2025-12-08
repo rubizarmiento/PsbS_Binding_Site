@@ -1,0 +1,97 @@
+# Helix residue ranges organized by chain and helix number
+# Format: chain_ID -> H1, H2, H3, etc -> start/end residue numbers
+# Note: Only class 1 (right-handed alpha) helices included
+
+chain_A:
+  TM1:
+    start: 33
+    end: 59
+    start_res_name: THR
+    end_res_name: GLY
+    length: 27
+    class: 1
+  H1:
+    start: 61
+    end: 66
+    start_res_name: GLY
+    end_res_name: LEU
+    length: 6
+    class: 1
+  TM2:
+    start: 78
+    end: 93
+    start_res_name: GLU
+    end_res_name: ILE
+    length: 16
+    class: 1
+  TM3:
+    start: 137
+    end: 163
+    start_res_name: THR
+    end_res_name: GLY
+    length: 27
+    class: 1
+  H2:
+    start: 165
+    end: 175
+    start_res_name: GLY
+    end_res_name: GLY
+    length: 11
+    class: 1
+  TM4:
+    start: 177
+    end: 198
+    start_res_name: PRO
+    end_res_name: ASN
+    length: 22
+    class: 1
+chain_B:
+  TM1:
+    start: 33
+    end: 59
+    start_res_name: THR
+    end_res_name: GLY
+    length: 27
+    class: 1
+  H1:
+    start: 61
+    end: 66
+    start_res_name: GLY
+    end_res_name: LEU
+    length: 6
+    class: 1
+  TM2:
+    start: 78
+    end: 93
+    start_res_name: GLU
+    end_res_name: ILE
+    length: 16
+    class: 1
+  TM3:
+    start: 137
+    end: 163
+    start_res_name: THR
+    end_res_name: GLY
+    length: 27
+    class: 1
+  H2:
+    start: 165
+    end: 175
+    start_res_name: GLY
+    end_res_name: GLY
+    length: 11
+    class: 1
+  TM4:
+    start: 177
+    end: 198
+    start_res_name: PRO
+    end_res_name: ASN
+    length: 22
+    class: 1
+  H3:
+    start: 212
+    end: 212
+    start_res_name: XXX
+    end_res_name: XXX
+    length: 1
+    class: 1

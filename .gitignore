@@ -5,6 +5,16 @@
 !.gitignore
 !README.md
 
+# Allow analysis_dataset directory and its files
+!analysis_dataset/
+!analysis_dataset/*
+!analysis_dataset/scripts/
+!analysis_dataset/scripts/*
+!analysis_dataset/sql_operations/
+!analysis_dataset/sql_operations/*
+!analysis_dataset/definitions_yaml/
+!analysis_dataset/definitions_yaml/*
+
 # Allow only specific scripts in 5_psii
 !analysis_dataset/*
 !5_psii/

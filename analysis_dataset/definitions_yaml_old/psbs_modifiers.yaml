@@ -1,0 +1,17 @@
+# Multiple modifier operations for PsbS data
+# Each operation is applied sequentially
+
+# Operation 1: Renumber residue IDs by subtracting 212 from values greater than 212
+- col: resid_j
+  new_col: resid_j_renumbered
+  operation: -212
+  condition: "> 212"
+
+# Operation 2: Rename chain based on resid_j value
+# Assigns 'A' for resids <= 212, 'B' for resids > 212
+- col: resid_j
+  new_col: chain_j_renamed
+  operation: 0
+  condition: "> 212"
+  value_if_true: "B"
+  value_if_false: "A"
