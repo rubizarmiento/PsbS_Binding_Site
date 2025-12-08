@@ -110,121 +110,12 @@ def stats_to_dfs(df, group_by, values, stats=["mean", "std", "median", "min", "m
     return df
 
 
-def get_restype_dict():
-    """Get residue type dictionary."""
-    return {
-    # Hydrophobic (aliphatic)
-    'ALA': 'hydrophobic',
-    'VAL': 'hydrophobic',
-    'LEU': 'hydrophobic',
-    'ILE': 'hydrophobic',
-    'MET': 'hydrophobic',
-
-    # Aromatic
-    'PHE': 'aromatic',
-    'TYR': 'aromatic',
-    'TRP': 'aromatic',
-
-    # Polar uncharged
-    'SER': 'polar',
-    'THR': 'polar',
-    'ASN': 'polar',
-    'GLN': 'polar',
-
-    # Negative (acidic)
-    'ASP': 'acidic',
-    'GLU': 'acidic',
-
-    # Positive (basic)
-    'LYS': 'basic',
-    'ARG': 'basic',
-    'HIS': 'basic',
-
-    # Special cases
-    'GLY': 'special',
-    'PRO': 'special',
-    'CYS': 'special',
-
-    # Chlorophylls
-    'CLA': 'chlorophyll',
-    'CLB': 'chlorophyll',
-    'CHL': 'chlorophyll',
-
-    # Carotenoids
-    'LUT': 'carotenoid',
-    'VIO': 'carotenoid',
-    'XAT': 'carotenoid',
-    'NEO': 'carotenoid',
-    'BCR': 'carotenoid',
-    'NEX': 'carotenoid'
-}
-
-def get_type_dict():
-    """Get type protein or cofactor dictionary."""
-    return {
-    # Proteins
-    'ALA': 'protein',
-    'VAL': 'protein',
-    'LEU': 'protein',
-    'ILE': 'protein',
-    'MET': 'protein',
-    'PHE': 'protein',
-    'TYR': 'protein',
-    'TRP': 'protein',
-    'SER': 'protein',
-    'THR': 'protein',
-    'ASN': 'protein',
-    'GLN': 'protein',
-    'ASP': 'protein',
-    'GLU': 'protein',
-    'LYS': 'protein',
-    'ARG': 'protein',
-    'HIS': 'protein',
-    'GLY': 'protein',
-    'PRO': 'protein',
-    'CYS': 'protein',
-
-    # Chlorophylls
-    'CLA': 'chlorophyll',
-    'CLB': 'chlorophyll',
-    'CHL': 'chlorophyll',
-
-    # Carotenoids
-    'LUT': 'LUT',
-    'VIO': 'VIO',
-    'XAT': 'XAT',
-    'NEO': 'NEO',
-    'BCR': 'BCR',
-    'NEX': 'NEO'
-
-}
-
-def add_restypes_to_dfs(df, resname_col1='resname_i', resname_col2='resname_j'):
-    """Add restype columns using vectorized .map()."""
-    restype_dict = get_restype_dict()
-    
-    # VECTORIZED: Apply to entire column at once
-    df['restype_i'] = df[resname_col1].map(restype_dict).fillna('unknown')
-    df['restype_j'] = df[resname_col2].map(restype_dict).fillna('unknown')
-
-    return df
-
-def add_types_to_dfs(df, resname_col1='resname_i', resname_col2='resname_j'):
-    """Add type columns using vectorized .map()."""
-    type_dict = get_type_dict()
-    
-    # VECTORIZED: Apply to entire column at once
-    df['type_i'] = df[resname_col1].map(type_dict).fillna('unknown')
-    df['type_j'] = df[resname_col2].map(type_dict).fillna('unknown')
-
-    return df
-
 def yaml_to_dict(yaml_file):
     """Load YAML file to dictionary."""
     with open(yaml_file, 'r') as f:
         return yaml.safe_load(f)
 
-def add_helix_to_dfs(df, helix_dict, resid_col='resid_i', helix_col='helix_i', type_col='type_i', chain_col='chainID_i'):
+def add_helix_to_dfs(df, helix_dict, resid_col='resid_i', helix_col='helix_i', chain_col='chainID_i'):
     """Add helix information using vectorized operations."""
     # Check if chain_col exists in the dataframe
     use_chain = chain_col is not None and chain_col in df.columns
@@ -276,17 +167,9 @@ def add_helix_to_dfs(df, helix_dict, resid_col='resid_i', helix_col='helix_i', t
     
     df = df.rename(columns={'helix': helix_col, 'class': f'{helix_col}_class'})
     
-    # Fill NaN values based on residue type
-    # For protein residues not in helices, set helix to 'loop'
-    # For cofactor residues not in helices, set helix to 'NA'
-    if type_col in df.columns:
-        mask_protein = (df[helix_col].isna()) & (df[type_col] == 'protein')
-        mask_cofactor = (df[helix_col].isna()) & (df[type_col] == 'cofactor')
-        
-        df.loc[mask_protein, helix_col] = 'loop'
-        df.loc[mask_cofactor, helix_col] = 'NA'
-    
-    # For class column, set to 'NA' for residues not in helices
+    # Fill NaN values for residues not in helices
+    # Set helix to 'loop' and class to 'NA' for unmapped residues
+    df[helix_col] = df[helix_col].fillna('loop')
     df[f'{helix_col}_class'] = df[f'{helix_col}_class'].fillna('NA')
     
     return df
@@ -294,6 +177,83 @@ def add_helix_to_dfs(df, helix_dict, resid_col='resid_i', helix_col='helix_i', t
 def add_col_if_match(df, dict_map, key_col, new_col, default_value='NA'):
     """Add a new column to the dataframe based on a mapping dictionary."""
     df[new_col] = df[key_col].map(dict_map).fillna(default_value)
+    return df
+
+def apply_modifier_operation(df, modifier_config):
+    """
+    Apply conditional operations to dataframe columns based on modifier config.
+    
+    Parameters:
+    -----------
+    df : pd.DataFrame
+        The dataframe to modify
+    modifier_config : dict
+        Configuration dictionary with keys:
+        - 'col': source column name
+        - 'new_col': target column name
+        - 'operation': numeric value to apply (e.g., -212 means subtract 212)
+        - 'condition': condition string (e.g., '> 212')
+        - 'value_if_true': (optional) value to assign when condition is true
+        - 'value_if_false': (optional) value to assign when condition is false
+        
+        If value_if_true/value_if_false are provided, performs conditional assignment.
+        Otherwise, performs arithmetic operation.
+    
+    Returns:
+    --------
+    pd.DataFrame
+        Modified dataframe with new column
+    """
+    col = modifier_config['col']
+    new_col = modifier_config['new_col']
+    operation = modifier_config.get('operation', 0)
+    condition = modifier_config['condition']
+    
+    # Check if this is a conditional value assignment
+    has_conditional_values = 'value_if_true' in modifier_config and 'value_if_false' in modifier_config
+    
+    # Parse condition (e.g., '> 212' -> operator='>' and value=212)
+    condition_parts = condition.strip().split()
+    if len(condition_parts) != 2:
+        raise ValueError(f"Invalid condition format: {condition}. Expected format: '> 212'")
+    
+    operator = condition_parts[0]
+    threshold = float(condition_parts[1])
+    
+    # Apply operation based on condition
+    if operator == '>':
+        mask = df[col] > threshold
+    elif operator == '>=':
+        mask = df[col] >= threshold
+    elif operator == '<':
+        mask = df[col] < threshold
+    elif operator == '<=':
+        mask = df[col] <= threshold
+    elif operator == '==':
+        mask = df[col] == threshold
+    elif operator == '!=':
+        mask = df[col] != threshold
+    else:
+        raise ValueError(f"Unsupported operator: {operator}")
+    
+    if has_conditional_values:
+        # Conditional value assignment mode
+        value_if_true = modifier_config['value_if_true']
+        value_if_false = modifier_config['value_if_false']
+        
+        # Initialize new column with proper dtype to avoid warnings
+        # Use object dtype to handle any type (string, int, float)
+        df[new_col] = None
+        df[new_col] = df[new_col].astype(object)
+        df.loc[mask, new_col] = value_if_true
+        df.loc[~mask, new_col] = value_if_false
+    else:
+        # Arithmetic operation mode
+        # Create new column, starting with original values
+        df[new_col] = df[col]
+        # Apply the operation (add the operation value, which can be negative)
+        df.loc[mask, new_col] = df.loc[mask, col] + operation
+    
     return df
 
 def write_df(df, output):
@@ -352,34 +312,21 @@ def main():
     concat_df['chainID_i'] = concat_df['chainID_i'].astype(str)
     concat_df['chainID_j'] = concat_df['chainID_j'].astype(str)
 
-    # Add resid+resname column
-    concat_df['resid_resname_i'] = concat_df['resid_i'].astype(str) + concat_df['resname_i'].astype(str)
-    concat_df['resid_resname_j'] = concat_df['resid_j'].astype(str) + concat_df['resname_j'].astype(str)
-
-    #Add resid_resname_i+resid_resname_j column
-    concat_df['resid_resname_pair'] = concat_df['resid_resname_i'] + "-" + concat_df['resid_resname_j']
-
     # Add lifetime stats
     concat_df = stats_to_dfs(concat_df, 
                             group_by=["resid_i", "resid_j"],
                             values="lifetime_ns",
                             stats=["mean", "std", "median", "min", "max", "count", "sum"])
 
-    # Add restype columns (commented out - no resname columns in CSV)
-    concat_df = add_restypes_to_dfs(concat_df)
-
-    # Add types (protein/cofactor) to dataframe
-    concat_df = add_types_to_dfs(concat_df)
-
     # Get helix dictionaries
     dict_helix_group1 = yaml_to_dict(args.helix_def_yaml_group1)
     dict_helix_group2 = yaml_to_dict(args.helix_def_yaml_group2)
 
     # Add helix information
-    concat_df = add_helix_to_dfs(concat_df, dict_helix_group1, resid_col='resid_i', helix_col='helix_i', type_col='type_i', chain_col='chainID_i')
-    concat_df = add_helix_to_dfs(concat_df, dict_helix_group2, resid_col='resid_j', helix_col='helix_j', type_col='type_j', chain_col='chainID_j')
+    concat_df = add_helix_to_dfs(concat_df, dict_helix_group1, resid_col='resid_i', helix_col='helix_i', chain_col='chainID_i')
+    concat_df = add_helix_to_dfs(concat_df, dict_helix_group2, resid_col='resid_j', helix_col='helix_j', chain_col='chainID_j')
 
-        # Get chain labels
+    # Get chain labels
     if args.labels_chain_yaml_group1:
         dict_chain_labels_group1 = yaml_to_dict(args.labels_chain_yaml_group1)
     if args.labels_chain_yaml_group1:
@@ -387,6 +334,7 @@ def main():
     if args.labels_chain_yaml_group2:
         dict_chain_labels_group2 = yaml_to_dict(args.labels_chain_yaml_group2)
         concat_df = add_col_if_match(concat_df, dict_chain_labels_group2, key_col='chainID_j', new_col='chain_label_j', default_value='NA')
+    
 
     # Add additional labels
     concat_df = add_labels_dfs(concat_df, args.add_labels_colname, args.add_labels_values)

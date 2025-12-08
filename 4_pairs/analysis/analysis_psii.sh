@@ -394,41 +394,6 @@ function plot_lifetimes(){
   echo "Sequence plots saved to: ${output_dir}"
 }
 
-function write_databases(){
-HELIX_DEFINITIONS_YAML_GROUP2="/martini/rubiz/Github/PsbS_Binding_Site/definitions_yaml/psbs_helix_labels_merged_psii.yaml"
-HELIX_DEFINITIONS_YAML_GROUP1="/martini/rubiz/Github/PsbS_Binding_Site/definitions_yaml/psii_helix_labels.yaml"
-LABELS_CHAIN_YAML_GROUP1="/martini/rubiz/Github/PsbS_Binding_Site/definitions_yaml/chain_labels.yaml"
-LABELS_CHAIN_YAML_GROUP2="/martini/rubiz/Github/PsbS_Binding_Site/definitions_yaml/psbs_labels.yaml"
-analysis_dir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites
-scripts_dir=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis
-wdir=${analysis_dir}
-odir=${wdir}/10_database
-idir7=${wdir}/lifetimes
-mkdir -p ${odir}
-python3 ${scripts_dir}/write_databases.py \
-  --helix_def_yaml_group1 ${HELIX_DEFINITIONS_YAML_GROUP1} \
-  --helix_def_yaml_group2 ${HELIX_DEFINITIONS_YAML_GROUP2} \
-  --output ${odir}/database.csv \
-  --csv_files "${idir7}/*respairs_events*.csv" \
-  --add_labels_colname "sim_type" \
-  --add_labels_values "psii_lhcii" \
-  --labels_chain_yaml_group1 ${LABELS_CHAIN_YAML_GROUP1} \
-  --labels_chain_yaml_group2 ${LABELS_CHAIN_YAML_GROUP2} 
-}
-
-function join_databases(){
-  file1=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/analysis_pairs/chain_4/10_database/database.csv
-  file2=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/analysis_pairs/chain_r/10_database/database.csv
-  file3=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/analysis_pairs/chain_s/10_database/database.csv
-  file4=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/10_database/database.csv
-  
-  odir=/martini/rubiz/Github/PsbS_Binding_Site/combined_database
-  mkdir -p ${odir}
-  python3 /martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/join_databases.py \
-    --input_files ${file1} ${file2} ${file3} ${file4} \
-    --output_file ${odir}/combined_database.csv
-}
-
 function main(){
   #set -e  
 
@@ -451,7 +416,7 @@ function main(){
   #lifetimes_to_cif_psii             # CIF files allow bfactors > 999 while PDB files do not.
   #lifetimes_statistics_psii         # Max occupancy
   #plot_lifetimes                     # Generate protein sequence plots with B-factor coloring
-  write_databases
+  #write_databases
   join_databases
 }
 

@@ -6,6 +6,7 @@
 !README.md
 
 # Allow only specific scripts in 5_psii
+analysis_dataset/*
 !5_psii/
 5_psii/*
 !5_psii/psii_psbs/

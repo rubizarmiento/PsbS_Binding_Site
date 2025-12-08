@@ -358,30 +358,6 @@ function plot_lifetimes(){
   done
 }
 
-function write_databases(){
-HELIX_DEFINITIONS_YAML_GROUP2="/martini/rubiz/Github/PsbS_Binding_Site/definitions_yaml/psbs_helix_labels_merged.yaml"
-HELIX_DEFINITIONS_YAML_GROUP1="/martini/rubiz/Github/PsbS_Binding_Site/definitions_yaml/psii_helix_labels.yaml"
-LABELS_CHAIN_YAML_GROUP1="/martini/rubiz/Github/PsbS_Binding_Site/definitions_yaml/chain_labels.yaml"
-LABELS_CHAIN_YAML_GROUP2="/martini/rubiz/Github/PsbS_Binding_Site/definitions_yaml/psbs_labels.yaml"
-for chain in "${chains_analyze[@]}"; do
-  wdir=${analysis_dir}/chain_${chain}
-  odir=${wdir}/10_database
-  idir7=${wdir}/7_lifetimes_grouped
-  mkdir -p ${odir}
-  python3 ${scripts_dir}/write_databases.py \
-    --helix_def_yaml_group1 ${HELIX_DEFINITIONS_YAML_GROUP1} \
-    --helix_def_yaml_group2 ${HELIX_DEFINITIONS_YAML_GROUP2} \
-    --output ${odir}/database.csv \
-    --csv_files "${idir7}/*respairs_events*.csv" \
-    --add_labels_colname "sim_type" \
-    --add_labels_values "pairs" \
-    --labels_chain_yaml_group1 ${LABELS_CHAIN_YAML_GROUP1} \
-    --labels_chain_yaml_group2 ${LABELS_CHAIN_YAML_GROUP2}
-done
-}
-
-
-
 function main(){
   set -e
   #check_selections
@@ -406,7 +382,6 @@ function main(){
   #lifetimes_statistics_psii          # Max occupancy
   #lifetimes_to_cif
   #plot_lifetimes
-  write_databases
 
 }
 
