@@ -129,13 +129,6 @@ def load_bfactor_mapping(lifetimes_dir, case, chains=None):
             print(f"CSV file not found: {csv_file}. Using B-factor=0 for all residues.")
             return {}
         df = pd.read_csv(csv_file)
-        
-        # Check for sum_ns column, print available columns if not found
-        if 'sum_ns' not in df.columns:
-            print(f"ERROR: 'sum_ns' column not found in {csv_file}")
-            print(f"Available columns: {list(df.columns)}")
-            return {}
-            
         resid_to_bfactor = dict(zip(df['resid'], df['sum_ns']))
         print(f"Loaded {len(resid_to_bfactor)} residue-bfactor mappings from PSBS")
     else:
@@ -146,13 +139,6 @@ def load_bfactor_mapping(lifetimes_dir, case, chains=None):
                 print(f"CSV file not found for chain {chain}: {csv_file}. Using B-factor=0.")
                 continue
             df_chain = pd.read_csv(csv_file)
-            
-            # Check for sum_ns column, print available columns if not found
-            if 'sum_ns' not in df_chain.columns:
-                print(f"ERROR: 'sum_ns' column not found in {csv_file}")
-                print(f"Available columns: {list(df_chain.columns)}")
-                continue
-                
             for resid, bfactor in zip(df_chain['resid'], df_chain['sum_ns']):
                 # Use (chain, resid) tuple as key to avoid conflicts
                 resid_to_bfactor[(chain, resid)] = bfactor
@@ -310,25 +296,8 @@ def main():
     if not os.path.isfile(basenames_csv):
         raise FileNotFoundError(f"Basenames CSV file not found: {basenames_csv}")
     
-    print(f"Reading basenames from: {basenames_csv}")
     with open(basenames_csv, 'r') as f:
-        lines = f.readlines()
-    
-    # Skip first line if it looks like a header (contains "tag", "basename", or spaces between words)
-    cases = []
-    for i, line in enumerate(lines):
-        line = line.strip()
-        if not line:  # Skip empty lines
-            continue
-        if i == 0 and (' ' in line or 'tag' in line.lower() or 'basename' in line.lower()):
-            # Skip header line
-            print(f"Skipping header line: {line}")
-            continue
-        if line.startswith('#'):  # Skip comments
-            continue
-        # Take only the first column (whitespace-separated)
-        case = line.split()[0]
-        cases.append(case)
+        cases = [line.strip() for line in f if line.strip()]
     
     if not cases:
         raise ValueError(f"No case names found in {basenames_csv}")

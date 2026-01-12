@@ -2,11 +2,15 @@
 repository_dir=/martini/rubiz/Github/PsbS_Binding_Site/analysis_dataset
 scripts_dir=${repository_dir}/scripts
 
-HELIX_DEFINITIONS_YAML_GROUP1=${repository_dir}/definitions_yaml/binding_proteins_helix_labels.yaml
-HELIX_DEFINITIONS_YAML_GROUP2=${repository_dir}/definitions_yaml/target_protein_helix_labels_merged.yaml
+HELIX_DEFINITIONS_YAML_GROUP1_simtype1=${repository_dir}/definitions_yaml/binding_proteins_helix_labels.yaml
+HELIX_DEFINITIONS_YAML_GROUP1_simtype2=${repository_dir}/definitions_yaml/psii_helix_labels.yaml
+HELIX_DEFINITIONS_YAML_GROUP2_simtype1=${repository_dir}/definitions_yaml/target_protein_helix_labels_merged.yaml
+HELIX_DEFINITIONS_YAML_GROUP2_simtype2=${repository_dir}/definitions_yaml/target_protein_helix_labels_merged_psii.yaml
+
 
 LABELS_CHAIN_YAML_GROUP1=${repository_dir}/definitions_yaml/chain_labels.yaml
 LABELS_CHAIN_YAML_GROUP2=${repository_dir}/definitions_yaml/psbs_labels.yaml
+
 
 SQL_MODIFIERS=${repository_dir}/sql_operations/01_add_psbs_modifiers.sql
 SQL_CLASSIFICATION=${repository_dir}/sql_operations/02_add_residue_classifications.sql
@@ -21,8 +25,8 @@ function write_databases_pairs(){
       
       mkdir -p ${odir}
       python3 ${scripts_dir}/write_databases.py \
-          --helix_def_yaml_group1 ${HELIX_DEFINITIONS_YAML_GROUP1} \
-          --helix_def_yaml_group2 ${HELIX_DEFINITIONS_YAML_GROUP2} \
+          --helix_def_yaml_group1 ${HELIX_DEFINITIONS_YAML_GROUP1_simtype1} \
+          --helix_def_yaml_group2 ${HELIX_DEFINITIONS_YAML_GROUP2_simtype1} \
           --output ${odir}/database.csv \
           --csv_files "${idir}/*respairs_events*.csv" \
           --add_labels_colname "sim_type" \
@@ -47,24 +51,24 @@ function write_databases_supercomplex(){
   odir=${repository_dir}/1_concatenated_databases/supercomplex
   mkdir -p ${odir}
   python3 ${scripts_dir}/write_databases.py \
-    --helix_def_yaml_group1 ${HELIX_DEFINITIONS_YAML_GROUP1} \
-    --helix_def_yaml_group2 ${HELIX_DEFINITIONS_YAML_GROUP2} \
+    --helix_def_yaml_group1 ${HELIX_DEFINITIONS_YAML_GROUP1_simtype2} \
+    --helix_def_yaml_group2 ${HELIX_DEFINITIONS_YAML_GROUP2_simtype2} \
     --output ${odir}/database.csv \
     --csv_files "${idir}/*respairs_events*.csv" \
     --add_labels_colname "sim_type" \
     --add_labels_values "psii_lhcii" \
     --labels_chain_yaml_group1 ${LABELS_CHAIN_YAML_GROUP1} \
-    --labels_chain_yaml_group2 ${LABELS_CHAIN_YAML_GROUP2} \
+    --labels_chain_yaml_group2 ${LABELS_CHAIN_YAML_GROUP2}
     
-    python ${scripts_dir}/apply_sql_operations.py \
-      --input_csv ${odir}/database.csv \
-      --output_csv ${odir}/database.csv \
-      --operations ${SQL_MODIFIERS}
+  python ${scripts_dir}/apply_sql_operations.py \
+    --input_csv ${odir}/database.csv \
+    --output_csv ${odir}/database.csv \
+    --operations ${SQL_MODIFIERS}
 
-    python ${scripts_dir}/apply_sql_operations.py \
-      --input_csv ${odir}/database.csv \
-      --output_csv ${odir}/database.csv \
-      --operations ${SQL_CLASSIFICATION}
+  python ${scripts_dir}/apply_sql_operations.py \
+    --input_csv ${odir}/database.csv \
+    --output_csv ${odir}/database.csv \
+    --operations ${SQL_CLASSIFICATION}
 }
 
 function join_databases(){
@@ -77,7 +81,7 @@ function join_databases(){
   mkdir -p ${odir}
   python3 ${scripts_dir}/join_databases.py \
     --input_files ${file1} ${file2} ${file3} ${file4} \
-    --output_file ${odir}/joined_database.csv
+    --output_file ${odir}/combined_database.csv
 }
 
 function main(){

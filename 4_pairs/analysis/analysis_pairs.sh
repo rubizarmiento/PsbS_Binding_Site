@@ -244,8 +244,8 @@ function lifetime_analysis_grouped (){
       for chain in "${chains_arr[@]}"; do
         # Contacts chains and PsbS
         sel3="chainID ${chain} and (not resname *GG* *SQ* *PG* W* HOH *HG* LMG DGD)" # Only chlorophylls, carotenoids and proteins
-        python3 ${scripts_dir}/lifetime_analysis.py -dt ${dt} -min_event_ns ${min_event_ns} -cutoff "${cutoff}" -f ${f} -traj ${trj} -sel1 "${sel3}" -sel2 "${sel1}" -o ${odir} -prefix chain_${chain}_${basename} -group_by1 "resids" -group_by2 "chainIDs" > ${odir}/chain_${chain}_${basename}.log 2>&1 &
-        python3 ${scripts_dir}/lifetime_analysis.py -dt ${dt} -min_event_ns ${min_event_ns} -cutoff "${cutoff}" -f ${f} -traj ${trj} -sel1 "${sel3}" -sel2 "${sel1}" -o ${odir} -prefix chain_${chain}_${basename}_respairs -group_by1 "resids" -group_by2 "resids" > ${odir}/chain_${chain}_${basename}_respairs.log 2>&1 &
+        #python3 ${scripts_dir}/lifetime_analysis.py -dt ${dt} -min_event_ns ${min_event_ns} -cutoff "${cutoff}" -f ${f} -traj ${trj} -sel1 "${sel3}" -sel2 "${sel1}" -o ${odir} -prefix chain_${chain}_${basename} -group_by1 "resids" -group_by2 "chainIDs" > ${odir}/chain_${chain}_${basename}.log 2>&1 &
+        python3 ${scripts_dir}/lifetime_analysis.py -dt ${dt} -min_event_ns ${min_event_ns} -cutoff "${cutoff}" -f ${f} -traj ${trj} -sel1 "${sel3}" -sel2 "${sel1}" -o ${odir} -prefix chain_${chain}_${basename} -group_by1 "resids" -group_by2 "resids" > ${odir}/chain_${chain}_${basename}.log 2>&1 &
       done
     done
   done
@@ -302,16 +302,41 @@ function lifetimes_to_cif(){
       fi
     done
     
-    for basename in "${basenames[@]}"; do
-      sel_protein="(chainID ${chain} and (not resname *GG* *SQ* *PG* W* HOH *HG* PLQ PL9 LUT VIO XAT NEO NEX BCR LMG DGD CHL CLA CLB HEM*))"
-      sel_cofactors="resname PLQ PL9 LUT VIO XAT NEO NEX BCR CLA CLB HEME CHL"
-      sel_psbs="chainID A"
-      rm -rf ${odir}/*pdb
-      python3 ${scripts_dir}/lifetime_to_cif_psii.py ${pdb_dir} ${idir7} ${odir} "${sel_protein}" "${sel_cofactors}" "${sel_psbs}"
-    done
+    sel_protein="(chainID ${chain} and (not resname *GG* *SQ* *PG* W* HOH *HG* PLQ PL9 LUT VIO XAT NEO NEX BCR LMG DGD CHL CLA CLB HEM*))"
+    sel_cofactors="resname PLQ PL9 LUT VIO XAT NEO NEX BCR CLA CLB HEME CHL"
+    sel_psbs="chainID A"
+    rm -rf ${odir}/*pdb
+    python3 ${scripts_dir}/lifetime_to_cif.py ${pdb_dir} ${idir7} ${odir} "${sel_protein}" "${sel_cofactors}" "${sel_psbs}" ${csv}
   done
 }
 
+function sum_csv_lifetimes(){
+  script=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis
+  odir=${analysis_dir}/10_lifetimes_summary
+  
+  # Build array of directories for all chains
+  dirs=()
+  for chain in "${chains_analyze[@]}"; do
+    wdir=${analysis_dir}/chain_${chain}
+    dirs+=("${wdir}/7_lifetimes_grouped")
+  done
+  
+  mkdir -p ${odir}
+  rm -f ${odir}/*
+  
+  # Pass all directories to Python script
+  python3 ${script}/sum_csv_lifetimes.py -d "${dirs[@]}" -o ${odir}/lifetimes_summary_df.csv -prefix psbs_
+}
+
+function add_lifetimes_to_cif(){
+  pdb=/martini/rubiz/Github/PsbS_Binding_Site/3_reference_proteins/psbs/psbs_4_0_dimer_aligned.pdb
+  odir=${analysis_dir}/11_cifs_psbs_summary
+  lifetimes=${analysis_dir}/10_lifetimes_summary/lifetimes_summary_df.csv
+  script=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis
+
+  python  ${script}/add_lifetimes_to_cif.py -f ${pdb} -sel "all" \
+    -csv ${lifetimes} -o ${odir}/sum_psbs.cif
+}
 
 function plot_lifetimes(){
   #Same as PSII analysis but for each pair chain
@@ -377,10 +402,10 @@ function main(){
 
     
   #lifetimes_to_cif                   # CIF files allow bfactors > 999 while PDB files do not.
-
+  #sum_csv_lifetimes
+  #add_lifetimes_to_cif
   
   #lifetimes_statistics_psii          # Max occupancy
-  #lifetimes_to_cif
   #plot_lifetimes
 
 }

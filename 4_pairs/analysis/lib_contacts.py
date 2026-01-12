@@ -8,7 +8,7 @@ os.environ['OMP_NUM_THREADS'] = '1'
 
 import pandas as pd
 
-import seaborn as sns
+#import seaborn as sns
 import sys
 import time
 import warnings
@@ -16,6 +16,8 @@ warnings.filterwarnings('ignore')
 import re
 from typing import Callable, Tuple, Dict
 import argparse
+
+
 class ContactMatrix:
     """
     Class to calculate the contact matrix between two selections of atoms within a molecular universe.
@@ -405,6 +407,7 @@ def save_universe_to_pdb(universe, filename):
     universe.write(filename)
     print(f"Universe saved to {filename}")
 
+
 def compute_lifetimes_from_contacts(
     contacts_df: pd.DataFrame,
     dt: float,
@@ -536,11 +539,12 @@ def compute_lifetimes_from_contacts(
             lifetimes_ns = np.array([], dtype=float)
 
         if lifetimes_ns.size == 0:
-            med = p90 = 0.0
+            med = p90 = sum_ns = 0.0
             n_ev = 0
         else:
             med = float(np.median(lifetimes_ns))
             p90 = float(np.percentile(lifetimes_ns, 90))
+            sum_ns = float(np.sum(lifetimes_ns))
             n_ev = int(lifetimes_ns.size)
 
         res_rows.append(dict(
@@ -548,6 +552,7 @@ def compute_lifetimes_from_contacts(
             n_events=n_ev,
             occupancy_pct=float(occ_pct),
             median_ns=med,
+            sum_ns=sum_ns,
             p90_ns=p90
         ))
 

@@ -218,13 +218,12 @@ function lifetime_analysis_grouped (){
 
     #python3 ${script}/lifetime_analysis.py -prefix test -n_frames 100 -dt ${dt} -min_event_ns 0 -cutoff "${cutoff}" -f ${f} -traj ${trj} -sel1 "${sel1}" -sel2 "${sel2}" -o ${odir} -prefix test_${basename} -group_by1 "resids" -group_by2 "resids" > ${odir}/psbs_${basename}.log 2>&1 &
     #Contacts PsbS and chains
-    #python3 ${script}/lifetime_analysis.py -dt ${dt} -min_event_ns ${min_event_ns} -cutoff "${cutoff}" -f ${f} -traj ${trj} -sel1 "${sel1}" -sel2 "${sel2}" -o ${odir} -prefix psbs_${basename} -group_by1 "resids" -group_by2 "resids" > ${odir}/psbs_${basename}.log 2>&1 &
+    python3 ${script}/lifetime_analysis.py -dt ${dt} -min_event_ns ${min_event_ns} -cutoff "${cutoff}" -f ${f} -traj ${trj} -sel1 "${sel1}" -sel2 "${sel2}" -o ${odir} -prefix psbs_${basename} -group_by1 "resids" -group_by2 "resids" > ${odir}/psbs_${basename}.log 2>&1 &
     for chain in "${chains_arr[@]}"; do
       # Contacts chains and PsbS
       sel3="chainID ${chain} and (not resname *GG* *SQ* *PG* *MG* W* HOH *HG* *DS* *DP* *DG*)" # Only chlorophylls and proteins
       #python3 ${script}/lifetime_analysis.py -dt ${dt} -min_event_ns ${min_event_ns} -cutoff "${cutoff}" -f ${f} -traj ${trj} -sel1 "${sel3}" -sel2 "${sel1}" -o ${odir} -prefix chain_${chain}_${basename} -group_by1 "resids" -group_by2 "segids" > ${odir}/chain_${chain}_${basename}.log 2>&1 &
-      python3 ${script}/lifetime_analysis.py -dt ${dt} -min_event_ns ${min_event_ns} -cutoff "${cutoff}" -f ${f} -traj ${trj} -sel1 "${sel3}" -sel2 "${sel1}" -o ${odir} -prefix chain_${chain}_${basename}_respairs -group_by1 "resids" -group_by2 "resids" > ${odir}/chain_${chain}_${basename}_respairs.log 2>&1 &
-
+      python3 ${script}/lifetime_analysis.py -dt ${dt} -min_event_ns ${min_event_ns} -cutoff "${cutoff}" -f ${f} -traj ${trj} -sel1 "${sel3}" -sel2 "${sel1}" -o ${odir} -prefix chain_${chain}_${basename} -group_by1 "resids" -group_by2 "resids" > ${odir}/chain_${chain}_${basename}.log 2>&1 &
     done
   done
 }
@@ -253,7 +252,7 @@ function cg2at(){
   dir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/middle_cluster   # pdb files: 9_c_s_z.pdb -> ${basename}.pdb 
   tpr_dir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj_grouped
   odir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/cg2at          
-  cg2at_path=/martini/rubiz/thylakoid/scripts/para/bin/cg2at
+  cg2at_path=/martini/rubiz/Github/PsbS_Binding_Site/analysis_dataset/venv/bin/cg2at
   scripts=/martini/rubiz/thylakoid/scripts
   rewrite=${1:-"false"}  # Default to false if not provided
   if [ "$rewrite" == "true" ]; then
@@ -296,8 +295,8 @@ function cg2at(){
         python3 /martini/rubiz/thylakoid/scripts/assing_resid_chain_from_pdb.py -o ${odir}/${basename}_cofactors_cg.pdb  -ref ${odir}/${basename}_cofactors_cg_nb.pdb -i ${odir}/${basename}_cofactors_cg_1.pdb
       fi
       #cg2at
-      ${cg2at_path} -c ${basename}_protein_cg.pdb -ff charmm36-jul2020-updated -fg martini_3-0_charmm36 -w tip3p -loc ${basename} >> ${odir}/${basename}.log 2>&1 &
-      fi
+      ${cg2at_path} -ncpus 1 -c ${basename}_protein_cg.pdb -ff charmm36-jul2020-updated -fg martini_3-0_charmm36 -w tip3p -loc ${basename} >> ${odir}/${basename}.log 2>&1 &
+    fi
   done
 }
 
@@ -345,12 +344,50 @@ function lifetimes_to_cif_psii(){
   pdb_dir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/cg2at
   lifetimes_dir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/lifetimes
   odir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/cifs_lifetimes
+  basenames_csv=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj/basenames_binding.csv
   sel_protein="not resname CLA CLB CHL *HG* HEM PLQ PL9 *GG* *SQ* *PG* DGD LMG LUT VIO XAT NEO NEX W2 HOH BCR and not chainID 9"
   sel_cofactors="resname CLA CLB CHL *HG* HEM PLQ PL9 *GG* *SQ* *PG* DGD LMG LUT VIO XAT NEO NEX W2 HOH BCR"
   sel_psbs="chainID 9"
   rm -rf ${odir}/*pdb
-  python3 /martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/lifetime_to_cif_psii.py ${pdb_dir} ${lifetimes_dir} ${odir} "${sel_protein}" "${sel_cofactors}" "${sel_psbs}"
+  python3 /martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/lifetime_to_cif_psii.py ${pdb_dir} ${lifetimes_dir} ${odir} "${sel_protein}" "${sel_cofactors}" "${sel_psbs}" ${basenames_csv}
 }
+
+function sum_csv_lifetimes(){
+  dir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/lifetimes
+  odir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/lifetimes_summary
+  script=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis
+  mkdir -p ${odir}
+  rm -f ${odir}/*
+  python3 ${script}/sum_csv_lifetimes.py -d ${dir} -o ${odir}/lifetimes_summary_df_psbs.csv -prefix psbs_ # Suffix is *residue_summary_df.csv
+  chains=("s" "n" "8" "7")
+  for chain in "${chains[@]}"; do
+    echo "Processing chain: ${chain}"
+    python3 ${script}/sum_csv_lifetimes.py -d ${dir} -o ${odir}/lifetimes_summary_df_chain_${chain}.csv -prefix chain_${chain}_ # Suffix is *residue_summary_df.csv
+  done
+
+}
+
+function add_lifetimes_to_cif(){
+  pdb=/martini/rubiz/Github/PsbS_Binding_Site/3_reference_proteins/psbs/psbs_4_0_dimer_aligned.pdb
+  odir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/cifs_psbs_summary
+  lifetimes_dir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/lifetimes_summary
+  script=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis
+
+  python  ${script}/add_lifetimes_to_cif.py -f ${pdb} -sel "all" \
+    -csv ${lifetimes_dir}/lifetimes_summary_df_psbs.csv -o ${odir}/sum_psbs.cif
+
+  chains=("s" "n" "8" "7")
+  wdir=/martini/rubiz/Github/PsbS_Binding_Site
+  dir3=${wdir}/3_reference_proteins
+  pdb0=${dir3}/chains_cg_aligned/rearranged.pdb
+  for chain in "${chains[@]}"; do
+    echo "Processing chain: ${chain}"
+    python  ${script}/add_lifetimes_to_cif.py -f ${pdb0} -sel "chainID ${chain}" \
+      -csv ${lifetimes_dir}/lifetimes_summary_df_chain_${chain}.csv -o ${odir}/sum_chain_${chain}.cif
+  done
+}
+
+
 
 function lifetimes_statistics_psii(){
   lifetimes_dir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/lifetimes
@@ -394,8 +431,10 @@ function plot_lifetimes(){
   echo "Sequence plots saved to: ${output_dir}"
 }
 
+
+
 function main(){
-  #set -e  
+  set -e  
 
   #lifetime_analysis_protein_protein  # Get the binding events a csv file.
 
@@ -411,13 +450,17 @@ function main(){
   #extract_cluster                    # Extract middle structure from largest cluster as gmx cluster generates corrupted PDBs
   #plot_psii_binding_modes
   #plot_psii_venn_diagram
+  #check_sucess_cg2at
   #cg2at 
+  #check_sucess_cg2at
   #reassign_chains 
   #lifetimes_to_cif_psii             # CIF files allow bfactors > 999 while PDB files do not.
+  #sum_csv_lifetimes
+  add_lifetimes_to_cif
   #lifetimes_statistics_psii         # Max occupancy
   #plot_lifetimes                     # Generate protein sequence plots with B-factor coloring
   #write_databases
-  join_databases
+  #join_databases
 }
 
 main

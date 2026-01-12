@@ -2,7 +2,7 @@
 # Format: chain_ID -> H1, H2, H3, etc -> start/end residue numbers
 # Note: Only class 1 (right-handed alpha) helices included
 
-chain_A:
+chain_9:
   TM1:
     start: 33
     end: 59
