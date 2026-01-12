@@ -325,17 +325,31 @@ function sum_csv_lifetimes(){
   rm -f ${odir}/*
   
   # Pass all directories to Python script
-  python3 ${script}/sum_csv_lifetimes.py -d "${dirs[@]}" -o ${odir}/lifetimes_summary_df.csv -prefix psbs_
+  python3 ${script}/sum_csv_lifetimes.py -d "${dirs[@]}" -o ${odir}/lifetimes_summary_df_psbs.csv -prefix psbs_ # Suffix is *residue_summary_df.csv
+  chains=("4" "r" "s")
+  for chain in "${chains[@]}"; do
+    echo "Processing chain: ${chain}"
+    python3 ${script}/sum_csv_lifetimes.py -d ${analysis_dir}/chain_${chain}/7_lifetimes_grouped -o ${odir}/lifetimes_summary_df_chain_${chain}.csv -prefix chain_${chain}_chain_${chain} # Suffix is *residue_summary_df.csv
+  done
 }
 
 function add_lifetimes_to_cif(){
   pdb=/martini/rubiz/Github/PsbS_Binding_Site/3_reference_proteins/psbs/psbs_4_0_dimer_aligned.pdb
   odir=${analysis_dir}/11_cifs_psbs_summary
-  lifetimes=${analysis_dir}/10_lifetimes_summary/lifetimes_summary_df.csv
+  lifetimes_dir=${analysis_dir}/10_lifetimes_summary
   script=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis
 
   python  ${script}/add_lifetimes_to_cif.py -f ${pdb} -sel "all" \
-    -csv ${lifetimes} -o ${odir}/sum_psbs.cif
+    -csv ${lifetimes_dir}/lifetimes_summary_df_psbs.csv -o ${odir}/sum_psbs.cif
+
+  chains=("4" "r" "s")
+  wdir=/martini/rubiz/Github/PsbS_Binding_Site
+  dir3=${wdir}/3_reference_proteins
+  pdb0=${dir3}/chains_cg_aligned/rearranged.pdb
+  for chain in "${chains[@]}"; do
+    python  ${script}/add_lifetimes_to_cif.py -f ${pdb0} -sel "chainID ${chain}" \
+      -csv ${lifetimes_dir}/lifetimes_summary_df_chain_${chain}.csv -o ${odir}/sum_chain_${chain}.cif
+  done
 }
 
 function plot_lifetimes(){
@@ -403,7 +417,7 @@ function main(){
     
   #lifetimes_to_cif                   # CIF files allow bfactors > 999 while PDB files do not.
   #sum_csv_lifetimes
-  #add_lifetimes_to_cif
+  add_lifetimes_to_cif
   
   #lifetimes_statistics_psii          # Max occupancy
   #plot_lifetimes
