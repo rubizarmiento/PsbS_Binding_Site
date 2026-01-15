@@ -345,7 +345,7 @@ function add_lifetimes_to_cif(){
   chains=("4" "r" "s")
   wdir=/martini/rubiz/Github/PsbS_Binding_Site
   dir3=${wdir}/3_reference_proteins
-  pdb0=${dir3}/chains_cg_aligned/rearranged.pdb
+  pdb0=${dir3}/chains_aa/5XNL_chains.pdb
   for chain in "${chains[@]}"; do
     python  ${script}/add_lifetimes_to_cif.py -f ${pdb0} -sel "chainID ${chain}" \
       -csv ${lifetimes_dir}/lifetimes_summary_df_chain_${chain}.csv -o ${odir}/sum_chain_${chain}.cif

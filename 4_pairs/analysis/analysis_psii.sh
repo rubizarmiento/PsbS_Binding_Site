@@ -379,7 +379,7 @@ function add_lifetimes_to_cif(){
   chains=("s" "n" "8" "7")
   wdir=/martini/rubiz/Github/PsbS_Binding_Site
   dir3=${wdir}/3_reference_proteins
-  pdb0=${dir3}/chains_cg_aligned/rearranged.pdb
+  pdb0=${dir3}/chains_aa/5XNL_chains.pdb
   for chain in "${chains[@]}"; do
     echo "Processing chain: ${chain}"
     python  ${script}/add_lifetimes_to_cif.py -f ${pdb0} -sel "chainID ${chain}" \
@@ -456,7 +456,7 @@ function main(){
   #reassign_chains 
   #lifetimes_to_cif_psii             # CIF files allow bfactors > 999 while PDB files do not.
   #sum_csv_lifetimes
-  #add_lifetimes_to_cif
+  add_lifetimes_to_cif
   #lifetimes_statistics_psii         # Max occupancy
   #plot_lifetimes                     # Generate protein sequence plots with B-factor coloring
   #write_databases
