@@ -359,7 +359,7 @@ function sum_csv_lifetimes(){
   mkdir -p ${odir}
   rm -f ${odir}/*
   python3 ${script}/sum_csv_lifetimes.py -d ${dir} -o ${odir}/lifetimes_summary_df_psbs.csv -prefix psbs_ # Suffix is *residue_summary_df.csv
-  chains=("s" "n" "8" "7")
+  chains=("s" "n" "8" "7" "k" "z")
   for chain in "${chains[@]}"; do
     echo "Processing chain: ${chain}"
     python3 ${script}/sum_csv_lifetimes.py -d ${dir} -o ${odir}/lifetimes_summary_df_chain_${chain}.csv -prefix chain_${chain}_ # Suffix is *residue_summary_df.csv
@@ -376,7 +376,7 @@ function add_lifetimes_to_cif(){
   python  ${script}/add_lifetimes_to_cif.py -f ${pdb} -sel "all" \
     -csv ${lifetimes_dir}/lifetimes_summary_df_psbs.csv -o ${odir}/sum_psbs.cif
 
-  chains=("s" "n" "8" "7")
+  chains=("s" "n" "8" "7" "k" "z")
   wdir=/martini/rubiz/Github/PsbS_Binding_Site
   dir3=${wdir}/3_reference_proteins
   pdb0=${dir3}/chains_aa/5XNL_chains.pdb
