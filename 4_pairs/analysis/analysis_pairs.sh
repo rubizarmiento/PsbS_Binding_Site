@@ -224,7 +224,7 @@ function lifetime_analysis_grouped (){
     tpr=${idir1}/protein.tpr
     
     mkdir -p ${odir}
-    rm -f ${odir}/*    
+    #rm -f ${odir}/*    
     for basename in "${basenames[@]}"; do
 
       trj=${idir3}/${basename}*.xtc
@@ -244,7 +244,7 @@ function lifetime_analysis_grouped (){
       for chain in "${chains_arr[@]}"; do
         # Contacts chains and PsbS
         sel3="chainID ${chain} and (not resname *GG* *SQ* *PG* W* HOH *HG* LMG DGD)" # Only chlorophylls, carotenoids and proteins
-        #python3 ${scripts_dir}/lifetime_analysis.py -dt ${dt} -min_event_ns ${min_event_ns} -cutoff "${cutoff}" -f ${f} -traj ${trj} -sel1 "${sel3}" -sel2 "${sel1}" -o ${odir} -prefix chain_${chain}_${basename} -group_by1 "resids" -group_by2 "chainIDs" > ${odir}/chain_${chain}_${basename}.log 2>&1 &
+        python3 ${scripts_dir}/lifetime_analysis.py -dt ${dt} -min_event_ns ${min_event_ns} -cutoff "${cutoff}" -f ${f} -traj ${trj} -sel1 "${sel1}" -sel2 "${sel3}" -o ${odir} -prefix psbs_chain_${chain}_${basename} -group_by1 "resids" -group_by2 "resids" > ${odir}/psbs_chain_${chain}_${basename}.log 2>&1 &
         python3 ${scripts_dir}/lifetime_analysis.py -dt ${dt} -min_event_ns ${min_event_ns} -cutoff "${cutoff}" -f ${f} -traj ${trj} -sel1 "${sel3}" -sel2 "${sel1}" -o ${odir} -prefix chain_${chain}_${basename} -group_by1 "resids" -group_by2 "resids" > ${odir}/chain_${chain}_${basename}.log 2>&1 &
       done
     done
@@ -324,31 +324,32 @@ function sum_csv_lifetimes(){
   mkdir -p ${odir}
   rm -f ${odir}/*
   
-  # Pass all directories to Python script
-  python3 ${script}/sum_csv_lifetimes.py -d "${dirs[@]}" -o ${odir}/lifetimes_summary_df_psbs.csv -prefix psbs_ # Suffix is *residue_summary_df.csv
   chains=("4" "r" "s")
   for chain in "${chains[@]}"; do
     echo "Processing chain: ${chain}"
+    python3 ${script}/sum_csv_lifetimes.py -d ${analysis_dir}/chain_${chain}/7_lifetimes_grouped -o ${odir}/lifetimes_summary_df_psbs_chain_${chain}.csv -prefix psbs_chain_${chain}_chain_${chain} # Suffix is *residue_summary_df.csv
     python3 ${script}/sum_csv_lifetimes.py -d ${analysis_dir}/chain_${chain}/7_lifetimes_grouped -o ${odir}/lifetimes_summary_df_chain_${chain}.csv -prefix chain_${chain}_chain_${chain} # Suffix is *residue_summary_df.csv
   done
 }
 
 function add_lifetimes_to_cif(){
-  pdb=/martini/rubiz/Github/PsbS_Binding_Site/3_reference_proteins/psbs/psbs_4_0_dimer_aligned.pdb
   odir=${analysis_dir}/11_cifs_psbs_summary
   lifetimes_dir=${analysis_dir}/10_lifetimes_summary
   script=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis
 
-  python  ${script}/add_lifetimes_to_cif.py -f ${pdb} -sel "all" \
-    -csv ${lifetimes_dir}/lifetimes_summary_df_psbs.csv -o ${odir}/sum_psbs.cif
+
 
   chains=("4" "r" "s")
   wdir=/martini/rubiz/Github/PsbS_Binding_Site
   dir3=${wdir}/3_reference_proteins
   pdb0=${dir3}/chains_aa/5XNL_chains.pdb
+  pdb_psbs=/martini/rubiz/Github/PsbS_Binding_Site/3_reference_proteins/psbs/psbs_4_0_dimer_aligned.pdb
+
   for chain in "${chains[@]}"; do
     python  ${script}/add_lifetimes_to_cif.py -f ${pdb0} -sel "chainID ${chain}" \
       -csv ${lifetimes_dir}/lifetimes_summary_df_chain_${chain}.csv -o ${odir}/sum_chain_${chain}.cif
+    python  ${script}/add_lifetimes_to_cif.py -f ${pdb_psbs} -sel "all" \
+      -csv ${lifetimes_dir}/lifetimes_summary_df_chain_${chain}.csv -o ${odir}/sum_psbs_chain_${chain}.cif
   done
 }
 
