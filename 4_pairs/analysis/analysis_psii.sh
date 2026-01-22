@@ -368,6 +368,22 @@ function sum_csv_lifetimes(){
 
 }
 
+function sum_lifetimes_psbs_chains(){
+  idir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/lifetimes_summary
+  odir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/lifetimes_summary
+  script=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis
+
+  chains=("s" "n" "8" "7" "k" "z")
+
+
+  for chain in "${chains[@]}"; do
+    echo "Processing chain: ${chain}"
+    python  ${script}/sum_lifetimes_psbs_chains.py -csv ${idir}/lifetimes_summary_df_psbs_chain_${chain}.csv -o ${odir}/lifetimes_summary_df_psbs_chain_${chain}_symmetrized.csv
+
+  done
+}
+
+
 function add_lifetimes_to_cif(){
   odir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/cifs_psbs_summary
   lifetimes_dir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/lifetimes_summary
@@ -384,7 +400,7 @@ function add_lifetimes_to_cif(){
     python  ${script}/add_lifetimes_to_cif.py -f ${pdb0} -sel "chainID ${chain}" \
       -csv ${lifetimes_dir}/lifetimes_summary_df_chain_${chain}.csv -o ${odir}/sum_chain_${chain}.cif
     python  ${script}/add_lifetimes_to_cif.py -f ${pdb_psbs} -sel "all" \
-      -csv ${lifetimes_dir}/lifetimes_summary_df_psbs_chain_${chain}.csv -o ${odir}/sum_psbs_chain_${chain}.cif
+      -csv ${lifetimes_dir}/lifetimes_summary_df_psbs_chain_${chain}_symmetrized.csv -o ${odir}/sum_psbs_chain_${chain}.cif
   done
 }
 
@@ -457,6 +473,7 @@ function main(){
   #reassign_chains 
   #lifetimes_to_cif_psii             # CIF files allow bfactors > 999 while PDB files do not.
   #sum_csv_lifetimes
+  #sum_lifetimes_psbs_chains
   add_lifetimes_to_cif
   #lifetimes_statistics_psii         # Max occupancy
   #plot_lifetimes                     # Generate protein sequence plots with B-factor coloring

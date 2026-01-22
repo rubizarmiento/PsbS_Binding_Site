@@ -332,6 +332,18 @@ function sum_csv_lifetimes(){
   done
 }
 
+function sum_lifetimes_psbs_chains(){
+  odir=${analysis_dir}/10_lifetimes_summary
+  idir=${analysis_dir}/10_lifetimes_summary
+  script=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis
+
+  chains=("4" "r" "s")
+
+  for chain in "${chains[@]}"; do
+    python  ${script}/sum_lifetimes_psbs_chains.py -csv ${idir}/lifetimes_summary_df_psbs_chain_${chain}.csv -o ${odir}/lifetimes_summary_df_psbs_chain_${chain}_symmetrized.csv
+  done
+}
+
 function add_lifetimes_to_cif(){
   odir=${analysis_dir}/11_cifs_psbs_summary
   lifetimes_dir=${analysis_dir}/10_lifetimes_summary
@@ -349,7 +361,7 @@ function add_lifetimes_to_cif(){
     python  ${script}/add_lifetimes_to_cif.py -f ${pdb0} -sel "chainID ${chain}" \
       -csv ${lifetimes_dir}/lifetimes_summary_df_chain_${chain}.csv -o ${odir}/sum_chain_${chain}.cif
     python  ${script}/add_lifetimes_to_cif.py -f ${pdb_psbs} -sel "all" \
-      -csv ${lifetimes_dir}/lifetimes_summary_df_chain_${chain}.csv -o ${odir}/sum_psbs_chain_${chain}.cif
+      -csv ${lifetimes_dir}/lifetimes_summary_df_psbs_chain_${chain}_symmetrized.csv -o ${odir}/sum_psbs_chain_${chain}.cif
   done
 }
 
@@ -418,6 +430,7 @@ function main(){
     
   #lifetimes_to_cif                   # CIF files allow bfactors > 999 while PDB files do not.
   #sum_csv_lifetimes
+  sum_lifetimes_psbs_chains
   add_lifetimes_to_cif
   
   #lifetimes_statistics_psii          # Max occupancy
