@@ -1,3 +1,5 @@
+root_dir=/martini/rubiz/Github/PsbS_Binding_Site
+
 function lifetime_analysis_protein_protein(){
   odir=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis_psii
   dir5="/martini/rubiz/Github/PsbS_Binding_Site/5_psii/psii_psbs"
@@ -397,9 +399,9 @@ function add_lifetimes_to_cif(){
 
   for chain in "${chains[@]}"; do
     echo "Processing chain: ${chain}"
-    python  ${script}/add_lifetimes_to_cif.py -f ${pdb0} -sel "chainID ${chain}" \
+    python  ${script}/add_lifetimes_to_cif.py --log_transform  -f ${pdb0} -sel "chainID ${chain}" \
       -csv ${lifetimes_dir}/lifetimes_summary_df_chain_${chain}.csv -o ${odir}/sum_chain_${chain}.cif
-    python  ${script}/add_lifetimes_to_cif.py -f ${pdb_psbs} -sel "all" \
+    python  ${script}/add_lifetimes_to_cif.py --log_transform  -f ${pdb_psbs} -sel "all" \
       -csv ${lifetimes_dir}/lifetimes_summary_df_psbs_chain_${chain}_symmetrized.csv -o ${odir}/sum_psbs_chain_${chain}.cif
   done
 }
@@ -448,7 +450,42 @@ function plot_lifetimes(){
   echo "Sequence plots saved to: ${output_dir}"
 }
 
+function plot_aligned_sequences(){
+  script=${root_dir}/4_pairs/analysis
+  edge_color='None'
+  edge_linewidth=0.3
+  vmin=0
+  vmax=10
+  cmap='colorcet:CET_L17' # Uses the cmap library
+  dir1="${root_dir}/5_psii/binding_sites/lifetimes_summary"
 
+  split_every=82
+  fasta="${root_dir}/fasta/5xnl_lhc_set_aligned_paper.fasta"
+  output="${root_dir}/4_pairs/analysis/figures/aligned_sequences_chains_psii.eps"
+
+  file1=${dir1}/lifetimes_summary_df_chain_s.csv
+  file2=${dir1}/lifetimes_summary_df_chain_7.csv
+  file3=${dir1}/lifetimes_summary_df_chain_n.csv
+
+  headers=("CP26" "LHCB3" "LHCBM")
+  files=($file1 $file2 $file3)
+  python ${script}/plot_aligned_sequences.py --log_transform --edge_color ${edge_color} --edge_linewidth ${edge_linewidth} --fasta ${fasta} --files ${files[@]} --headers ${headers[@]} --output ${output} --vmin ${vmin} --vmax ${vmax} --cmap ${cmap} --split_every ${split_every}
+
+  split_every=110
+  cmap='colorcet:CET_L17' # Uses the cmap library
+  fasta="${root_dir}/fasta/psbs.fasta"
+  output="${root_dir}/4_pairs/analysis/figures/aligned_sequences_psbs_psii.eps"
+
+  file1=${dir1}/lifetimes_summary_df_psbs_chain_s_symmetrized.csv
+  file2=${dir1}/lifetimes_summary_df_psbs_chain_7_symmetrized.csv
+  file3=${dir1}/lifetimes_summary_df_psbs_chain_n_symmetrized.csv
+
+  headers=("PsbS_CP26" "PsbS_LHCB3" "PsbS_LHCBM")
+  files=($file1 $file2 $file3)
+
+  python ${script}/plot_aligned_sequences.py --log_transform --edge_color ${edge_color} --edge_linewidth ${edge_linewidth} --max_resids 212 --fasta ${fasta} --files ${files[@]} --headers ${headers[@]} --output ${output} --vmin ${vmin} --vmax ${vmax} --cmap ${cmap} --split_every ${split_every}
+
+}
 
 function main(){
   set -e  
@@ -474,11 +511,12 @@ function main(){
   #lifetimes_to_cif_psii             # CIF files allow bfactors > 999 while PDB files do not.
   #sum_csv_lifetimes
   #sum_lifetimes_psbs_chains
-  add_lifetimes_to_cif
+  #add_lifetimes_to_cif
   #lifetimes_statistics_psii         # Max occupancy
   #plot_lifetimes                     # Generate protein sequence plots with B-factor coloring
   #write_databases
   #join_databases
+  plot_aligned_sequences
 }
 
 main

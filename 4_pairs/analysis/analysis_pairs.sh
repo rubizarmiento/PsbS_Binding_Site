@@ -1,9 +1,11 @@
-analysis_dir=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/analysis_pairs
-scripts_dir=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis
+root_dir=/martini/rubiz/Github/PsbS_Binding_Site
+
+analysis_dir=${root_dir}/4_pairs/analysis/analysis_pairs
+scripts_dir=${root_dir}/4_pairs/analysis
 chains=("4" "c" "r" "s")
 chains_analyze=("4" "r" "s") # chain c has no binding events longer than 1000 ns
 cg2at_path=/martini/rubiz/thylakoid/scripts/para/bin/cg2at
-mdp_tpr=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/mdps/em.mdp # Dummy mdp to generate tpr files
+mdp_tpr=${root_dir}/4_pairs/mdps/em.mdp # Dummy mdp to generate tpr files
 
 function check_selections(){
   for chain in "${chains[@]}"; do
@@ -358,9 +360,9 @@ function add_lifetimes_to_cif(){
   pdb_psbs=/martini/rubiz/Github/PsbS_Binding_Site/3_reference_proteins/psbs/psbs_4_0_dimer_aligned.pdb
 
   for chain in "${chains[@]}"; do
-    python  ${script}/add_lifetimes_to_cif.py -f ${pdb0} -sel "chainID ${chain}" \
+    python  ${script}/add_lifetimes_to_cif.py --log_transform  -f ${pdb0} -sel "chainID ${chain}" \
       -csv ${lifetimes_dir}/lifetimes_summary_df_chain_${chain}.csv -o ${odir}/sum_chain_${chain}.cif
-    python  ${script}/add_lifetimes_to_cif.py -f ${pdb_psbs} -sel "all" \
+    python  ${script}/add_lifetimes_to_cif.py --log_transform  -f ${pdb_psbs} -sel "all" \
       -csv ${lifetimes_dir}/lifetimes_summary_df_psbs_chain_${chain}_symmetrized.csv -o ${odir}/sum_psbs_chain_${chain}.cif
   done
 }
@@ -410,6 +412,52 @@ function plot_lifetimes(){
   done
 }
 
+
+function plot_aligned_sequences(){
+  script=${root_dir}/4_pairs/analysis
+
+  vmin=0
+  vmax=10
+  cmap='colorcet:CET_L17' # Uses the cmap library
+  split_every=82
+  edge_color='None'
+  edge_linewidth=0.3
+  col_width=0.1
+  row_height=0.4
+  dir1=${analysis_dir}/10_lifetimes_summary
+
+
+
+  fasta="${root_dir}/fasta/5xnl_lhc_set_aligned_paper.fasta"
+  output="${root_dir}/4_pairs/analysis/figures/aligned_sequences_chains_pairs.eps"
+  
+
+  file1=${dir1}/lifetimes_summary_df_chain_s.csv
+  file2=${dir1}/lifetimes_summary_df_chain_4.csv
+  file3=${dir1}/lifetimes_summary_df_chain_r.csv
+
+  headers=("CP26" "CP24" "CP29")
+  files=($file1 $file2 $file3)
+
+  python ${script}/plot_aligned_sequences.py --log_transform --col_width ${col_width} --row_height ${row_height} --edge_color ${edge_color} --edge_linewidth ${edge_linewidth} --fasta ${fasta} --files ${files[@]} --headers ${headers[@]} --output ${output} --vmin ${vmin} --vmax ${vmax} --cmap ${cmap} --split_every ${split_every}
+
+
+  fasta="${root_dir}/fasta/psbs.fasta"
+  output="${root_dir}/4_pairs/analysis/figures/aligned_sequences_psbs_pairs.eps"
+
+  file1=${dir1}/lifetimes_summary_df_psbs_chain_s_symmetrized.csv
+  file2=${dir1}/lifetimes_summary_df_psbs_chain_4_symmetrized.csv
+  file3=${dir1}/lifetimes_summary_df_psbs_chain_r_symmetrized.csv
+  split_every=110
+  cmap='colorcet:CET_L17' # Uses the cmap library
+
+  headers=("PsbS_CP26" "PsbS_CP24" "PsbS_CP29")
+  files=($file1 $file2 $file3)
+
+  python ${script}/plot_aligned_sequences.py --log_transform --col_width ${col_width} --row_height ${row_height} --edge_color ${edge_color} --edge_linewidth ${edge_linewidth} --max_resids 212 --fasta ${fasta} --files ${files[@]} --headers ${headers[@]} --output ${output} --vmin ${vmin} --vmax ${vmax} --cmap ${cmap} --split_every ${split_every}
+
+}
+
 function main(){
   set -e
   #check_selections
@@ -430,12 +478,12 @@ function main(){
     
   #lifetimes_to_cif                   # CIF files allow bfactors > 999 while PDB files do not.
   #sum_csv_lifetimes
-  sum_lifetimes_psbs_chains
+  #sum_lifetimes_psbs_chains
   add_lifetimes_to_cif
   
   #lifetimes_statistics_psii          # Max occupancy
   #plot_lifetimes
-
+  #plot_aligned_sequences
 }
 
 main

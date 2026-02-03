@@ -54,6 +54,7 @@ import os
 import sys
 import argparse
 import warnings
+import numpy as np
 import pandas as pd
 import MDAnalysis as mda
 from Bio.PDB import PDBParser
@@ -63,7 +64,7 @@ from Bio.PDB.mmcifio import MMCIFIO
 warnings.filterwarnings('ignore', category=UserWarning, module='MDAnalysis')
 
 
-def load_lifetime_data(csv_file):
+def load_lifetime_data(csv_file, log_transform=False):
     """
     Load lifetime data from CSV file.
     
@@ -71,6 +72,8 @@ def load_lifetime_data(csv_file):
     ----------
     csv_file : str
         Path to CSV file with 'resid' and lifetime columns.
+    log_transform : bool
+        If True, apply log1p transformation to lifetime values.
         
     Returns
     -------
@@ -108,9 +111,19 @@ def load_lifetime_data(csv_file):
         )
     
     # Create mapping
-    resid_to_bfactor = dict(zip(df['resid'], df[lifetime_col]))
-    print(f"Loaded {len(resid_to_bfactor)} residue-bfactor mappings from {csv_file}")
+    lifetime_values = df[lifetime_col].values
+    
+    # Print before transformation stats
+    print(f"Loaded {len(df)} residue-bfactor mappings from {csv_file}")
     print(f"  Using column: {lifetime_col}")
+    print(f"  Before transformation: min={lifetime_values.min():.2f}, max={lifetime_values.max():.2f}")
+    
+    # Apply log transformation if requested
+    if log_transform:
+        lifetime_values = np.log1p(lifetime_values)
+        print(f"  After log1p transformation: min={lifetime_values.min():.2f}, max={lifetime_values.max():.2f}")
+    
+    resid_to_bfactor = dict(zip(df['resid'], lifetime_values))
     
     return resid_to_bfactor
 
@@ -187,6 +200,8 @@ Examples:
                         help='Lifetime CSV file with resid and sum_ns columns')
     parser.add_argument('-o', '--output', required=True,
                         help='Output mmCIF file path')
+    parser.add_argument('--log_transform', action='store_true',
+                        help='Apply log1p transformation to lifetime values')
     
     args = parser.parse_args()
     
@@ -207,7 +222,7 @@ Examples:
         print(f"Created output directory: {output_dir}\n")
     
     # Load lifetime data
-    resid_to_bfactor = load_lifetime_data(args.csv)
+    resid_to_bfactor = load_lifetime_data(args.csv, log_transform=args.log_transform)
     
     # Load structure with MDAnalysis and apply selection
     print(f"Loading structure with MDAnalysis...")
