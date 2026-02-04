@@ -4,7 +4,8 @@ Sum lifetime values across multiple CSV files.
 
 This script reads multiple CSV files with a common prefix from a directory,
 extracts the 'resid' and 'sum_ns' columns, and sums the 'sum_ns' values 
-for each residue across all files. The output contains only 'resid' and 'sum_ns'.
+for each residue across all files. If available, 'resname_i' and 'chainID_i'
+are renamed to 'resname' and 'chain' in the output.
 
 Usage:
 ------
@@ -29,6 +30,8 @@ Output CSV Format:
 ------------------
 - resid : int - Residue ID
 - sum_ns : float - Sum of lifetime values across all input files
+- resname : str (optional) - Residue name (from resname_i)
+- chain : str (optional) - Chain ID (from chainID_i)
 
 Examples:
 ---------
@@ -48,7 +51,7 @@ import glob
 import pandas as pd
 
 
-def find_csv_files(directories, prefix):
+def find_csv_files(directories, prefix, ignore_missing=False):
     """
     Find all CSV files matching the prefix pattern across multiple directories.
     
@@ -58,6 +61,8 @@ def find_csv_files(directories, prefix):
         Directory or list of directories to search for CSV files.
     prefix : str
         Prefix pattern to match (e.g., 'psbs_').
+    ignore_missing : bool, optional
+        If True, skip missing directories with warning. If False, raise error.
         
     Returns
     -------
@@ -100,7 +105,7 @@ def load_and_validate_csv(csv_file):
     Returns
     -------
     pd.DataFrame or None
-        DataFrame with 'resid' and 'sum_ns' columns, or None if invalid.
+        DataFrame with 'resid', 'sum_ns', and optionally 'resname_i', 'chainID_i' columns, or None if invalid.
     """
     try:
         df = pd.read_csv(csv_file)
@@ -116,15 +121,24 @@ def load_and_validate_csv(csv_file):
             print(f"  Available columns: {list(df.columns)}")
             return None
         
-        # Return only the required columns
-        return df[['resid', 'sum_ns']]
+        # Start with required columns
+        cols_to_keep = ['resid', 'sum_ns']
+        
+        # Add optional columns if they exist
+        if 'resname_i' in df.columns:
+            cols_to_keep.append('resname_i')
+        if 'chainID_i' in df.columns:
+            cols_to_keep.append('chainID_i')
+        
+        # Return the selected columns
+        return df[cols_to_keep]
         
     except Exception as e:
         print(f"ERROR: Failed to read {csv_file}: {e}")
         return None
 
 
-def sum_lifetimes(csv_files):
+def sum_lifetimes(csv_files, ignore_missing=False):
     """
     Sum lifetime values across multiple CSV files.
     
@@ -132,11 +146,13 @@ def sum_lifetimes(csv_files):
     ----------
     csv_files : list
         List of CSV file paths to sum.
+    ignore_missing : bool, optional
+        If True, return empty dataframe if no valid files found.
         
     Returns
     -------
     pd.DataFrame
-        DataFrame with 'resid' and 'sum_ns' columns containing summed values.
+        DataFrame with 'resid', 'sum_ns', and optionally 'resname', 'chain' columns.
     """
     all_data = []
     
@@ -150,13 +166,37 @@ def sum_lifetimes(csv_files):
             print(f"  Loaded {len(df)} residues")
     
     if not all_data:
-        raise ValueError("No valid CSV files found with required columns")
+        if ignore_missing:
+            print("WARNING: No valid CSV files found with required columns")
+            return pd.DataFrame(columns=['resid', 'sum_ns'])
+        else:
+            raise ValueError("No valid CSV files found with required columns")
     
     # Concatenate all dataframes
     combined_df = pd.concat(all_data, ignore_index=True)
     
-    # Group by resid and sum the sum_ns values
-    summed_df = combined_df.groupby('resid', as_index=False)['sum_ns'].sum()
+    # Check if we have resname_i and chainID_i columns
+    has_resname = 'resname_i' in combined_df.columns
+    has_chain = 'chainID_i' in combined_df.columns
+    
+    # Group by resid (and resname_i, chainID_i if present) and sum the sum_ns values
+    group_cols = ['resid']
+    if has_resname:
+        group_cols.append('resname_i')
+    if has_chain:
+        group_cols.append('chainID_i')
+    
+    summed_df = combined_df.groupby(group_cols, as_index=False)['sum_ns'].sum()
+    
+    # Rename columns: resname_i -> resname, chainID_i -> chain
+    rename_map = {}
+    if has_resname:
+        rename_map['resname_i'] = 'resname'
+    if has_chain:
+        rename_map['chainID_i'] = 'chain'
+    
+    if rename_map:
+        summed_df = summed_df.rename(columns=rename_map)
     
     # Sort by resid for cleaner output
     summed_df = summed_df.sort_values('resid').reset_index(drop=True)
@@ -184,6 +224,8 @@ Examples:
                         help='Output CSV file path')
     parser.add_argument('-prefix', '--prefix', required=True,
                         help='Prefix of CSV files to include (e.g., psbs_)')
+    parser.add_argument('--ignore-missing', action='store_true',
+                        help='Skip missing directories/files with warning instead of raising error')
     
     args = parser.parse_args()
     
@@ -197,7 +239,10 @@ Examples:
             print(f"WARNING: Directory not found: {directory}")
     
     if not valid_dirs:
-        raise FileNotFoundError(f"No valid directories found in: {args.dir}")
+        if args.ignore_missing:
+            print("WARNING: No valid directories found, but continuing due to --ignore-missing flag")
+        else:
+            raise FileNotFoundError(f"No valid directories found in: {args.dir}")
     
     print(f"Input directories: {valid_dirs}")
     print(f"File prefix: {args.prefix}")
@@ -205,18 +250,27 @@ Examples:
     print()
     
     # Find matching CSV files
-    csv_files = find_csv_files(valid_dirs, args.prefix)
+    csv_files = find_csv_files(valid_dirs, args.prefix, ignore_missing=args.ignore_missing)
     
     if not csv_files:
-        raise FileNotFoundError(
-            f"No CSV files found matching pattern: {args.prefix}*.csv in {args.dir}"
-        )
+        if args.ignore_missing:
+            print(f"WARNING: No CSV files found matching pattern: {args.prefix}*.csv in {args.dir}")
+            print("Creating empty output file due to --ignore-missing flag")
+            # Create empty dataframe with expected columns
+            empty_df = pd.DataFrame(columns=['resid', 'sum_ns'])
+            empty_df.to_csv(args.output, index=False)
+            print(f"Saved empty file to: {args.output}")
+            return
+        else:
+            raise FileNotFoundError(
+                f"No CSV files found matching pattern: {args.prefix}*.csv in {args.dir}"
+            )
     
     print(f"Found {len(csv_files)} CSV files matching prefix '{args.prefix}'")
     print()
     
     # Sum lifetime data
-    summed_df = sum_lifetimes(csv_files)
+    summed_df = sum_lifetimes(csv_files, ignore_missing=args.ignore_missing)
     
     print()
     print(f"Total unique residues: {len(summed_df)}")

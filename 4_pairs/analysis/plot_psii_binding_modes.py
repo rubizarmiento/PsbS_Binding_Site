@@ -9,6 +9,33 @@ Arguments:
 -move_site_label: Label to move site text away from center (default: None), e.g., "S10".
 -move_offset: Offset for moving site label (default: (0,0)), e.g., (5, -5).
 
+Workflow:
+1. Data Loading:
+   - Load reference PSII structure (reference PDB)
+   - Load all PsbS binding site structures (from binding_dir)
+   - Load occupancy data from CSV file
+
+2. Data Processing:
+   - Annotate each binding site with its occupancy percentage
+   - Sort binding sites by occupancy (lowest to highest)
+   - Calculate normalized occupancy values for color mapping
+
+3. Figure Setup:
+   - Create matplotlib figure and axis
+   - Initialize colormaps (Set3 for protein chains, PuRd for occupancy)
+
+4. Plotting Layers:
+   - Plot PSII background atoms (light gray)
+   - Plot reference protein chains (CP24, CP29, CP26, CP43) with distinct colors
+   - Plot LHCII antenna complexes (S-LHCII and M-LHCII)
+   - Plot PsbS binding sites colored by occupancy (darkest = highest occupancy)
+   - Add site labels (S1, S2, S3, etc.) at center of geometry
+
+5. Finalization:
+   - Add colorbar showing probability/occupancy scale
+   - Format plot (equal aspect, remove axes)
+   - Save figure as PNG and PDF in output directory
+
 """
 
 import os
@@ -75,6 +102,7 @@ def load_binding_site_structures(binding_dir):
     -------
     dict
         Dictionary mapping PDB file paths to Universe objects
+        Example: {pdb_path: mda.Universe}
     """
     pdb_files = [f for f in os.listdir(binding_dir) if f.endswith('.pdb')]
     pdb_files = [os.path.join(binding_dir, f) for f in pdb_files]
@@ -114,6 +142,7 @@ def annotate_chain_dict_with_occupancy(chain_dict, df):
     -------
     dict
         Modified chain_dict with occupancy attribute added to each Universe
+        # Example: chain_dict[pdb_path].occupancy = occupancy_value
     """
     for key in chain_dict:
         filename_no_ext = os.path.splitext(os.path.basename(key))[0]
@@ -255,6 +284,7 @@ def plot_binding_sites(ax, sorted_chain_dict, df, cmap_rdpu, max_occupancy, move
         Axis object to plot on
     sorted_chain_dict : dict
         Sorted dictionary of binding site structures
+        Example: {pdb_path: mda.Universe}
     df : pd.DataFrame
         Occupancy data
     cmap_rdpu : matplotlib.colors.Colormap

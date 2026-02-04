@@ -81,7 +81,6 @@ def main():
     
     # Create resid to resname mapping for both selections
     resid_to_resname_i = {res.resid: res.resname for res in sel1.residues}
-    resid_to_resname_j = {res.resid: res.resname for res in sel2.residues}
     
     # Determine number of frames to process
     total_frames = len(u.trajectory)
@@ -115,13 +114,17 @@ def main():
     events_df['chainID_i'] = chainID_i
     events_df['chainID_j'] = chainID_j
     
-    # Add resnames by mapping resid_i and resid_j to resnames
+    # Add resnames by mapping resid_i to resnames
     events_df['resname_i'] = events_df['resid_i'].astype(int).map(resid_to_resname_i).fillna('unknown')
-    events_df['resname_j'] = events_df['resid_j'].astype(int).map(resid_to_resname_j).fillna('unknown')
     
     # Add to residue summary
     residue_summary_df['chainID_i'] = chainID_i
     residue_summary_df['chainID_j'] = chainID_j
+    
+    # Add resnames to residue summary by mapping resid to resnames
+    # Check if resid column exists and map it
+    if 'resid' in residue_summary_df.columns:
+        residue_summary_df['resname_i'] = residue_summary_df['resid'].astype(int).map(resid_to_resname_i).fillna('unknown')
 
     #Save dataframes
     events_df.to_csv(f"{odir}/{args.prefix}_events_df.csv", index=False, float_format='%.2f')

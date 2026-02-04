@@ -224,8 +224,11 @@ function lifetime_analysis_grouped (){
     for chain in "${chains_arr[@]}"; do
       # Contacts chains and PsbS
       sel3="chainID ${chain} and (not resname *GG* *SQ* *PG* *MG* W* HOH *HG* *DS* *DP* *DG*)" # Only chlorophylls and proteins
+      sel4="chainID ${chain} and (resname CLA CLB CHL PLQ PL9 LUT VIO XAT NEO NEX BCR CLA CLB HEME CHL)" # Only chlorophylls and carotenoids 
+
       python3 ${script}/lifetime_analysis.py -dt ${dt} -min_event_ns ${min_event_ns} -cutoff "${cutoff}" -f ${f} -traj ${trj} -sel1 "${sel3}" -sel2 "${sel1}" -o ${odir} -prefix chain_${chain}_${basename} -group_by1 "resids" -group_by2 "resids" > ${odir}/chain_${chain}_${basename}.log 2>&1 &
       python3 ${script}/lifetime_analysis.py -dt ${dt} -min_event_ns ${min_event_ns} -cutoff "${cutoff}" -f ${f} -traj ${trj} -sel1 "${sel1}" -sel2 "${sel3}" -o ${odir} -prefix psbs_chain_${chain}_${basename} -group_by1 "resids" -group_by2 "resids" > ${odir}/psbs_chain_${chain}_${basename}.log 2>&1 &
+      #python3 ${script}/lifetime_analysis.py -dt ${dt} -min_event_ns ${min_event_ns} -cutoff "${cutoff}" -f ${f} -traj ${trj} -sel1 "${sel4}" -sel2 "${sel1}" -o ${odir} -prefix cofactors_chain_${chain}_${basename} -group_by1 "resids" -group_by2 "resids" > ${odir}/cofactors_chain_${chain}_${basename}.log 2>&1 &
     done
   done
 }
@@ -361,13 +364,26 @@ function sum_csv_lifetimes(){
   mkdir -p ${odir}
   rm -f ${odir}/*
   chains=("s" "n" "8" "7" "k" "z")
+  
+  outputs_arr_psbs=()
+  outputs_arr_chains=()
+  outputs_arr_cofactors=()
   for chain in "${chains[@]}"; do
     echo "Processing chain: ${chain}"
     python3 ${script}/sum_csv_lifetimes.py -d ${dir} -o ${odir}/lifetimes_summary_df_chain_${chain}.csv -prefix chain_${chain}_ # Suffix is *residue_summary_df.csv
+
+    python3 ${script}/sum_csv_lifetimes.py -d ${dir} -o ${odir}/lifetimes_summary_df_cofactors_chain_${chain}.csv -prefix cofactors_chain_${chain}_  --ignore-missing  # Suffix is *residue_summary_df.csv, ignores empty files for chains without cofactors
     python3 ${script}/sum_csv_lifetimes.py -d ${dir} -o ${odir}/lifetimes_summary_df_psbs_chain_${chain}.csv -prefix psbs_chain_${chain}_ # Suffix is *residue_summary_df.csv
-
+    outputs_arr_psbs+=("${odir}/lifetimes_summary_df_psbs_chain_${chain}.csv")
+    outputs_arr_chains+=("${odir}/lifetimes_summary_df_chain_${chain}.csv")
+    # Check if the cofactors file is not empty before adding to the array
+    if [ -s "${odir}/lifetimes_summary_df_cofactors_chain_${chain}.csv" ]; then
+      outputs_arr_cofactors+=("${odir}/lifetimes_summary_df_cofactors_chain_${chain}.csv")
+    fi
   done
-
+  python3 ${script}/join_csvs.py -c "${outputs_arr_psbs[@]}" -o ${odir}/lifetimes_summary_df_psbs_all.csv
+  python3 ${script}/join_csvs.py -c "${outputs_arr_chains[@]}" -o ${odir}/lifetimes_summary_df_chains_all.csv
+  python3 ${script}/join_csvs.py -c "${outputs_arr_cofactors[@]}" -o ${odir}/lifetimes_summary_df_cofactors_all.csv
 }
 
 function sum_lifetimes_psbs_chains(){
@@ -509,14 +525,14 @@ function main(){
   #check_sucess_cg2at
   #reassign_chains 
   #lifetimes_to_cif_psii             # CIF files allow bfactors > 999 while PDB files do not.
-  #sum_csv_lifetimes
+  sum_csv_lifetimes
   #sum_lifetimes_psbs_chains
   #add_lifetimes_to_cif
   #lifetimes_statistics_psii         # Max occupancy
   #plot_lifetimes                     # Generate protein sequence plots with B-factor coloring
   #write_databases
   #join_databases
-  plot_aligned_sequences
+  #plot_aligned_sequences
 }
 
 main
