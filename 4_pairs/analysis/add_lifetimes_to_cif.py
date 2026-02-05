@@ -73,7 +73,7 @@ def load_lifetime_data(csv_file, log_transform=False):
     csv_file : str
         Path to CSV file with 'resid' and lifetime columns.
     log_transform : bool
-        If True, apply log1p transformation to lifetime values.
+        If True, apply log10 transformation to lifetime values.
         
     Returns
     -------
@@ -120,8 +120,8 @@ def load_lifetime_data(csv_file, log_transform=False):
     
     # Apply log transformation if requested
     if log_transform:
-        lifetime_values = np.log1p(lifetime_values)
-        print(f"  After log1p transformation: min={lifetime_values.min():.2f}, max={lifetime_values.max():.2f}")
+        lifetime_values = np.log10(lifetime_values + 1)
+        print(f"  After log10 transformation: min={lifetime_values.min():.2f}, max={lifetime_values.max():.2f}")
     
     resid_to_bfactor = dict(zip(df['resid'], lifetime_values))
     
@@ -201,7 +201,7 @@ Examples:
     parser.add_argument('-o', '--output', required=True,
                         help='Output mmCIF file path')
     parser.add_argument('--log_transform', action='store_true',
-                        help='Apply log1p transformation to lifetime values')
+                        help='Apply log10 transformation to lifetime values')
     
     args = parser.parse_args()
     
