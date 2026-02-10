@@ -18,18 +18,20 @@ def parser_args():
 
 def transform_df(df):
     half = len(df) // 2
-    df1 = df.iloc[0:half, :].copy()
-    df2 = df.iloc[half:, :].copy()
+    df1 = df.iloc[0:half, :].copy().reset_index(drop=True)
+    df2 = df.iloc[half:, :].copy().reset_index(drop=True)
     
-    # Sum corresponding rows from both halves (all numeric columns)
-    sum_ns = (df1.iloc[:,1:].values + df2.iloc[:,1:].values).sum(axis=1)
+    # Sum only the numeric 'sum_ns' column from both halves
+    sum_ns = df1['sum_ns'].values + df2['sum_ns'].values
     
-    # Keep original DataFrame structure, just replace with sum_ns column
-    result = df.iloc[:,0].copy().to_frame()
-    # Assign symmetric values: first half gets sum_ns, second half gets same sum_ns
-    result['sum_ns'] = 0.0  # Initialize
-    result.iloc[0:half, result.columns.get_loc('sum_ns')] = sum_ns
-    result.iloc[half:, result.columns.get_loc('sum_ns')] = sum_ns
+    # Build result: keep resid/resname/chain from both halves, assign symmetric sum_ns
+    result1 = df1[['resid', 'resname', 'chain']].copy()
+    result1['sum_ns'] = sum_ns
+    
+    result2 = df2[['resid', 'resname', 'chain']].copy()
+    result2['sum_ns'] = sum_ns
+    
+    result = pd.concat([result1, result2], ignore_index=True)
     
     return result
 

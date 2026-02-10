@@ -220,15 +220,14 @@ function lifetime_analysis_grouped (){
 
     #python3 ${script}/lifetime_analysis.py -prefix test -n_frames 100 -dt ${dt} -min_event_ns 0 -cutoff "${cutoff}" -f ${f} -traj ${trj} -sel1 "${sel1}" -sel2 "${sel2}" -o ${odir} -prefix test_${basename} -group_by1 "resids" -group_by2 "resids" > ${odir}/psbs_${basename}.log 2>&1 &
     #Contacts PsbS and chains
-    python3 ${script}/lifetime_analysis.py -dt ${dt} -min_event_ns ${min_event_ns} -cutoff "${cutoff}" -f ${f} -traj ${trj} -sel1 "${sel1}" -sel2 "${sel2}" -o ${odir} -prefix psbs_${basename} -group_by1 "resids" -group_by2 "resids" > ${odir}/psbs_${basename}.log 2>&1 &
+    #python3 ${script}/lifetime_analysis.py -dt ${dt} -min_event_ns ${min_event_ns} -cutoff "${cutoff}" -f ${f} -traj ${trj} -sel1 "${sel1}" -sel2 "${sel2}" -o ${odir} -prefix psbs_${basename} -group_by1 "resids" -group_by2 "resids" > ${odir}/psbs_${basename}.log 2>&1 &
     for chain in "${chains_arr[@]}"; do
       # Contacts chains and PsbS
       sel3="chainID ${chain} and (not resname *GG* *SQ* *PG* *MG* W* HOH *HG* *DS* *DP* *DG*)" # Only chlorophylls and proteins
-      sel4="chainID ${chain} and (resname CLA CLB CHL PLQ PL9 LUT VIO XAT NEO NEX BCR CLA CLB HEME CHL)" # Only chlorophylls and carotenoids 
-
-      python3 ${script}/lifetime_analysis.py -dt ${dt} -min_event_ns ${min_event_ns} -cutoff "${cutoff}" -f ${f} -traj ${trj} -sel1 "${sel3}" -sel2 "${sel1}" -o ${odir} -prefix chain_${chain}_${basename} -group_by1 "resids" -group_by2 "resids" > ${odir}/chain_${chain}_${basename}.log 2>&1 &
-      python3 ${script}/lifetime_analysis.py -dt ${dt} -min_event_ns ${min_event_ns} -cutoff "${cutoff}" -f ${f} -traj ${trj} -sel1 "${sel1}" -sel2 "${sel3}" -o ${odir} -prefix psbs_chain_${chain}_${basename} -group_by1 "resids" -group_by2 "resids" > ${odir}/psbs_chain_${chain}_${basename}.log 2>&1 &
-      #python3 ${script}/lifetime_analysis.py -dt ${dt} -min_event_ns ${min_event_ns} -cutoff "${cutoff}" -f ${f} -traj ${trj} -sel1 "${sel4}" -sel2 "${sel1}" -o ${odir} -prefix cofactors_chain_${chain}_${basename} -group_by1 "resids" -group_by2 "resids" > ${odir}/cofactors_chain_${chain}_${basename}.log 2>&1 &
+      sel4="chainID ${chain} and (resname CLA CLB CHL, PLQ PL9 LUT VIO XAT NEO NEX BCR HEME)" # Only chlorophylls and carotenoids 
+      #python3 ${script}/lifetime_analysis.py -dt ${dt} -min_event_ns ${min_event_ns} -cutoff "${cutoff}" -f ${f} -traj ${trj} -sel1 "${sel3}" -sel2 "${sel1}" -o ${odir} -prefix chain_${chain}_${basename} -group_by1 "resids" -group_by2 "resids" > ${odir}/chain_${chain}_${basename}.log 2>&1 &
+      #python3 ${script}/lifetime_analysis.py -dt ${dt} -min_event_ns ${min_event_ns} -cutoff "${cutoff}" -f ${f} -traj ${trj} -sel1 "${sel1}" -sel2 "${sel3}" -o ${odir} -prefix psbs_chain_${chain}_${basename} -group_by1 "resids" -group_by2 "resids" > ${odir}/psbs_chain_${chain}_${basename}.log 2>&1 &
+      python3 ${script}/lifetime_analysis.py -dt ${dt} -min_event_ns ${min_event_ns} -cutoff "${cutoff}" -f ${f} -traj ${trj} -sel1 "${sel4}" -sel2 "${sel1}" -o ${odir} -prefix cofactors_chain_${chain}_${basename} -group_by1 "resids" -group_by2 "resids" > ${odir}/cofactors_chain_${chain}_${basename}.log 2>&1 &
     done
   done
 }
@@ -357,13 +356,23 @@ function lifetimes_to_cif_psii(){
   python3 /martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/lifetime_to_cif_psii.py ${pdb_dir} ${lifetimes_dir} ${odir} "${sel_protein}" "${sel_cofactors}" "${sel_psbs}" ${basenames_csv}
 }
 
+function change_lhcbm_chain_lifetime_binding_mode(){
+  dir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/lifetimes
+  odir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/lifetimes_modified_chain_ids
+  script=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis
+  mkdir -p ${odir}
+  rm -f ${odir}/*
+
+
+}
+
 function sum_csv_lifetimes(){
   dir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/lifetimes
   odir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/lifetimes_summary
   script=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis
   mkdir -p ${odir}
   rm -f ${odir}/*
-  chains=("s" "n" "8" "7" "k" "z")
+  chains=("s" "n" "8" "7" "k" "z" "6" "g")
   
   outputs_arr_psbs=()
   outputs_arr_chains=()
@@ -373,17 +382,18 @@ function sum_csv_lifetimes(){
     python3 ${script}/sum_csv_lifetimes.py -d ${dir} -o ${odir}/lifetimes_summary_df_chain_${chain}.csv -prefix chain_${chain}_ # Suffix is *residue_summary_df.csv
 
     python3 ${script}/sum_csv_lifetimes.py -d ${dir} -o ${odir}/lifetimes_summary_df_cofactors_chain_${chain}.csv -prefix cofactors_chain_${chain}_  --ignore-missing  # Suffix is *residue_summary_df.csv, ignores empty files for chains without cofactors
+
     python3 ${script}/sum_csv_lifetimes.py -d ${dir} -o ${odir}/lifetimes_summary_df_psbs_chain_${chain}.csv -prefix psbs_chain_${chain}_ # Suffix is *residue_summary_df.csv
     outputs_arr_psbs+=("${odir}/lifetimes_summary_df_psbs_chain_${chain}.csv")
     outputs_arr_chains+=("${odir}/lifetimes_summary_df_chain_${chain}.csv")
     # Check if the cofactors file is not empty before adding to the array
     if [ -s "${odir}/lifetimes_summary_df_cofactors_chain_${chain}.csv" ]; then
-      outputs_arr_cofactors+=("${odir}/lifetimes_summary_df_cofactors_chain_${chain}.csv")
+      outputs_arr_chlorophylls+=("${odir}/lifetimes_summary_df_cofactors_chain_${chain}.csv")
     fi
   done
   python3 ${script}/join_csvs.py -c "${outputs_arr_psbs[@]}" -o ${odir}/lifetimes_summary_df_psbs_all.csv
   python3 ${script}/join_csvs.py -c "${outputs_arr_chains[@]}" -o ${odir}/lifetimes_summary_df_chains_all.csv
-  python3 ${script}/join_csvs.py -c "${outputs_arr_cofactors[@]}" -o ${odir}/lifetimes_summary_df_cofactors_all.csv
+  python3 ${script}/join_csvs.py -c "${outputs_arr_chlorophylls[@]}" -o ${odir}/lifetimes_summary_df_cofactors_all.csv
 }
 
 function sum_lifetimes_psbs_chains(){
@@ -391,7 +401,7 @@ function sum_lifetimes_psbs_chains(){
   odir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/lifetimes_summary
   script=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis
 
-  chains=("s" "n" "8" "7" "k" "z")
+  chains=("s" "n" "8" "7" "k" "z" "6" "g")
 
 
   for chain in "${chains[@]}"; do
@@ -470,8 +480,8 @@ function plot_aligned_sequences(){
   script=${root_dir}/4_pairs/analysis
   edge_color='None'
   edge_linewidth=0.3
-  vmin=0
-  vmax=10
+  vmin=100
+  vmax=30000
   cmap='colorcet:CET_L17' # Uses the cmap library
   dir1="${root_dir}/5_psii/binding_sites/lifetimes_summary"
 
@@ -480,11 +490,12 @@ function plot_aligned_sequences(){
   output="${root_dir}/4_pairs/analysis/figures/aligned_sequences_chains_psii.eps"
 
   file1=${dir1}/lifetimes_summary_df_chain_s.csv
-  file2=${dir1}/lifetimes_summary_df_chain_7.csv
-  file3=${dir1}/lifetimes_summary_df_chain_n.csv
+  file2=${dir1}/lifetimes_summary_df_chain_8.csv
+  file3=${dir1}/lifetimes_summary_df_chain_7.csv
+  file4=${dir1}/lifetimes_summary_df_chain_n.csv
 
-  headers=("CP26" "LHCB3" "LHCBM")
-  files=($file1 $file2 $file3)
+  headers=("CP26" "CP24" "LHCB3" "LHCBM")
+  files=($file1 $file2 $file3 $file4)
   python ${script}/plot_aligned_sequences.py --log_transform --edge_color ${edge_color} --edge_linewidth ${edge_linewidth} --fasta ${fasta} --files ${files[@]} --headers ${headers[@]} --output ${output} --vmin ${vmin} --vmax ${vmax} --cmap ${cmap} --split_every ${split_every}
 
   split_every=110
@@ -493,14 +504,30 @@ function plot_aligned_sequences(){
   output="${root_dir}/4_pairs/analysis/figures/aligned_sequences_psbs_psii.eps"
 
   file1=${dir1}/lifetimes_summary_df_psbs_chain_s_symmetrized.csv
-  file2=${dir1}/lifetimes_summary_df_psbs_chain_7_symmetrized.csv
-  file3=${dir1}/lifetimes_summary_df_psbs_chain_n_symmetrized.csv
+  file2=${dir1}/lifetimes_summary_df_psbs_chain_8_symmetrized.csv
+  file3=${dir1}/lifetimes_summary_df_psbs_chain_7_symmetrized.csv
+  file4=${dir1}/lifetimes_summary_df_psbs_chain_n_symmetrized.csv
 
-  headers=("PsbS_CP26" "PsbS_LHCB3" "PsbS_LHCBM")
-  files=($file1 $file2 $file3)
+  headers=("PsbS_CP26" "PsbS_CP24" "PsbS_LHCB3" "PsbS_LHCBM")
+  files=($file1 $file2 $file3 $file4)
 
   python ${script}/plot_aligned_sequences.py --log_transform --edge_color ${edge_color} --edge_linewidth ${edge_linewidth} --max_resids 212 --fasta ${fasta} --files ${files[@]} --headers ${headers[@]} --output ${output} --vmin ${vmin} --vmax ${vmax} --cmap ${cmap} --split_every ${split_every}
 
+}
+
+function plot_cofactors_lifetimes(){
+  script=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis
+  dir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/lifetimes_summary
+  output_dir=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/figures
+  ref_pdb=/martini/rubiz/Github/PsbS_Binding_Site/3_reference_proteins/PSII_LHCII/psii_with_cofactors_aa.pdb
+  equivalent_chains_yaml=/martini/rubiz/Github/PsbS_Binding_Site/definitions_yaml/equivalent_chainids.yaml
+  change_resnames_yaml=/martini/rubiz/Github/PsbS_Binding_Site/definitions_yaml/change_resnames.yaml
+  helix_labels_yaml=/martini/rubiz/Github/PsbS_Binding_Site/definitions_yaml/psii_helix_labels.yaml
+  vmin=100
+  vmax=30000
+  cmap='colorcet:CET_L17' # Uses the cmap library
+  mkdir -p ${output_dir}
+  python3 ${script}/plot_cofactors_lifetimes.py -log_transform -ref ${ref_pdb} -csv ${dir}/lifetimes_summary_df_cofactors_all.csv -vmin ${vmin} -vmax ${vmax} -cmap ${cmap} -output ${output_dir}/cofactors_lifetimes_psii.eps -change_resnames_yaml ${change_resnames_yaml} 
 }
 
 function main(){
@@ -525,7 +552,7 @@ function main(){
   #check_sucess_cg2at
   #reassign_chains 
   #lifetimes_to_cif_psii             # CIF files allow bfactors > 999 while PDB files do not.
-  sum_csv_lifetimes
+  #sum_csv_lifetimes
   #sum_lifetimes_psbs_chains
   #add_lifetimes_to_cif
   #lifetimes_statistics_psii         # Max occupancy
@@ -533,6 +560,7 @@ function main(){
   #write_databases
   #join_databases
   #plot_aligned_sequences
+  plot_cofactors_lifetimes
 }
 
 main

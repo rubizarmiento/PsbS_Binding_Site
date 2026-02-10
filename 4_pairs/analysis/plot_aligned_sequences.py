@@ -36,7 +36,7 @@ def parse_arguments():
     parser.add_argument("--cmap", type=str, default='Reds', help="Colormap for the heatmap.")
     parser.add_argument("--split_every", type=int, default=110, help="Number of columns after which to split the table.")
     parser.add_argument("--max_resids", type=int, default=None, help="Maximum number of residues to display.")
-    parser.add_argument("--log_transform", action='store_true', help="Apply log1p transformation to lifetime values.")
+    parser.add_argument("--log_transform", action='store_true', help="Apply log10 transformation to lifetime values.")
     parser.add_argument("--edge_color", type=str, default='black', help="Color of table cell edges (default: black).")
     parser.add_argument("--edge_linewidth", type=float, default=1.0, help="Line width of table cell edges (default: 1.0).")
     parser.add_argument("--row_height", type=float, default=2.0, help="Row height scaling factor (default: 2.0).")
@@ -56,7 +56,7 @@ def csvs_to_dfs(files_arr, headers=None, log_transform=False):
     if log_transform:
         for df in dfs:
             if 'sum_ns' in df.columns:
-                df['sum_ns'] = np.log1p(df['sum_ns'])
+                df['sum_ns'] = np.log10(df['sum_ns'] + 1)
     
     dict_lifetimes = {
     "headers": headers,
@@ -350,6 +350,11 @@ def main():
     args = parse_arguments()
 
     dfs = csvs_to_dfs(args.files, headers=args.headers, log_transform=args.log_transform)
+
+    # Transform vmin and vmax to log10 scale if log_transform is enabled
+    if args.log_transform:
+        args.vmin = np.log10(args.vmin + 1)
+        args.vmax = np.log10(args.vmax + 1)
 
     dict_fasta, headers, sequences = fasta_to_dict(args.fasta)
     dict_resids_and_spaces_fasta = sequences_to_resids_with_spaces(dict_fasta)
