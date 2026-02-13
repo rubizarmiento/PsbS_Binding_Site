@@ -108,7 +108,8 @@ def load_and_validate_csv(csv_file):
         DataFrame with 'resid', 'sum_ns', and optionally 'resname_i', 'chainID_i' columns, or None if invalid.
     """
     try:
-        df = pd.read_csv(csv_file)
+        # Read CSV with keep_default_na=False to treat "NA" as a string literal, not NaN
+        df = pd.read_csv(csv_file, keep_default_na=False, na_values=[''])
         
         # Check for required columns
         if 'resid' not in df.columns:
@@ -186,7 +187,8 @@ def sum_lifetimes(csv_files, ignore_missing=False):
     if has_chain:
         group_cols.append('chainID_i')
     
-    summed_df = combined_df.groupby(group_cols, as_index=False)['sum_ns'].sum()
+    # Use dropna=False to keep NaN values in groupby (important when resname_i is NaN for chain-level grouping)
+    summed_df = combined_df.groupby(group_cols, as_index=False, dropna=False)['sum_ns'].sum()
     
     # Rename columns: resname_i -> resname, chainID_i -> chain
     rename_map = {}

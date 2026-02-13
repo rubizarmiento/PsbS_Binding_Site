@@ -26,7 +26,8 @@ def main():
     # Read and concatenate all CSV files
     dataframes = []
     for csv_file in csv_files:
-        df = pd.read_csv(csv_file)
+        # Read CSV with keep_default_na=False to treat "NA" as a string literal, not NaN
+        df = pd.read_csv(csv_file, keep_default_na=False, na_values=[''])
         dataframes.append(df)
     
     combined_df = pd.concat(dataframes, ignore_index=True)

@@ -52,10 +52,15 @@ function extract_binding(){
     trj=${idir1}/aligned_5000ns.xtc
     sel="all"
 
-    mkdir -p ${odir}
-    echo "Extracting binding events for chain ${chain}..."
-    echo "LOG: ${odir}/extract_binding_chain_${chain}.log"
-    python3 ${scripts_dir}/extract_trajectories_from_dataframe.py -sort "lifetime_ns" -sel ${sel} -i ${df} -f ${f} -trj ${trj} -o ${odir} -prefix chain_${chain} > ${odir}/extract_binding_chain_${chain}.log 2>&1 &
+    #mkdir -p ${odir}
+    #echo "Extracting binding events for chain ${chain}..."
+    #echo "LOG: ${odir}/extract_binding_chain_${chain}.log"
+    #python3 ${scripts_dir}/extract_trajectories_from_dataframe.py -sort "lifetime_ns" -sel ${sel} -i ${df} -f ${f} -trj ${trj} -o ${odir} -prefix chain_${chain} > ${odir}/extract_binding_chain_${chain}.log 2>&1 &
+    #Copy -f for all the *xtc files with the same basename but extension .pdb
+    for xtc_file in ${odir}/chain_${chain}_*.xtc; do
+      pdb_file=${xtc_file%.xtc}.pdb
+      cp -f ${f} ${pdb_file}
+    done
   done
 }
 
@@ -90,6 +95,7 @@ function binding_pose_grouped(){
     done
   done
 }
+
 
 function extract_cluster(){
   for chain in "${chains_analyze[@]}"; do
@@ -243,6 +249,8 @@ function lifetime_analysis_grouped (){
       #python3 ${scripts_dir}/lifetime_analysis.py -prefix test -n_frames 100 -dt ${dt} -min_event_ns 0 -cutoff "${cutoff}" -f ${f} -traj ${trj} -sel1 "${sel1}" -sel2 "${sel2}" -o ${odir} -prefix test_${basename} -group_by1 "resids" -group_by2 "resids" > ${odir}/psbs_${basename}.log 2>&1 &
       #Contacts PsbS and chains
       #python3 ${scripts_dir}/lifetime_analysis.py -dt ${dt} -min_event_ns ${min_event_ns} -cutoff "${cutoff}" -f ${f} -traj ${trj} -sel1 "${sel1}" -sel2 "${sel2}" -o ${odir} -prefix psbs_${basename} -group_by1 "resids" -group_by2 "resids" > ${odir}/psbs_${basename}.log 2>&1 &
+      #python3 ${scripts_dir}/lifetime_analysis.py -dt ${dt} -min_event_ns ${min_event_ns} -cutoff "${cutoff}" -f ${f} -traj ${trj} -sel1 "${sel1}" -sel2 "${sel2}" -o ${odir} -prefix bychain_psbs_${basename} -group_by1 "chainIDs" -group_by2 "chainIDs" > ${odir}/chainIDs_psbs_${basename}.log 2>&1 &
+
       for chain in "${chains_arr[@]}"; do
         # Contacts chains and PsbS
         sel3="chainID ${chain} and (not resname *GG* *SQ* *PG* W* HOH *HG* LMG DGD)" # Only chlorophylls, carotenoids and proteins
@@ -250,13 +258,81 @@ function lifetime_analysis_grouped (){
 
         #python3 ${scripts_dir}/lifetime_analysis.py -dt ${dt} -min_event_ns ${min_event_ns} -cutoff "${cutoff}" -f ${f} -traj ${trj} -sel1 "${sel1}" -sel2 "${sel3}" -o ${odir} -prefix psbs_chain_${chain}_${basename} -group_by1 "resids" -group_by2 "resids" > ${odir}/psbs_chain_${chain}_${basename}.log 2>&1 &
         #python3 ${scripts_dir}/lifetime_analysis.py -dt ${dt} -min_event_ns ${min_event_ns} -cutoff "${cutoff}" -f ${f} -traj ${trj} -sel1 "${sel3}" -sel2 "${sel1}" -o ${odir} -prefix chain_${chain}_${basename} -group_by1 "resids" -group_by2 "resids" > ${odir}/chain_${chain}_${basename}.log 2>&1 &
-        python3 ${scripts_dir}/lifetime_analysis.py -dt ${dt} -min_event_ns ${min_event_ns} -cutoff "${cutoff}" -f ${f} -traj ${trj} -sel1 "${sel4}" -sel2 "${sel1}" -o ${odir} -prefix cofactors_chain_${chain}_${basename} -group_by1 "resids" -group_by2 "resids" > ${odir}/chlorophylls_chain_${chain}_${basename}.log 2>&1 &
+        #python3 ${scripts_dir}/lifetime_analysis.py -dt ${dt} -min_event_ns ${min_event_ns} -cutoff "${cutoff}" -f ${f} -traj ${trj} -sel1 "${sel3}" -sel2 "${sel1}" -o ${odir} -prefix bychain_chain_${chain}_${basename} -group_by1 "chainIDs" -group_by2 "chainIDs" > ${odir}/bychain_chain_${chain}_${basename}.log 2>&1 &
+        #python3 ${scripts_dir}/lifetime_analysis.py -dt ${dt} -min_event_ns ${min_event_ns} -cutoff "${cutoff}" -f ${f} -traj ${trj} -sel1 "${sel4}" -sel2 "${sel1}" -o ${odir} -prefix cofactors_chain_${chain}_${basename} -group_by1 "resids" -group_by2 "resids" > ${odir}/chlorophylls_chain_${chain}_${basename}.log 2>&1 &
+        python3 ${scripts_dir}/lifetime_analysis.py -dt ${dt} -min_event_ns ${min_event_ns} -cutoff "${cutoff}" -f ${f} -traj ${trj} -sel1 "${sel4}" -sel2 "${sel1}" -o ${odir} -prefix bychain_cofactors_${chain}_${basename} -group_by1 "resnames" -group_by2 "chainIDs" > ${odir}/bychain_cofactors_${chain}_${basename}.log 2>&1 &
+
       done
     done
   done
 }
 
+function sum_csv_lifetimes(){
+  script=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis
+  odir=${analysis_dir}/10_lifetimes_summary
 
+  mkdir -p ${odir}
+  rm -f ${odir}/*
+  
+  chains=("4" "r" "s")
+  outputs_arr_psbs=()
+  outputs_arr_chains=()
+  outputs_arr_bychain_chains=()
+  outputs_arr_bychain_cofactors=()
+  outputs_arr_cofactors=()
+  for chain in "${chains[@]}"; do
+    wdir=${analysis_dir}/chain_${chain}
+    dir=${wdir}/7_lifetimes_grouped
+    echo "Processing chain: ${chain}"
+    python3 ${script}/sum_csv_lifetimes.py -d ${dir} -o ${odir}/lifetimes_summary_df_chain_${chain}.csv -prefix chain_${chain}_ # Suffix is *residue_summary_df.csv
+    python3 ${script}/sum_csv_lifetimes.py -d ${dir} -o ${odir}/lifetimes_summary_df_bychain_chain_${chain}.csv -prefix bychain_chain_${chain}_ # Suffix is *residue_summary_df.csv
+    python3 ${script}/sum_csv_lifetimes.py -d ${dir} -o ${odir}/lifetimes_summary_df_cofactors_chain_${chain}.csv -prefix cofactors_chain_${chain}_  --ignore-missing  # Suffix is *residue_summary_df.csv, ignores empty files for chains without cofactors
+    python3 ${script}/sum_csv_lifetimes.py -d ${dir} -o ${odir}/lifetimes_summary_df_bychain_cofactors_chain_${chain}.csv -prefix bychain_cofactors_${chain}_  --ignore-missing  # Suffix is *residue_summary_df.csv, ignores empty files for chains without cofactors
+    python3 ${script}/sum_csv_lifetimes.py -d ${dir} -o ${odir}/lifetimes_summary_df_psbs_chain_${chain}.csv -prefix psbs_chain_${chain}_ # Suffix is *residue_summary_df.csv
+    
+    outputs_arr_psbs+=("${odir}/lifetimes_summary_df_psbs_chain_${chain}.csv")
+    outputs_arr_chains+=("${odir}/lifetimes_summary_df_chain_${chain}.csv")
+    outputs_arr_bychain_chains+=("${odir}/lifetimes_summary_df_bychain_chain_${chain}.csv")
+    # Check if the cofactors file is not empty before adding to the array
+    if [ -s "${odir}/lifetimes_summary_df_cofactors_chain_${chain}.csv" ]; then
+      outputs_arr_cofactors+=("${odir}/lifetimes_summary_df_cofactors_chain_${chain}.csv")
+    fi
+    if [ -s "${odir}/lifetimes_summary_df_bychain_cofactors_chain_${chain}.csv" ]; then
+      outputs_arr_bychain_cofactors+=("${odir}/lifetimes_summary_df_bychain_cofactors_chain_${chain}.csv")
+    fi
+  done
+
+  python3 ${script}/join_csvs.py -c "${outputs_arr_psbs[@]}" -o ${odir}/lifetimes_summary_df_psbs_all.csv
+  python3 ${script}/join_csvs.py -c "${outputs_arr_bychain_chains[@]}" -o ${odir}/lifetimes_summary_df_bychain_chains_all.csv
+  python3 ${script}/join_csvs.py -c "${outputs_arr_bychain_cofactors[@]}" -o ${odir}/lifetimes_summary_df_bychain_cofactors_all.csv
+  python3 ${script}/join_csvs.py -c "${outputs_arr_chains[@]}" -o ${odir}/lifetimes_summary_df_chains_all.csv
+  python3 ${script}/join_csvs.py -c "${outputs_arr_cofactors[@]}" -o ${odir}/lifetimes_summary_df_cofactors_all.csv
+}
+
+function symmetric_sum_lifetimes_psbs_chains(){
+  # Binding events for both chains are summed and then added for each chain with the purpose of siimplifying the data.
+  odir=${analysis_dir}/10_lifetimes_summary
+  idir=${analysis_dir}/10_lifetimes_summary
+  script=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis
+
+  chains=("4" "r" "s")
+
+  for chain in "${chains[@]}"; do
+    python  ${script}/sum_lifetimes_psbs_chains.py -csv ${idir}/lifetimes_summary_df_psbs_chain_${chain}.csv -o ${odir}/lifetimes_summary_df_psbs_chain_${chain}_symmetrized.csv
+  done
+}
+
+function get_lifetimes_per_binding_mode(){
+  #Returns: /martini/rubiz/Github/PsbS_Binding_Site/analysis/analysis_pairs/10_lifetimes_summary/binding_modes_lifetimes.csv
+  arr_dir=()
+  for chain in "${chains[@]}"; do
+    arr_dir+=("${analysis_dir}/chain_${chain}/3_trj_grouped")
+  done
+  odir=${analysis_dir}/10_lifetimes_summary
+  output=${odir}/binding_modes_lifetimes.csv
+  dt=2 # time step between frames
+  python3 ${scripts_dir}/get_lifetimes_per_binding_mode.py -d "${arr_dir[@]}" -o ${output} -dt ${dt}
+}
 
 function reassign_chains(){
   for chain in "${chains_analyze[@]}"; do
@@ -312,48 +388,6 @@ function lifetimes_to_cif(){
     sel_psbs="chainID A"
     rm -rf ${odir}/*pdb
     python3 ${scripts_dir}/lifetime_to_cif.py ${pdb_dir} ${idir7} ${odir} "${sel_protein}" "${sel_cofactors}" "${sel_psbs}" ${csv}
-  done
-}
-
-function sum_csv_lifetimes(){
-  script=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis
-  odir=${analysis_dir}/10_lifetimes_summary
-
-  mkdir -p ${odir}
-  rm -f ${odir}/*
-  
-  chains=("4" "r" "s")
-  outputs_arr_psbs=()
-  outputs_arr_chains=()
-  outputs_arr_cofactors=()
-  for chain in "${chains[@]}"; do
-    wdir=${analysis_dir}/chain_${chain}
-    dir=${wdir}/7_lifetimes_grouped
-    echo "Processing chain: ${chain}"
-    python3 ${script}/sum_csv_lifetimes.py -d ${dir} -o ${odir}/lifetimes_summary_df_chain_${chain}.csv -prefix chain_${chain}_ # Suffix is *residue_summary_df.csv
-    python3 ${script}/sum_csv_lifetimes.py -d ${dir} -o ${odir}/lifetimes_summary_df_cofactors_chain_${chain}.csv -prefix cofactors_chain_${chain}_  --ignore-missing  # Suffix is *residue_summary_df.csv, ignores empty files for chains without cofactors
-    python3 ${script}/sum_csv_lifetimes.py -d ${dir} -o ${odir}/lifetimes_summary_df_psbs_chain_${chain}.csv -prefix psbs_chain_${chain}_ # Suffix is *residue_summary_df.csv
-    outputs_arr_psbs+=("${odir}/lifetimes_summary_df_psbs_chain_${chain}.csv")
-    outputs_arr_chains+=("${odir}/lifetimes_summary_df_chain_${chain}.csv")
-    # Check if the cofactors file is not empty before adding to the array
-    if [ -s "${odir}/lifetimes_summary_df_cofactors_chain_${chain}.csv" ]; then
-      outputs_arr_cofactors+=("${odir}/lifetimes_summary_df_cofactors_chain_${chain}.csv")
-    fi
-  done
-  python3 ${script}/join_csvs.py -c "${outputs_arr_psbs[@]}" -o ${odir}/lifetimes_summary_df_psbs_all.csv
-  python3 ${script}/join_csvs.py -c "${outputs_arr_chains[@]}" -o ${odir}/lifetimes_summary_df_chains_all.csv
-  python3 ${script}/join_csvs.py -c "${outputs_arr_cofactors[@]}" -o ${odir}/lifetimes_summary_df_cofactors_all.csv
-}
-
-function sum_lifetimes_psbs_chains(){
-  odir=${analysis_dir}/10_lifetimes_summary
-  idir=${analysis_dir}/10_lifetimes_summary
-  script=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis
-
-  chains=("4" "r" "s")
-
-  for chain in "${chains[@]}"; do
-    python  ${script}/sum_lifetimes_psbs_chains.py -csv ${idir}/lifetimes_summary_df_psbs_chain_${chain}.csv -o ${odir}/lifetimes_summary_df_psbs_chain_${chain}_symmetrized.csv
   done
 }
 
@@ -437,8 +471,6 @@ function plot_aligned_sequences(){
   row_height=0.4
   dir1=${analysis_dir}/10_lifetimes_summary
 
-
-
   fasta="${root_dir}/fasta/5xnl_lhc_set_aligned_paper.fasta"
   output="${root_dir}/4_pairs/analysis/figures/aligned_sequences_chains_pairs.eps"
   
@@ -451,7 +483,6 @@ function plot_aligned_sequences(){
   files=($file1 $file2 $file3)
 
   python ${script}/plot_aligned_sequences.py --log_transform --col_width ${col_width} --row_height ${row_height} --edge_color ${edge_color} --edge_linewidth ${edge_linewidth} --fasta ${fasta} --files ${files[@]} --headers ${headers[@]} --output ${output} --vmin ${vmin} --vmax ${vmax} --cmap ${cmap} --split_every ${split_every}
-
 
   fasta="${root_dir}/fasta/psbs.fasta"
   output="${root_dir}/4_pairs/analysis/figures/aligned_sequences_psbs_pairs.eps"
@@ -482,10 +513,7 @@ function plot_cofactors_lifetimes(){
   cmap='colorcet:CET_L17' # Uses the cmap library
   mkdir -p ${output_dir}
   python3 ${script}/plot_cofactors_lifetimes.py -log_transform -ref ${ref_pdb} -csv ${dir}/lifetimes_summary_df_cofactors_all.csv -vmin ${vmin} -vmax ${vmax} -cmap ${cmap} -output ${output_dir}/cofactors_lifetimes_pairs.eps -change_resnames_yaml ${change_resnames_yaml} -change_chains_yaml ${change_chains_yaml} 
-
 }
-
-
 
 function main(){
   set -e
@@ -496,6 +524,9 @@ function main(){
   #extract_binding
   #binding_pose_grouped   
   #lifetime_analysis_grouped
+  sum_csv_lifetimes
+  #symmetric_sum_lifetimes_psbs_chains
+  #get_lifetimes_per_binding_mode      # Get binding time per binding mode
 
   #extract_cluster
   #extract_cluster_special          # Backmapping failed for chain_4_3, extract first cluster member instead
@@ -506,14 +537,12 @@ function main(){
 
     
   #lifetimes_to_cif                   # CIF files allow bfactors > 999 while PDB files do not.
-  #sum_csv_lifetimes
-  #sum_lifetimes_psbs_chains
   #add_lifetimes_to_cif
   
   #lifetimes_statistics_psii          # Max occupancy
   #plot_lifetimes
   #plot_aligned_sequences
-  plot_cofactors_lifetimes
+  #plot_cofactors_lifetimes
 }
 
 main

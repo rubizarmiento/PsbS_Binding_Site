@@ -1,5 +1,4 @@
 
-
 """
 Author: Rubi Zarmiento-Garcia
 Date: 25/08/2025
@@ -18,6 +17,7 @@ Arguments
 - dt: Time step between frames e.g. 1 ns.
 - min_event_ns: Minimum event duration in nanoseconds. Events shorter than this will be discarded. Default 0 ns.
 - n_frames: Maximum number of frames to process (for testing). If not specified, processes all frames.
+
 Returns:
     Saves contact matrix in a csv file
 
@@ -79,8 +79,12 @@ def main():
     chainID_j = sel2.chainIDs[0] if len(sel2.chainIDs) > 0 else "unknown"
     print(f"Chain IDs: sel1={chainID_i}, sel2={chainID_j}")
     
-    # Create resid to resname mapping for both selections
-    resid_to_resname_i = {res.resid: res.resname for res in sel1.residues}
+    # Check if grouping by chainIDs or segids - if so, skip resname mapping
+    skip_resname_mapping = group_by1.lower() in ["chainids", "segids"]
+    
+    # Create resid to resname mapping for both selections (only if needed)
+    if not skip_resname_mapping:
+        resid_to_resname_i = {res.resid: res.resname for res in sel1.residues}
     
     # Determine number of frames to process
     total_frames = len(u.trajectory)
@@ -109,31 +113,46 @@ def main():
             exit()
 
         events_df, residue_summary_df, _ = compute_lifetimes_from_contacts(contact_matrix_list[0], dt, min_event_ns)
-
+    
     # Add chain IDs to dataframes
     events_df['chainID_i'] = chainID_i
     events_df['chainID_j'] = chainID_j
     
-    # Add resnames by mapping resid_i to resnames
-    events_df['resname_i'] = events_df['resid_i'].astype(int).map(resid_to_resname_i).fillna('unknown')
+    # Add resnames based on grouping type
+    if group_by1.lower() == "resnames":
+        # resid_i already contains resnames
+        events_df['resname_i'] = events_df['resid_i']
+    elif skip_resname_mapping:
+        # Grouped by chainIDs or segids - no individual residues
+        events_df['resname_i'] = 'NA'
+    else:
+        # Grouped by resids - map residue IDs to resnames
+        events_df['resname_i'] = events_df['resid_i'].astype(int).map(resid_to_resname_i).fillna('unknown')
     
     # Add to residue summary
     residue_summary_df['chainID_i'] = chainID_i
     residue_summary_df['chainID_j'] = chainID_j
     
-    # Add resnames to residue summary by mapping resid to resnames
-    # Check if resid column exists and map it
+    # Add resnames to residue summary based on grouping type
     if 'resid' in residue_summary_df.columns:
-        residue_summary_df['resname_i'] = residue_summary_df['resid'].astype(int).map(resid_to_resname_i).fillna('unknown')
-
+        if group_by1.lower() == "resnames":
+            # resid already contains resnames
+            residue_summary_df['resname_i'] = residue_summary_df['resid']
+        elif skip_resname_mapping:
+            # Grouped by chainIDs or segids - no individual residues
+            residue_summary_df['resname_i'] = 'NA'
+        else:
+            # Grouped by resids - map residue IDs to resnames
+            residue_summary_df['resname_i'] = residue_summary_df['resid'].astype(int).map(resid_to_resname_i).fillna('unknown')
+    
     #Save dataframes
     events_df.to_csv(f"{odir}/{args.prefix}_events_df.csv", index=False, float_format='%.2f')
-
+    
     #Sort summary by resid - convert to numeric for proper sorting
     if 'resid' in residue_summary_df.columns:
         residue_summary_df['resid_numeric'] = pd.to_numeric(residue_summary_df['resid'], errors='coerce')
         residue_summary_df = residue_summary_df.sort_values(by='resid_numeric').drop('resid_numeric', axis=1).reset_index(drop=True)
-
+    
     residue_summary_df.to_csv(f"{odir}/{args.prefix}_residue_summary_df.csv", index=False,float_format='%.2f')
 
 #Run main
