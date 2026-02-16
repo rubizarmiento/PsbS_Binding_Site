@@ -124,8 +124,6 @@ function align_trajectories(){
   done
 }
 
-
-
 function binding_pose_grouped(){
   script=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis
   idir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj_aligned
@@ -159,19 +157,6 @@ function binding_pose_grouped(){
       python3 ${script}/binding_pose.py -f ${f} -trj ${trj} -tpr ${tpr} -osel "all" -sel1 "${sel2}" -sel2 "${sel1}" -o ${odir}/${basename} --cutoff 0.45 >> ${odir}/${basename}/cluster.log 2>&1 &
     fi
   done
-}
-
-function plot_psii_binding_modes () {
-  script=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis
-  ref=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/base_dir/rotated.pdb
-  binding_dir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/middle_cluster
-  binding_modes_occupancy_csv=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj_grouped/binding_modes_lifetimes.csv
-  chains_occupancy_csv=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/lifetimes_summary/lifetimes_summary_df_bychain_chains_all.csv
-  output_dir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/psii_psbs/figures
-  vmin=100
-  vmax=50000
-  cmap='colorcet:CET_L17'
-  python3 ${script}/plot_psii_binding_modes.py -log_transform -ref ${ref} -binding_dir ${binding_dir} -binding_modes_occupancy_csv ${binding_modes_occupancy_csv} -chains_occupancy_csv ${chains_occupancy_csv} -output_dir ${output_dir} -vmin ${vmin} -vmax ${vmax} -cmap ${cmap} -move_site_label "S10" -move_offset "0 20"
 }
 
 function plot_psii_venn_diagram () {
@@ -314,6 +299,57 @@ function extract_cluster(){
     log=${idir2}/${basename}/clust_c045/cluster.log
     python3 ${script}/extract_cluster.py -f ${f} -trj ${trj} -g ${log} -o ${odir}/${basename}.pdb
   done
+}
+
+function align_middle_cluster(){
+  script=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis
+  ref_pdb=/martini/rubiz/Github/PsbS_Binding_Site/3_reference_proteins/PSII_LHCII/psii_with_cofactors_aa.pdb
+  dir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/middle_cluster
+
+  for pdb in ${dir}/*.pdb; do
+    basename=$(basename ${pdb} .pdb)
+
+    # Skip _prev_ files
+    if [[ "${basename}" == *"_prev_"* ]]; then
+      continue
+    fi
+
+    # Extract chains from basename: split on '_' and remove the first element (id number)
+    chains_arr=(${basename//_/ })
+    chains_arr=("${chains_arr[@]:1}")
+
+    # If the binding site includes chain c, use only chainID c for alignment (better fit)
+    # Otherwise if it includes chain s, use only chainID s
+    if [[ " ${chains_arr[*]} " =~ " c " ]]; then
+      chains_arr=("c")
+      echo "Using chainID c only for ${basename}"
+    elif [[ " ${chains_arr[*]} " =~ " s " ]]; then
+      chains_arr=("s")
+      echo "Using chainID s only for ${basename}"
+    fi
+
+    echo "Aligning ${basename} using chains: ${chains_arr[*]}"
+    python3 ${script}/align_structures.py \
+      -mobile ${pdb} \
+      -ref ${ref_pdb} \
+      -sel_ref "name CA and chainID ${chains_arr[*]}" \
+      -sel_mobile "name BB and chainID ${chains_arr[*]}" \
+      -o ${pdb}
+  done
+}
+
+function plot_binding_modes () {
+  script=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis
+  ref_pdb=/martini/rubiz/Github/PsbS_Binding_Site/3_reference_proteins/PSII_LHCII/psii_with_cofactors_aa.pdb
+  binding_dir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/middle_cluster
+  binding_modes_occupancy_csv=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj_grouped/binding_modes_lifetimes.csv
+  chains_occupancy_csv=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/lifetimes_summary/lifetimes_summary_df_bychain_chains_all.csv
+  chain_labels_yaml=/martini/rubiz/Github/PsbS_Binding_Site/definitions_yaml/chain_labels.yaml
+  output=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/figures/psii_binding_sites_overview.pdf
+  vmin=100
+  vmax=30000
+  cmap='colorcet:CET_L17'
+  python3 ${script}/plot_psii_binding_modes.py -min_lifetime 5000 -top_label 10 -log_transform  -alpha_value 0.1 -ref ${ref_pdb} -binding_dir ${binding_dir} -binding_modes_occupancy_csv ${binding_modes_occupancy_csv} -chains_occupancy_csv ${chains_occupancy_csv} -chain_labels_yaml ${chain_labels_yaml} -output ${output} -vmin ${vmin} -vmax ${vmax} -cmap ${cmap} 
 }
 
 function cg2at(){
@@ -565,7 +601,8 @@ function main(){
   
   #binding_pose_grouped               # Clustering analysis. 
   #extract_cluster                    # Extract middle structure from largest cluster as gmx cluster generates corrupted PDBs
-  plot_psii_binding_modes
+  #align_middle_cluster               # Align middle cluster PDBs to AA reference
+  plot_binding_modes
   #plot_psii_venn_diagram
   #check_sucess_cg2at
   #cg2at 

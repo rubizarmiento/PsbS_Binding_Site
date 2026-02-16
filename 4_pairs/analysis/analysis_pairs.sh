@@ -40,6 +40,19 @@ function lifetimes_classification(){
   done
 }
 
+function fit_structure_to_reference(){
+  for chain in "${chains_analyze[@]}"; do
+    wdir=${analysis_dir}/chain_${chain}
+    idir1=${wdir}/1_trj
+    odir=${wdir}/1_trj
+    f=${idir1}/initial_fit_merged.pdb
+    ref=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/base_dir/rotated.pdb
+    sel_ref="name BB and chainID ${chain}"
+    sel_mobile="name BB and chainID ${chain}"
+    python3 ${scripts_dir}/align_structures.py -mobile ${f} -ref ${ref} -sel_ref "${sel_ref}" -sel_mobile "${sel_mobile}" -o ${odir}/initial_fit_merged.pdb
+  done
+}
+
 function extract_binding(){
   for chain in "${chains_analyze[@]}"; do
     wdir=${analysis_dir}/chain_${chain}
@@ -52,10 +65,10 @@ function extract_binding(){
     trj=${idir1}/aligned_5000ns.xtc
     sel="all"
 
-    #mkdir -p ${odir}
-    #echo "Extracting binding events for chain ${chain}..."
-    #echo "LOG: ${odir}/extract_binding_chain_${chain}.log"
-    #python3 ${scripts_dir}/extract_trajectories_from_dataframe.py -sort "lifetime_ns" -sel ${sel} -i ${df} -f ${f} -trj ${trj} -o ${odir} -prefix chain_${chain} > ${odir}/extract_binding_chain_${chain}.log 2>&1 &
+    mkdir -p ${odir}
+    echo "Extracting binding events for chain ${chain}..."
+    echo "LOG: ${odir}/extract_binding_chain_${chain}.log"
+    python3 ${scripts_dir}/extract_trajectories_from_dataframe.py -sort "lifetime_ns" -sel ${sel} -i ${df} -f ${f} -trj ${trj} -o ${odir} -prefix chain_${chain} > ${odir}/extract_binding_chain_${chain}.log 2>&1 &
     #Copy -f for all the *xtc files with the same basename but extension .pdb
     for xtc_file in ${odir}/chain_${chain}_*.xtc; do
       pdb_file=${xtc_file%.xtc}.pdb
@@ -96,7 +109,6 @@ function binding_pose_grouped(){
   done
 }
 
-
 function extract_cluster(){
   for chain in "${chains_analyze[@]}"; do
     wdir=${analysis_dir}/chain_${chain}
@@ -116,6 +128,22 @@ function extract_cluster(){
       trj=${idir3}/${basename}*.xtc
       log=${idir4}/${basename}/clust_c045/cluster.log
       python3 ${scripts_dir}/extract_cluster.py -f ${f} -trj ${trj} -g ${log} -o ${odir}/${basename}.pdb -n 5 # Extract 5 frames before the middle cluster time, useful when cg2at fails
+    done
+  done
+}
+
+function align_middle_cluster(){
+  ref_pdb=/martini/rubiz/Github/PsbS_Binding_Site/3_reference_proteins/PSII_LHCII/psii_with_cofactors_aa.pdb
+  for chain in "${chains_analyze[@]}"; do
+    wdir=${analysis_dir}/chain_${chain}
+    idir=${wdir}/5_middle_cluster
+    for pdb in ${idir}/chain_${chain}_*.pdb; do
+      # Skip _prev_ files
+      if [[ "${pdb}" == *"_prev_"* ]]; then
+        continue
+      fi
+      echo "Aligning ${pdb} to reference using chainID ${chain}..."
+      python3 ${scripts_dir}/align_structures.py -mobile ${pdb} -ref ${ref_pdb} -sel_ref "name CA and chainID ${chain}" -sel_mobile "name BB and chainID ${chain}" -o ${pdb}
     done
   done
 }
@@ -334,6 +362,23 @@ function get_lifetimes_per_binding_mode(){
   python3 ${scripts_dir}/get_lifetimes_per_binding_mode.py -d "${arr_dir[@]}" -o ${output} -dt ${dt}
 }
 
+function plot_binding_modes () {
+  script=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis
+  ref_pdb=/martini/rubiz/Github/PsbS_Binding_Site/3_reference_proteins/PSII_LHCII/psii_with_cofactors_aa.pdb
+  binding_dir=()
+  for chain in "${chains_analyze[@]}"; do
+    binding_dir+=("${analysis_dir}/chain_${chain}/5_middle_cluster")
+  done
+  binding_modes_occupancy_csv=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/analysis_pairs/10_lifetimes_summary/binding_modes_lifetimes.csv
+  chains_occupancy_csv=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/analysis_pairs/10_lifetimes_summary/lifetimes_summary_df_bychain_chains_all.csv
+  chain_labels_yaml=/martini/rubiz/Github/PsbS_Binding_Site/definitions_yaml/chain_labels.yaml
+  output=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/figures/pairs_binding_sites_overview.pdf
+  vmin=100
+  vmax=30000
+  cmap='colorcet:CET_L17'
+  python3 ${script}/plot_psii_binding_modes.py -min_lifetime 3000 -top_label 3 -log_transform  -alpha_value 0.1 -ref ${ref_pdb} -binding_dir "${binding_dir[@]}" -binding_modes_occupancy_csv ${binding_modes_occupancy_csv} -chains_occupancy_csv ${chains_occupancy_csv} -chain_labels_yaml ${chain_labels_yaml} -output ${output} -vmin ${vmin} -vmax ${vmax} -cmap ${cmap} 
+}
+
 function reassign_chains(){
   for chain in "${chains_analyze[@]}"; do
     wdir=${analysis_dir}/chain_${chain}
@@ -519,15 +564,15 @@ function main(){
   set -e
   #check_selections
   #lifetimes_classification
-
-  
+  #fit_structure_to_reference
   #extract_binding
+  #align_middle_cluster
   #binding_pose_grouped   
   #lifetime_analysis_grouped
-  sum_csv_lifetimes
+  #sum_csv_lifetimes
   #symmetric_sum_lifetimes_psbs_chains
   #get_lifetimes_per_binding_mode      # Get binding time per binding mode
-
+  plot_binding_modes
   #extract_cluster
   #extract_cluster_special          # Backmapping failed for chain_4_3, extract first cluster member instead
   #tpr_cofactors
