@@ -79,6 +79,57 @@ function write_equivalent_binding_sites(){
   python3 /martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/write_unique_basenames.py ${csv} ${ocsv} 
 }
 
+function tpr_cofactors(){
+  # Regenerate all TPR files (main + cofactors) using a specific GROMACS version
+  source /usr/local/gromacs-2023.4/bin/GMXRC
+  trj_dir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj
+  odir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj_grouped
+  csv=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj/basenames_equivalent_chains.csv
+  basenames_csv=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj/basenames_binding.csv
+  mdp=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/mdps/em.mdp
+
+  # Build mapping: grouped_basename -> original_basename (first occurrence)
+  declare -A original_map
+  while IFS=' ' read -r tag original new old_chains count tag_number; do
+    grouped="${tag_number}_${tag}"
+    if [[ -z "${original_map[$grouped]+x}" ]]; then
+      original_map[$grouped]="${original}"
+    fi
+  done < <(tail -n +2 ${csv})
+
+  # Read grouped basenames
+  mapfile -t basenames < <(awk 'NR>1 {print $1}' ${basenames_csv})
+
+  for basename in "${basenames[@]}"; do
+    original="${original_map[$basename]}"
+    if [ -z "${original}" ]; then
+      echo "Warning: No original mapping found for ${basename}, skipping."
+      continue
+    fi
+
+    # Main TPR (full system: proteins + cofactors + PsbS)
+    main_top=${trj_dir}/${original}.top
+    main_pdb=${trj_dir}/${original}.pdb
+    if [ -f "${main_top}" ] && [ -f "${main_pdb}" ]; then
+      echo "Generating main TPR for ${basename} from ${original}..."
+      gmx grompp -f ${mdp} -c ${main_pdb} -p ${main_top} -o ${odir}/${basename}.tpr -maxwarn 100
+    else
+      echo "Warning: Missing main files for ${basename} (original: ${original}), skipping main TPR."
+    fi
+
+    # Cofactors TPR
+    cofactors_top=${trj_dir}/${original}_cofactors.top
+    cofactors_pdb=${trj_dir}/${original}_cofactors.pdb
+    if [ -f "${cofactors_top}" ] && [ -f "${cofactors_pdb}" ]; then
+      echo "Generating cofactors TPR for ${basename} from ${original}..."
+      gmx grompp -f ${mdp} -c ${cofactors_pdb} -p ${cofactors_top} -o ${odir}/${basename}_cofactors.tpr -maxwarn 100
+      cp ${cofactors_pdb} ${odir}/${basename}_cofactors.pdb
+    else
+      echo "Warning: Missing cofactors files for ${basename} (original: ${original}), skipping cofactors TPR."
+    fi
+  done
+}
+
 function align_trajectories(){
   # Read *grouped.pdb files, select not segids A1... and BB to align the trajectories
   script=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis
@@ -297,7 +348,7 @@ function extract_cluster(){
     f=${idir1}/${basename}.pdb
     trj=${idir1}/${basename}.xtc
     log=${idir2}/${basename}/clust_c045/cluster.log
-    python3 ${script}/extract_cluster.py -f ${f} -trj ${trj} -g ${log} -o ${odir}/${basename}.pdb
+    python3 ${script}/extract_cluster.py -f ${f} -trj ${trj} -g ${log} -o ${odir}/${basename}.pdb -n 10
   done
 }
 
@@ -352,19 +403,73 @@ function plot_binding_modes () {
   python3 ${script}/plot_psii_binding_modes.py -min_lifetime 5000 -top_label 10 -log_transform  -alpha_value 0.1 -ref ${ref_pdb} -binding_dir ${binding_dir} -binding_modes_occupancy_csv ${binding_modes_occupancy_csv} -chains_occupancy_csv ${chains_occupancy_csv} -chain_labels_yaml ${chain_labels_yaml} -output ${output} -vmin ${vmin} -vmax ${vmax} -cmap ${cmap} 
 }
 
+function fix_backbone_integrity(){
+  # For binding modes where the CG middle-cluster frame has distorted backbone
+  # (large BB-BB gaps that cause cg2at to fragment the protein into many chains),
+  # scan all frames in the largest cluster and replace the middle_cluster PDB
+  # with the frame that has the best backbone continuity.
+  script=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis
+  trj_dir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj_aligned
+  cluster_dir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj_cluster
+  odir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/middle_cluster
+
+  # Basenames with known backbone problems and their protein chain IDs
+  # Format: "basename:chain1,chain2,..."  (exclude PsbS chain 9 which has a natural dimer gap)
+  problematic=("4_7_8:7,8")
+
+  for entry in "${problematic[@]}"; do
+    basename="${entry%%:*}"
+    chains_csv="${entry##*:}"
+    IFS=',' read -ra chains <<< "${chains_csv}"
+
+    f=${trj_dir}/${basename}.pdb
+    trj=${trj_dir}/${basename}.xtc
+    log=${cluster_dir}/${basename}/clust_c045/cluster.log
+    o=${odir}/${basename}.pdb
+
+    if [ ! -f "${trj}" ] || [ ! -f "${log}" ]; then
+      echo "Warning: Missing files for ${basename}, skipping."
+      continue
+    fi
+
+    # Back up original middle cluster PDB
+    if [ -f "${o}" ] && [ ! -f "${o}.bak" ]; then
+      cp ${o} ${o}.bak
+      echo "Backed up original: ${o}.bak"
+    fi
+
+    # Remove old prev files
+    rm -f ${odir}/${basename}_prev_*.pdb
+
+    echo "Finding best backbone frame for ${basename} (chains: ${chains[*]})..."
+    python3 ${script}/find_best_backbone_frame.py \
+      -f ${f} -trj ${trj} \
+      -g ${log} \
+      -chains ${chains[@]} \
+      --exclude_chains 9 \
+      -o ${o} \
+      -n 10
+  done
+}
+
 function cg2at(){
   script=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis
   dir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/middle_cluster   # pdb files: 9_c_s_z.pdb -> ${basename}.pdb 
   tpr_dir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj_grouped
   odir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/cg2at          
+  ref_pdb=/martini/rubiz/Github/PsbS_Binding_Site/3_reference_proteins/PSII_LHCII/psii_with_cofactors_aa.pdb
   cg2at_path=/martini/rubiz/Github/PsbS_Binding_Site/analysis_dataset/venv/bin/cg2at
   scripts=/martini/rubiz/thylakoid/scripts
-  rewrite=${1:-"false"}  # Default to false if not provided
-  if [ "$rewrite" == "true" ]; then
-    rm -rf ${odir}/*
-  fi
-  
-  files=("$dir"/*.pdb)
+  prev_n=${1:-""}        # Optional: -prev n uses ${basename}_prev_n.pdb as atomistic reference
+
+  # Select files: skip _prev_ files
+  files=()
+  for f in "$dir"/*.pdb; do
+    bname=$(basename "$f" .pdb)
+    if [[ "${bname}" != *"_prev_"* ]]; then
+      files+=("$f")
+    fi
+  done
 
   cd $odir
   for file in "${files[@]}"; do
@@ -379,12 +484,16 @@ function cg2at(){
       echo "Processing ${file}..."
       rm -rf ${odir}/${basename}/*
 
-      sel="not resname CLA CLB CHL *HG* HEM PLQ PL9 *GG* *SQ* *PG* DGD LMG LUT VIO XAT NEO NEX W2 HOH BCR"
-      cofactors="resname CLA CLB CHL *HG* HEM PLQ PL9 *GG* *SQ* *PG* DGD LMG LUT VIO XAT NEO NEX W2 HOH BCR"
+      sel="not resname CLA CLB CHL *HG* *HEM* PLQ PL9 *GG* *SQ* *PG* DGD LMG DSMG LUT VIO XAT NEO NEX W2 HOH BCR"
+      cofactors="resname CLA CLB CHL *HG* *HEM* PLQ PL9 *GG* *SQ* *PG* DGD LMG DSMG LUT VIO XAT NEO NEX W2 HOH BCR"
 
       python3 ${script}/sel_to_ndx.py -f ${dir}/${basename}.pdb -sel "${sel}" -name "Protein" -o ${odir}/${basename}_protein_cg.ndx
       python3 ${script}/sel_to_ndx.py -f ${dir}/${basename}.pdb -sel "${cofactors}" -name "Cofactors" -o ${odir}/${basename}_cofactors_cg.ndx
+      chains_str=$(echo ${basename} | cut -d'_' -f2- | tr '_' ' ')
+      python3 ${script}/sel_to_ndx.py -f ${ref_pdb} -sel "chainID ${chains_str} and ${sel}" -name "Protein" -o ${odir}/${basename}_protein_aa.ndx
+
       gmx editconf -f ${file} -n ${odir}/${basename}_protein_cg.ndx -o ${odir}/${basename}_protein_cg.pdb
+      gmx editconf -f ${ref_pdb} -n ${odir}/${basename}_protein_aa.ndx -o ${odir}/${basename}_protein_aa.pdb  
       
       # Check if ndx is empty
       if [ -s ${odir}/${basename}_cofactors_cg.ndx ]; then
@@ -400,7 +509,21 @@ function cg2at(){
         python3 /martini/rubiz/thylakoid/scripts/assing_resid_chain_from_pdb.py -o ${odir}/${basename}_cofactors_cg.pdb  -ref ${odir}/${basename}_cofactors_cg_nb.pdb -i ${odir}/${basename}_cofactors_cg_1.pdb
       fi
       #cg2at
-      ${cg2at_path} -ncpus 1 -c ${basename}_protein_cg.pdb -ff charmm36-jul2020-updated -fg martini_3-0_charmm36 -w tip3p -loc ${basename} >> ${odir}/${basename}.log 2>&1 &
+      prev_arg="-a ${basename}_protein_aa.pdb"
+      if [ -n "${prev_n}" ]; then
+        prev_pdb=${dir}/${basename}_prev_${prev_n}.pdb
+        if [ -f "${prev_pdb}" ]; then
+          # Extract protein-only PDB from prev for cg2at -a
+          python3 ${script}/sel_to_ndx.py -f ${prev_pdb} -sel "${sel}" -name "Protein" -o ${odir}/${basename}_prev_${prev_n}_protein_cg.ndx
+          gmx editconf -f ${prev_pdb} -n ${odir}/${basename}_prev_${prev_n}_protein_cg.ndx -o ${odir}/${basename}_prev_${prev_n}_protein_cg.pdb
+          prev_arg="-a ${basename}_prev_${prev_n}_protein_aa.pdb"
+          echo "  Using prev reference: ${prev_pdb}"
+        else
+          echo "  Warning: prev file ${prev_pdb} not found, running without -a"
+        fi
+      fi
+
+      ${cg2at_path} -ncpus 1 -c ${basename}_protein_cg.pdb ${prev_arg} -ff charmm36-jul2020-updated -fg martini_3-0_charmm36 -w tip3p -loc ${basename} >> ${odir}/${basename}.log 2>&1 &
     fi
   done
 }
@@ -445,16 +568,128 @@ function reassign_chains(){
   done
 }
 
-function lifetimes_to_cif_psii(){
+function extract_aligned_cofactors(){
+  # Align cofactors from middle_cluster to match final_aligned.pdb frame
+  # Uses protein backbone (BB ↔ CA) to compute the transformation
+  script=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis
+  cg_dir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/middle_cluster
+  odir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/cg2at
+  basenames_csv=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj/basenames_binding.csv
+  cofactors="resname CLA CLB CHL *HG* *HEM* PLQ PL9 *GG* *SQ* *PG* DGD LMG DSMG LUT VIO XAT NEO NEX W2 HOH BCR"
+
+  mapfile -t basenames < <(awk 'NR>1 {print $1}' ${basenames_csv})
+
+  for basename in "${basenames[@]}"; do
+    ref_pdb=${odir}/${basename}/FINAL/final_aligned.pdb
+    cg_pdb=${cg_dir}/${basename}.pdb
+    o=${odir}/${basename}_cofactors_cg.pdb
+
+    if [ ! -f "${ref_pdb}" ]; then
+      echo "Warning: ${ref_pdb} not found, skipping ${basename}"
+      continue
+    fi
+    if [ ! -f "${cg_pdb}" ]; then
+      echo "Warning: ${cg_pdb} not found, skipping ${basename}"
+      continue
+    fi
+
+    # Extract chains from basename
+    chains_arr=(${basename//_/ })
+    chains_arr=("${chains_arr[@]:1}")
+
+    echo "Extracting aligned cofactors for ${basename} (chains: ${chains_arr[*]})..."
+    python3 ${script}/extract_aligned_cofactors.py \
+      -cg ${cg_pdb} \
+      -ref ${ref_pdb} \
+      -sel_cofactors "${cofactors}" \
+      -chains ${chains_arr[*]} \
+      -o ${o}
+  done
+}
+
+function lifetimes_to_cif(){
+  script=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis
   pdb_dir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/cg2at
   lifetimes_dir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/lifetimes
   odir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/cifs_lifetimes
   basenames_csv=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj/basenames_binding.csv
-  sel_protein="not resname CLA CLB CHL *HG* HEM PLQ PL9 *GG* *SQ* *PG* DGD LMG LUT VIO XAT NEO NEX W2 HOH BCR and not chainID 9"
-  sel_cofactors="resname CLA CLB CHL *HG* HEM PLQ PL9 *GG* *SQ* *PG* DGD LMG LUT VIO XAT NEO NEX W2 HOH BCR"
+  tpr_dir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj_grouped
+
+  # Source GROMACS 2023.4 for trjconv -conect (TPR files were generated with this version)
+  source /usr/local/gromacs-2023.4/bin/GMXRC
+
   sel_psbs="chainID 9"
-  rm -rf ${odir}/*pdb
-  python3 /martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/lifetime_to_cif_psii.py ${pdb_dir} ${lifetimes_dir} ${odir} "${sel_protein}" "${sel_cofactors}" "${sel_psbs}" ${basenames_csv}
+
+  mkdir -p ${odir}
+  rm -rf ${odir}/*
+
+  # Read basenames from column 1 of CSV (skip header)
+  mapfile -t basenames < <(awk 'NR>1 {print $1}' ${basenames_csv})
+
+  for basename in "${basenames[@]}"; do
+    pdb=${pdb_dir}/${basename}/FINAL/final_aligned.pdb
+    cofactors_pdb=${pdb_dir}/${basename}_cofactors_cg.pdb
+
+    # Extract chains from basename: split on '_' and remove the first element (id number)
+    chains_arr=(${basename//_/ })
+    chains_arr=("${chains_arr[@]:1}")
+
+    # Build chain list string for selection (e.g., "g n s")
+    chains_str="${chains_arr[*]}"
+
+    # Protein: one CIF with all chains merged
+    sel_protein="chainID ${chains_str} and (not resname CLA CLB CHL *HG* *HEM* PLQ PL9 *GG* *SQ* *PG* DGD LMG DSMG LUT VIO XAT NEO NEX W2 HOH BCR)"
+    csv_protein_list=()
+    for chain in "${chains_arr[@]}"; do
+      csv_protein=${lifetimes_dir}/chain_${chain}_${basename}_residue_summary_df.csv
+      if [ -f "${csv_protein}" ]; then
+        csv_protein_list+=("${csv_protein}")
+      fi
+    done
+    if [ ${#csv_protein_list[@]} -gt 0 ]; then
+      echo "Processing ${basename} protein (chains: ${chains_str})..."
+      python3 ${script}/add_lifetimes_to_cif.py \
+        -f ${pdb} -sel "${sel_protein}" \
+        -csv ${csv_protein_list[@]} \
+        -o ${odir}/${basename}_protein.cif --log_transform
+    fi
+
+    # Cofactors: PDB with CONECT records from TPR
+    sel_cofactors="chainID ${chains_str} and resname CLA CLB CHL *HG* *HEM* PLQ PL9 *GG* *SQ* *PG* DGD LMG DSMG LUT VIO XAT NEO NEX W2 HOH BCR"
+    cofactors_tpr=${tpr_dir}/${basename}_cofactors.tpr
+
+    csv_cofactors_list=()
+    for chain in "${chains_arr[@]}"; do
+      csv_cofactors=${lifetimes_dir}/cofactors_chain_${chain}_${basename}_residue_summary_df.csv
+      if [ -f "${csv_cofactors}" ]; then
+        csv_cofactors_list+=("${csv_cofactors}")
+      fi
+    done
+    if [ -f "${cofactors_pdb}" ] && [ -f "${cofactors_tpr}" ] && [ ${#csv_cofactors_list[@]} -gt 0 ]; then
+      echo "Processing ${basename} cofactors (chains: ${chains_str})..."
+      # 1. gmx trjconv -conect: generate PDB with bonding information from TPR
+      cofactors_conect=${odir}/${basename}_cofactors_conect.pdb
+      echo "0" | gmx trjconv -f ${cofactors_pdb} -s ${cofactors_tpr} -conect -o ${cofactors_conect}
+      # 2. MDAnalysis: load aligned cofactors PDB (correct chains/resids), assign B-factors, append CONECT
+      python3 ${script}/add_lifetimes_to_pdb.py \
+        -f ${cofactors_pdb} \
+        -conect ${cofactors_conect} \
+        -csv ${csv_cofactors_list[@]} \
+        -o ${odir}/${basename}_cofactors.pdb --log_transform
+      # Clean up intermediate file
+      rm -f ${cofactors_conect}
+    fi
+
+    # PsbS: one CIF per binding mode
+    csv_psbs=${lifetimes_dir}/psbs_${basename}_residue_summary_df.csv
+    if [ -f "${csv_psbs}" ]; then
+      echo "Processing ${basename} psbs..."
+      python3 ${script}/add_lifetimes_to_cif.py \
+        -f ${pdb} -sel "${sel_psbs}" \
+        -csv ${csv_psbs} \
+        -o ${odir}/${basename}_psbs.cif --log_transform
+    fi
+  done
 }
 
 function change_lhcbm_chain_lifetime_binding_mode(){
@@ -590,25 +825,26 @@ function main(){
 
   #extract_binding                    # Extract binding events (pdb, xtc, tpr)
   #write_equivalent_binding_sites     # Group binding sites
-
-
+  #tpr_cofactors                      # Regenerate all TPRs with GROMACS 2023.4
   #check_selections
   #lifetime_analysis_grouped          # Calculate contacts for each subtrajectory
   #sum_csv_lifetimes                  # Sum per chain 
   #symmetric_sum_lifetimes_psbs_chains
-  #get_lifetimes_per_binding_mode      # Get binding time per binding mode
+  #get_lifetimes_per_binding_mode     # Get binding time per binding mode
   #align_trajectories             
   
   #binding_pose_grouped               # Clustering analysis. 
-  #extract_cluster                    # Extract middle structure from largest cluster as gmx cluster generates corrupted PDBs
+  #extract_cluster                     # Extract middle structure from largest cluster as gmx cluster generates corrupted PDBs
   #align_middle_cluster               # Align middle cluster PDBs to AA reference
-  plot_binding_modes
+  #plot_binding_modes
   #plot_psii_venn_diagram
-  #check_sucess_cg2at
-  #cg2at 
-  #check_sucess_cg2at
+  #fix_backbone_integrity             # Replace middle_cluster PDB with best-backbone frame for problematic cases
+  #align_middle_cluster               # Re-align after fix_backbone_integrity
+  #cg2at                             # If fails, use "1" to use the previous frame instead
+  #check_sucess_cg2at                 # TODO: Correct
   #reassign_chains 
-  #lifetimes_to_cif_psii              # CIF files allow bfactors > 999 while PDB files do not.
+  #extract_aligned_cofactors          # Align cofactors from middle_cluster to final_aligned.pdb frame
+  #lifetimes_to_cif                   # CIF files allow bfactors > 999 while PDB files do not.
   #add_lifetimes_to_cif
   #lifetimes_statistics_psii          # Max occupancy
   #plot_lifetimes                     # Generate protein sequence plots with B-factor coloring

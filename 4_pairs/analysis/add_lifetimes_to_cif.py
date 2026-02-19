@@ -8,7 +8,7 @@ to support B-factors > 999.
 
 Usage:
 ------
-python add_lifetimes_to_cif.py -f <structure_file> -sel <selection> -csv <lifetime_csv> -o <output_cif>
+python add_lifetimes_to_cif.py -f <structure_file> -sel <selection> -csv <lifetime_csv> [-csv ...] -o <output_cif>
 
 Arguments:
 ----------
@@ -20,8 +20,10 @@ Arguments:
     - "segid A B C"
     - "resid 1:100"
     - "name CA CB"
--csv, --csv : str
-    Path to lifetime CSV file containing 'resid' and 'sum_ns' columns.
+-csv, --csv : str (one or more)
+    Path(s) to lifetime CSV file(s) containing 'resid' and 'sum_ns' columns.
+    When multiple CSV files are provided, each must have a 'chainID_i' column.
+    B-factors are then keyed by (chainID, resid) to avoid conflicts across chains.
 -o, --output : str
     Output mmCIF file path.
 
@@ -31,17 +33,20 @@ The CSV file must contain at least two columns:
 - resid : int - Residue ID
 - sum_ns : float - Lifetime value in nanoseconds (used as B-factor)
 
+When multiple CSV files are provided, each must also contain:
+- chainID_i : str - Chain identifier for the residue
+
 If no matching residue is found in the CSV, B-factor defaults to 0.
 
 Examples:
 ---------
-# Basic protein structure
+# Single CSV (backward compatible)
 python add_lifetimes_to_cif.py -f structure.pdb -sel "protein" \\
     -csv lifetimes.csv -o output.cif
 
-# Specific segid
-python add_lifetimes_to_cif.py -f structure.pdb -sel "segid A1 A2" \\
-    -csv lifetimes.csv -o output.cif
+# Multiple CSVs for multi-chain binding modes
+python add_lifetimes_to_cif.py -f structure.pdb -sel "chainID g n s and protein" \\
+    -csv chain_g.csv chain_n.csv chain_s.csv -o output.cif
 
 # With chain selection
 python add_lifetimes_to_cif.py -f structure.pdb -sel "segid PSII and protein" \\
@@ -64,21 +69,23 @@ from Bio.PDB.mmcifio import MMCIFIO
 warnings.filterwarnings('ignore', category=UserWarning, module='MDAnalysis')
 
 
-def load_lifetime_data(csv_file, log_transform=False):
+def load_lifetime_data(csv_files, log_transform=False):
     """
-    Load lifetime data from CSV file.
+    Load lifetime data from one or more CSV files.
     
     Parameters
     ----------
-    csv_file : str
-        Path to CSV file with 'resid' and lifetime columns.
+    csv_files : list of str
+        Path(s) to CSV file(s) with 'resid' and lifetime columns.
+        When multiple files are provided, each must have a 'chainID_i' column.
+        Keys become (chainID, resid) tuples to avoid cross-chain conflicts.
     log_transform : bool
         If True, apply log10 transformation to lifetime values.
         
     Returns
     -------
     dict
-        Mapping of residue ID to B-factor (lifetime value).
+        Mapping of residue ID (or (chainID, resid) tuple) to B-factor value.
         
     Raises
     ------
@@ -87,43 +94,62 @@ def load_lifetime_data(csv_file, log_transform=False):
     ValueError
         If required columns are missing.
     """
-    if not os.path.isfile(csv_file):
-        raise FileNotFoundError(f"CSV file not found: {csv_file}")
+    use_chain_key = len(csv_files) > 1
+    resid_to_bfactor = {}
     
-    df = pd.read_csv(csv_file)
+    for csv_file in csv_files:
+        if not os.path.isfile(csv_file):
+            raise FileNotFoundError(f"CSV file not found: {csv_file}")
+        
+        df = pd.read_csv(csv_file)
+        
+        # Check for required columns
+        if 'resid' not in df.columns:
+            raise ValueError(f"CSV file missing 'resid' column. Available columns: {list(df.columns)}")
+        
+        if use_chain_key and 'chainID_i' not in df.columns:
+            raise ValueError(
+                f"Multiple CSV files provided but '{csv_file}' is missing 'chainID_i' column. "
+                f"Available columns: {list(df.columns)}"
+            )
+        
+        # Try different possible column names for lifetime data
+        lifetime_col = None
+        for col in ['sum_ns', 'lifetime_ns', 'total_ns', 'occupancy', 'sum_time']:
+            if col in df.columns:
+                lifetime_col = col
+                break
+        
+        if lifetime_col is None:
+            raise ValueError(
+                f"CSV file missing lifetime column. Expected one of: "
+                f"['sum_ns', 'lifetime_ns', 'total_ns', 'occupancy', 'sum_time']. "
+                f"Available columns: {list(df.columns)}"
+            )
+        
+        # Create mapping
+        lifetime_values = df[lifetime_col].values.copy()
+        
+        # Print before transformation stats
+        print(f"Loaded {len(df)} residue-bfactor mappings from {csv_file}")
+        print(f"  Using column: {lifetime_col}")
+        print(f"  Before transformation: min={lifetime_values.min():.2f}, max={lifetime_values.max():.2f}")
+        
+        # Apply log transformation if requested
+        if log_transform:
+            lifetime_values = np.log10(lifetime_values + 1)
+            print(f"  After log10 transformation: min={lifetime_values.min():.2f}, max={lifetime_values.max():.2f}")
+        
+        if use_chain_key:
+            chain_id = df['chainID_i'].iloc[0]
+            print(f"  Chain: {chain_id}")
+            for resid, bfactor in zip(df['resid'], lifetime_values):
+                resid_to_bfactor[(chain_id, resid)] = bfactor
+        else:
+            resid_to_bfactor = dict(zip(df['resid'], lifetime_values))
     
-    # Check for required columns
-    if 'resid' not in df.columns:
-        raise ValueError(f"CSV file missing 'resid' column. Available columns: {list(df.columns)}")
-    
-    # Try different possible column names for lifetime data
-    lifetime_col = None
-    for col in ['sum_ns', 'lifetime_ns', 'total_ns', 'occupancy', 'sum_time']:
-        if col in df.columns:
-            lifetime_col = col
-            break
-    
-    if lifetime_col is None:
-        raise ValueError(
-            f"CSV file missing lifetime column. Expected one of: "
-            f"['sum_ns', 'lifetime_ns', 'total_ns', 'occupancy', 'sum_time']. "
-            f"Available columns: {list(df.columns)}"
-        )
-    
-    # Create mapping
-    lifetime_values = df[lifetime_col].values
-    
-    # Print before transformation stats
-    print(f"Loaded {len(df)} residue-bfactor mappings from {csv_file}")
-    print(f"  Using column: {lifetime_col}")
-    print(f"  Before transformation: min={lifetime_values.min():.2f}, max={lifetime_values.max():.2f}")
-    
-    # Apply log transformation if requested
-    if log_transform:
-        lifetime_values = np.log10(lifetime_values + 1)
-        print(f"  After log10 transformation: min={lifetime_values.min():.2f}, max={lifetime_values.max():.2f}")
-    
-    resid_to_bfactor = dict(zip(df['resid'], lifetime_values))
+    if use_chain_key:
+        print(f"\nTotal: {len(resid_to_bfactor)} (chain, resid) mappings from {len(csv_files)} CSV files")
     
     return resid_to_bfactor
 
@@ -132,12 +158,16 @@ def assign_bfactors(structure, resid_to_bfactor):
     """
     Assign B-factors to atoms in structure based on residue mapping.
     
+    Supports both simple resid keys and (chain, resid) tuple keys.
+    When tuple keys are present, tries (chain_id, residue_id) first,
+    then falls back to residue_id only.
+    
     Parameters
     ----------
     structure : Bio.PDB.Structure
         Structure to modify.
     resid_to_bfactor : dict
-        Mapping of residue ID to B-factor value.
+        Mapping of residue ID (or (chain, resid) tuple) to B-factor value.
         
     Returns
     -------
@@ -147,7 +177,11 @@ def assign_bfactors(structure, resid_to_bfactor):
     atoms_updated = 0
     for residue in structure.get_residues():
         residue_id = residue.get_id()[1]
-        bfactor = resid_to_bfactor.get(residue_id, 0.0)
+        chain_id = residue.parent.id
+        
+        # Try (chain, resid) first, then fall back to resid only
+        bfactor = resid_to_bfactor.get((chain_id, residue_id),
+                                       resid_to_bfactor.get(residue_id, 0.0))
         
         for atom in residue.get_atoms():
             atom.set_bfactor(bfactor)
@@ -159,6 +193,60 @@ def assign_bfactors(structure, resid_to_bfactor):
     
     print(f"Assigned B-factors to {atoms_updated} atoms")
     return structure
+
+
+def fix_duplicate_atom_names(pdb_file):
+    """
+    Rename duplicate atom names within each residue in a PDB file.
+    
+    Bio.PDB's PDBParser silently drops atoms with duplicate names within
+    the same residue (e.g., two 'R9' atoms in NEO). This function appends
+    a numeric suffix to duplicate atom names so all atoms are preserved.
+    
+    Parameters
+    ----------
+    pdb_file : str
+        Path to PDB file (modified in-place).
+    """
+    with open(pdb_file, 'r') as f:
+        lines = f.readlines()
+
+    # Group lines by residue: (chain, resname, resid)
+    # PDB format columns: 12-15 atom name, 17-19 resname, 21 chain, 22-25 resid
+    new_lines = []
+    current_residue_key = None
+    atom_names_in_residue = {}
+
+    for line in lines:
+        if line.startswith(('ATOM', 'HETATM')):
+            atom_name = line[12:16].strip()
+            chain = line[21]
+            resname = line[17:20].strip()
+            resid = line[22:26].strip()
+            res_key = (chain, resname, resid)
+
+            if res_key != current_residue_key:
+                current_residue_key = res_key
+                atom_names_in_residue = {}
+
+            if atom_name in atom_names_in_residue:
+                # Duplicate found — generate unique name
+                count = atom_names_in_residue[atom_name] + 1
+                atom_names_in_residue[atom_name] = count
+                # Create new name: truncate if needed to fit 4 chars
+                new_name = f"{atom_name}{count}"
+                if len(new_name) > 4:
+                    new_name = new_name[:4]
+                # Pad to 4 chars, left-justified in columns 13-16
+                new_name_padded = f" {new_name:<3s}"
+                line = line[:12] + new_name_padded + line[16:]
+            else:
+                atom_names_in_residue[atom_name] = 1
+
+        new_lines.append(line)
+
+    with open(pdb_file, 'w') as f:
+        f.writelines(new_lines)
 
 
 def save_to_mmcif(structure, output_file):
@@ -188,7 +276,7 @@ def main():
         epilog="""
 Examples:
   %(prog)s -f structure.pdb -sel "protein" -csv lifetimes.csv -o output.cif
-  %(prog)s -f structure.pdb -sel "segid A1 A2" -csv lifetimes.csv -o output.cif
+  %(prog)s -f structure.pdb -sel "chainID g n s" -csv chain_g.csv chain_n.csv chain_s.csv -o output.cif
         """
     )
     
@@ -196,8 +284,9 @@ Examples:
                         help='Input structure file (PDB or mmCIF)')
     parser.add_argument('-sel', '--selection', required=True,
                         help='Atom selection string (MDAnalysis syntax)')
-    parser.add_argument('-csv', '--csv', required=True,
-                        help='Lifetime CSV file with resid and sum_ns columns')
+    parser.add_argument('-csv', '--csv', required=True, nargs='+',
+                        help='Lifetime CSV file(s) with resid and sum_ns columns. '
+                             'Multiple files supported for multi-chain modes.')
     parser.add_argument('-o', '--output', required=True,
                         help='Output mmCIF file path')
     parser.add_argument('--log_transform', action='store_true',
@@ -211,7 +300,7 @@ Examples:
     
     print(f"Input structure: {args.file}")
     print(f"Selection: {args.selection}")
-    print(f"Lifetime CSV: {args.csv}")
+    print(f"Lifetime CSV(s): {args.csv}")
     print(f"Output: {args.output}")
     print()
     
@@ -221,7 +310,7 @@ Examples:
         os.makedirs(output_dir, exist_ok=True)
         print(f"Created output directory: {output_dir}\n")
     
-    # Load lifetime data
+    # Load lifetime data (supports single or multiple CSV files)
     resid_to_bfactor = load_lifetime_data(args.csv, log_transform=args.log_transform)
     
     # Load structure with MDAnalysis and apply selection
@@ -233,6 +322,9 @@ Examples:
     # Write selected atoms to temporary PDB
     temp_pdb = args.output.replace('.cif', '_temp.pdb')
     selected_atoms.write(temp_pdb)
+    
+    # Fix duplicate atom names (e.g., two R9 in NEO) that Bio.PDB would drop
+    fix_duplicate_atom_names(temp_pdb)
     
     # Load with Bio.PDB for B-factor assignment
     print(f"Loading structure with Bio.PDB...")

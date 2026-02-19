@@ -409,6 +409,9 @@ function reassign_chains(){
 }
 
 function lifetimes_to_cif(){
+  # Source GROMACS 2023.4 for trjconv -conect (TPR files were generated with this version)
+  source /usr/local/gromacs-2023.4/bin/GMXRC
+
   for chain in "${chains_analyze[@]}"; do
     wdir=${analysis_dir}/chain_${chain}
     idir7=${wdir}/7_lifetimes_grouped
@@ -416,23 +419,49 @@ function lifetimes_to_cif(){
     csv=${idir4}/binding_basenames.csv
     odir=${wdir}/8_cifs_lifetimes
     pdb_dir=${wdir}/6_cg2at
+    cofactors_tpr=${wdir}/1_trj/cofactors.tpr
 
     mapfile -t basenames < "${csv}"
-    
-    # Copy cofactors files from subdirectories to pdb_dir for Python script to find them
-    for basename in "${basenames[@]}"; do
-      cofactors_src=${pdb_dir}/${basename}/${basename}_cofactors_cg.pdb
-      cofactors_dst=${pdb_dir}/${basename}_cofactors_cg.pdb
-      if [ -f "${cofactors_src}" ]; then
-        cp "${cofactors_src}" "${cofactors_dst}"
-      fi
-    done
-    
-    sel_protein="(chainID ${chain} and (not resname *GG* *SQ* *PG* W* HOH *HG* PLQ PL9 LUT VIO XAT NEO NEX BCR LMG DGD CHL CLA CLB HEM*))"
-    sel_cofactors="resname PLQ PL9 LUT VIO XAT NEO NEX BCR CLA CLB HEME CHL"
+    mkdir -p ${odir}
+    rm -rf ${odir}/*
+
+    sel_protein="chainID ${chain} and (not resname *GG* *SQ* *PG* W* HOH *HG* PLQ PL9 LUT VIO XAT NEO NEX BCR LMG DGD CHL CLA CLB HEM*)"
     sel_psbs="chainID A"
-    rm -rf ${odir}/*pdb
-    python3 ${scripts_dir}/lifetime_to_cif.py ${pdb_dir} ${idir7} ${odir} "${sel_protein}" "${sel_cofactors}" "${sel_psbs}" ${csv}
+
+    for basename in "${basenames[@]}"; do
+      pdb=${pdb_dir}/${basename}/FINAL/final_aligned.pdb
+      cofactors_pdb=${pdb_dir}/${basename}/${basename}_cofactors_cg.pdb
+
+      # Protein
+      echo "Processing ${basename} protein..."
+      python3 ${scripts_dir}/add_lifetimes_to_cif.py \
+        -f ${pdb} -sel "${sel_protein}" \
+        -csv ${idir7}/chain_${chain}_${basename}_residue_summary_df.csv \
+        -o ${odir}/${basename}_protein.cif --log_transform
+
+      # Cofactors: PDB with CONECT records from TPR (skip if files don't exist)
+      if [ -f "${cofactors_pdb}" ] && [ -f "${cofactors_tpr}" ] && [ -f "${idir7}/cofactors_chain_${chain}_${basename}_residue_summary_df.csv" ]; then
+        echo "Processing ${basename} cofactors..."
+        # 1. gmx trjconv -conect: generate PDB with bonding information from TPR
+        cofactors_conect=${odir}/${basename}_cofactors_conect.pdb
+        echo "0" | gmx trjconv -f ${cofactors_pdb} -s ${cofactors_tpr} -conect -o ${cofactors_conect}
+        # 2. MDAnalysis: load cofactors PDB (correct chains/resids), assign B-factors, append CONECT
+        python3 ${scripts_dir}/add_lifetimes_to_pdb.py \
+          -f ${cofactors_pdb} \
+          -conect ${cofactors_conect} \
+          -csv ${idir7}/cofactors_chain_${chain}_${basename}_residue_summary_df.csv \
+          -o ${odir}/${basename}_cofactors.pdb --log_transform
+        # Clean up intermediate file
+        rm -f ${cofactors_conect}
+      fi
+
+      # PsbS
+      echo "Processing ${basename} psbs..."
+      python3 ${scripts_dir}/add_lifetimes_to_cif.py \
+        -f ${pdb} -sel "${sel_psbs}" \
+        -csv ${idir7}/psbs_${basename}_residue_summary_df.csv \
+        -o ${odir}/${basename}_psbs.cif --log_transform
+    done
   done
 }
 
@@ -440,8 +469,6 @@ function add_lifetimes_to_cif(){
   odir=${analysis_dir}/11_cifs_psbs_summary
   lifetimes_dir=${analysis_dir}/10_lifetimes_summary
   script=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis
-
-
 
   chains=("4" "r" "s")
   wdir=/martini/rubiz/Github/PsbS_Binding_Site
@@ -572,7 +599,7 @@ function main(){
   #sum_csv_lifetimes
   #symmetric_sum_lifetimes_psbs_chains
   #get_lifetimes_per_binding_mode      # Get binding time per binding mode
-  plot_binding_modes
+  #plot_binding_modes
   #extract_cluster
   #extract_cluster_special          # Backmapping failed for chain_4_3, extract first cluster member instead
   #tpr_cofactors
@@ -581,7 +608,7 @@ function main(){
   #reassign_chains
 
     
-  #lifetimes_to_cif                   # CIF files allow bfactors > 999 while PDB files do not.
+  #lifetimes_to_cif                   # CIF files allow bfactors > 999 while PDB files do not. Cofactors saved as PDB with CONECT records.
   #add_lifetimes_to_cif
   
   #lifetimes_statistics_psii          # Max occupancy
