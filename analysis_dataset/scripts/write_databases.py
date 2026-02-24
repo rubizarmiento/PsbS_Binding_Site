@@ -289,6 +289,8 @@ def add_helix_to_dfs(df, helix_dict, resid_col='resid_i', helix_col='helix_i', c
     
     # Parse YAML structure: chain -> helix_name -> helix_info
     for chain_name, helices in helix_dict.items():
+        # Ensure chain_name is a string (YAML may load numeric keys as int)
+        chain_name = str(chain_name)
         # Map chain names: if data has "4" but YAML has "chain_4", handle the mapping
         chain_name_mapped = chain_name.replace('chain_', '') if chain_name.startswith('chain_') else chain_name
         

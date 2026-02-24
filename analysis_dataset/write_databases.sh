@@ -1,23 +1,24 @@
+source scripts/paths.sh
 
-repository_dir=/martini/rubiz/Github/PsbS_Binding_Site/analysis_dataset
-scripts_dir=${repository_dir}/scripts
+function write_yamls_from_csvs(){
+  python3 ${scripts_dir}/write_helix_yaml_from_csv.py \
+    --pdb ${REF_PDB_BINDING} \
+    --csv ${HELIX_DEFINITIONS_CSV_GROUP1_simtype1} \
+    --equivalent_chains ${EQUIVALENT_CHAINIDS_YAML} \
+    --output ${HELIX_DEFINITIONS_YAML_GROUP1_simtype1} 
 
-HELIX_DEFINITIONS_YAML_GROUP1_simtype1=${repository_dir}/definitions_yaml/binding_proteins_helix_labels.yaml
-HELIX_DEFINITIONS_YAML_GROUP1_simtype2=${repository_dir}/definitions_yaml/psii_helix_labels.yaml
-HELIX_DEFINITIONS_YAML_GROUP2_simtype1=${repository_dir}/definitions_yaml/target_protein_helix_labels_merged.yaml
-HELIX_DEFINITIONS_YAML_GROUP2_simtype2=${repository_dir}/definitions_yaml/target_protein_helix_labels_merged_psii.yaml
+  python3 ${scripts_dir}/write_helix_yaml_from_csv.py \
+    --pdb ${REF_PDB_TARGET} \
+    --csv ${HELIX_DEFINITIONS_CSV_GROUP2_simtype1} \
+    --output ${HELIX_DEFINITIONS_YAML_GROUP2_simtype1} 
 
-
-LABELS_CHAIN_YAML_GROUP1=${repository_dir}/definitions_yaml/chain_labels.yaml
-LABELS_CHAIN_YAML_GROUP2=${repository_dir}/definitions_yaml/psbs_labels.yaml
-
-
-SQL_MODIFIERS=${repository_dir}/sql_operations/01_add_psbs_modifiers.sql
-SQL_CLASSIFICATION=${repository_dir}/sql_operations/02_add_residue_classifications.sql
-
+  cp ${HELIX_DEFINITIONS_YAML_GROUP2_simtype1} ${HELIX_DEFINITIONS_YAML_GROUP2_simtype2}
+  sed -i "s/^A:/'9':/" ${HELIX_DEFINITIONS_YAML_GROUP2_simtype2}
+  echo "Wrote ${HELIX_DEFINITIONS_YAML_GROUP2_simtype2}"
+}
 
 function write_databases_pairs(){
-  chains_to_analyze=("A" "B" "C") # chain D has no binding events longer than 1000 ns
+  chains_to_analyze=("4" "r" "s") # chain D has no binding events longer than 1000 ns
     
   for chain in "${chains_to_analyze[@]}"; do
       idir=${repository_dir}/0_datasets/pairs/chain_${chain}
@@ -86,9 +87,10 @@ function join_databases(){
 
 function main(){
   set -e
-  write_databases_pairs
-  write_databases_supercomplex
-  join_databases
+  #write_yamls_from_csvs
+  #write_databases_pairs
+  #write_databases_supercomplex
+  #join_databases
 }
 
 main
