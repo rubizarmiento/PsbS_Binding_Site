@@ -143,7 +143,7 @@ def apply_operations_to_csv(input_csv, output_csv, operation_files):
     ... )
     """
     # Read CSV into pandas
-    df = pd.read_csv(input_csv)
+    df = pd.read_csv(input_csv, keep_default_na=False, na_values=[''])
     
     # Create in-memory SQLite database
     conn = sqlite3.connect(':memory:')

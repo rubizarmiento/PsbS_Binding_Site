@@ -14,7 +14,7 @@ def parser_args():
     parser = argparse.ArgumentParser(description="Concatenate multiple CSV files into a single CSV file.")
     parser.add_argument("-c", "--csvs", nargs="+", required=True, help="Array of CSV files to concatenate.")
     parser.add_argument("-o", "--output", required=True, help="Output CSV file name.")
-    parser.add_argument("-sep", "--separator", default=",", help="Separator for the output CSV file (default: ' ').")
+    parser.add_argument("-sep", "--separator", default=",", help="Separator for the output CSV file (default: ',').")
     return parser.parse_args()
 
 def main():

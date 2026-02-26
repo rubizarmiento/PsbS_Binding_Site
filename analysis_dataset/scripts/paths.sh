@@ -1,5 +1,4 @@
 repository_dir=/martini/rubiz/Github/PsbS_Binding_Site/analysis_dataset
-scripts_dir=${repository_dir}/scripts
 
 REF_PDB_BINDING_ORIGINAL=${repository_dir}/ref_pdb/5XNL.pdb
 REF_PDB_TARGET_ORIGINAL=${repository_dir}/ref_pdb/4ri2.pdb
@@ -17,6 +16,8 @@ HELIX_DEFINITIONS_YAML_GROUP1_simtype2=${repository_dir}/definitions_yaml/bindin
 HELIX_DEFINITIONS_YAML_GROUP2_simtype1=${repository_dir}/definitions_yaml/target_protein_helix_labels_merged_sim1.yaml
 HELIX_DEFINITIONS_YAML_GROUP2_simtype2=${repository_dir}/definitions_yaml/target_protein_helix_labels_merged_sim2.yaml
 
+HELIX_DEFINITIONS_YAML_COMBINED_simtype1=${repository_dir}/definitions_yaml/combined_helix_definitions_simtype1.yaml
+HELIX_DEFINITIONS_YAML_COMBINED_simtype2=${repository_dir}/definitions_yaml/combined_helix_definitions_simtype2.yaml
 LABELS_CHAIN_YAML_GROUP1=${repository_dir}/definitions_yaml/chain_labels.yaml
 LABELS_CHAIN_YAML_GROUP2=${repository_dir}/definitions_yaml/psbs_labels.yaml
 
@@ -25,3 +26,5 @@ EQUIVALENT_CHAINIDS_YAML=${repository_dir}/definitions_yaml/equivalent_chainids.
 
 SQL_MODIFIERS=${repository_dir}/sql_operations/01_add_psbs_modifiers.sql
 SQL_CLASSIFICATION=${repository_dir}/sql_operations/02_add_residue_classifications.sql
+SQL_UNITS_CONVERSIONS=${repository_dir}/sql_operations/03_units_conversions.sql
+SQL_CHAINNAME_CLASSIFICATIONS=${repository_dir}/sql_operations/04_add_chainname_classifications.sql

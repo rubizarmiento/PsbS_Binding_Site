@@ -158,9 +158,9 @@ def csv_to_dfs(files):
     dfs = []
     for file in files:
         try:
-            df = pd.read_csv(file)
+            df = pd.read_csv(file, keep_default_na=False, na_values=[''])
         except:
-            df = pd.read_csv(file, header=None)
+            df = pd.read_csv(file, header=None, keep_default_na=False, na_values=[''])
         dfs.append(df)
     
     return dfs

@@ -646,3 +646,53 @@ S:
     end_res_name: HIS
     length: 10
     class: 1
+'9':
+  TM1:
+    start: 246
+    end: 270
+    start_res_name: LYS
+    end_res_name: THR
+    length: 25
+    class: 1
+  H1:
+    start: 274
+    end: 278
+    start_res_name: ILE
+    end_res_name: LEU
+    length: 5
+    class: 1
+  H3:
+    start: 286
+    end: 289
+    start_res_name: ILE
+    end_res_name: ALA
+    length: 4
+    class: 1
+  TM2:
+    start: 290
+    end: 305
+    start_res_name: GLU
+    end_res_name: ILE
+    length: 16
+    class: 1
+  TM3:
+    start: 350
+    end: 374
+    start_res_name: LYS
+    end_res_name: THR
+    length: 25
+    class: 1
+  H2:
+    start: 377
+    end: 386
+    start_res_name: GLY
+    end_res_name: THR
+    length: 10
+    class: 1
+  TM4:
+    start: 389
+    end: 409
+    start_res_name: PRO
+    end_res_name: ILE
+    length: 21
+    class: 1

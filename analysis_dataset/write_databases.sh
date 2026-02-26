@@ -1,4 +1,5 @@
 source scripts/paths.sh
+scripts_dir=${repository_dir}/scripts
 
 function write_yamls_from_csvs(){
   python3 ${scripts_dir}/write_helix_yaml_from_csv.py \
@@ -15,6 +16,12 @@ function write_yamls_from_csvs(){
   cp ${HELIX_DEFINITIONS_YAML_GROUP2_simtype1} ${HELIX_DEFINITIONS_YAML_GROUP2_simtype2}
   sed -i "s/^A:/'9':/" ${HELIX_DEFINITIONS_YAML_GROUP2_simtype2}
   echo "Wrote ${HELIX_DEFINITIONS_YAML_GROUP2_simtype2}"
+
+  cat ${HELIX_DEFINITIONS_YAML_GROUP1_simtype1} ${HELIX_DEFINITIONS_YAML_GROUP2_simtype1} > ${HELIX_DEFINITIONS_YAML_COMBINED_simtype1}
+  cat ${HELIX_DEFINITIONS_YAML_GROUP1_simtype2} ${HELIX_DEFINITIONS_YAML_GROUP2_simtype2} > ${HELIX_DEFINITIONS_YAML_COMBINED_simtype2}
+
+  echo "Wrote ${HELIX_DEFINITIONS_YAML_COMBINED_simtype1}"
+  echo "Wrote ${HELIX_DEFINITIONS_YAML_COMBINED_simtype2}"
 }
 
 function write_databases_pairs(){
@@ -87,10 +94,10 @@ function join_databases(){
 
 function main(){
   set -e
-  #write_yamls_from_csvs
-  #write_databases_pairs
-  #write_databases_supercomplex
-  #join_databases
+  write_yamls_from_csvs
+  write_databases_pairs
+  write_databases_supercomplex
+  join_databases
 }
 
 main

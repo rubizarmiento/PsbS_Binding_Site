@@ -6,7 +6,7 @@ chains=("4" "c" "r" "s")
 chains_analyze=("4" "r" "s") # chain c has no binding events longer than 1000 ns
 cg2at_path=/martini/rubiz/thylakoid/scripts/para/bin/cg2at
 mdp_tpr=${root_dir}/4_pairs/mdps/em.mdp # Dummy mdp to generate tpr files
-
+source ${root_dir}/analysis_dataset/scripts/paths.sh
 function check_selections(){
   for chain in "${chains[@]}"; do
     wdir=${analysis_dir}/chain_${chain}
@@ -246,7 +246,20 @@ function cg2at(){
   done
 }
 
-function lifetime_analysis_grouped (){
+function add_segids_to_pdb(){
+  for chain in "${chains_analyze[@]}"; do
+    wdir=${analysis_dir}/chain_${chain}
+    idir1=${wdir}/1_trj
+    f=${idir1}/initial_fit_merged.pdb
+    o=${idir1}/initial_fit_labelled.pdb
+    python3 ${scripts_dir}/add_segids_to_pdb.py \
+      --input_pdb ${f} \
+      --helix_yaml ${HELIX_DEFINITIONS_YAML_COMBINED_simtype1} \
+      --output_pdb ${o}
+  done
+}
+
+function lifetime_analysis_grouped(){
   for chain in "${chains_analyze[@]}"; do
     wdir=${analysis_dir}/chain_${chain}
     idir1=${wdir}/1_trj
@@ -255,7 +268,7 @@ function lifetime_analysis_grouped (){
     odir=${wdir}/7_lifetimes_grouped
     
     csv=${idir4}/binding_basenames.csv
-    f=${idir1}/initial_fit_merged.pdb
+    f=${idir1}/initial_fit_labelled.pdb
     mapfile -t basenames < "${csv}"
     tpr=${idir1}/protein.tpr
     
@@ -269,6 +282,7 @@ function lifetime_analysis_grouped (){
       chains_arr=(${chains_part//_/ })
       sel1="chainID A" # PsbS
       sel2="resname PLQ PL9 LUT VIO XAT NEO NEX BCR CLA CLB HEME CHL" # Only chlorophylls, HEME, and carotenoids
+      sel7="chainID A and segid H* T*" # PsbS and helix regions
       cutoff=8
       dt=2 # time step between frames
       min_event_ns=100
@@ -281,15 +295,21 @@ function lifetime_analysis_grouped (){
 
       for chain in "${chains_arr[@]}"; do
         # Contacts chains and PsbS
-        sel3="chainID ${chain} and (not resname *GG* *SQ* *PG* W* HOH *HG* LMG DGD)" # Only chlorophylls, carotenoids and proteins
+        sel3="chainID ${chain} and (not resname *GG* *SQ* *PG* W* HOH *HG* LMG DGD )" # Only chlorophylls, carotenoids and proteins
         sel4="chainID ${chain} and (resname CLA CLB CHL, PLQ PL9 LUT VIO XAT NEO NEX BCR HEME)" # Only chlorophylls and carotenoids 
-
+        sel5="chainID ${chain} and segid B E C A D" # Only helices
+        sel6="chainID ${chain} and segid L" # Only loops
+        sel8="chainID ${chain} and (not resname *GG* *SQ* *PG* W* HOH *HG* LMG DGD CLA CLB CHL, PLQ PL9 LUT VIO XAT NEO NEX BCR HEM*)" # Only proteins
         #python3 ${scripts_dir}/lifetime_analysis.py -dt ${dt} -min_event_ns ${min_event_ns} -cutoff "${cutoff}" -f ${f} -traj ${trj} -sel1 "${sel1}" -sel2 "${sel3}" -o ${odir} -prefix psbs_chain_${chain}_${basename} -group_by1 "resids" -group_by2 "resids" > ${odir}/psbs_chain_${chain}_${basename}.log 2>&1 &
         #python3 ${scripts_dir}/lifetime_analysis.py -dt ${dt} -min_event_ns ${min_event_ns} -cutoff "${cutoff}" -f ${f} -traj ${trj} -sel1 "${sel3}" -sel2 "${sel1}" -o ${odir} -prefix chain_${chain}_${basename} -group_by1 "resids" -group_by2 "resids" > ${odir}/chain_${chain}_${basename}.log 2>&1 &
         #python3 ${scripts_dir}/lifetime_analysis.py -dt ${dt} -min_event_ns ${min_event_ns} -cutoff "${cutoff}" -f ${f} -traj ${trj} -sel1 "${sel3}" -sel2 "${sel1}" -o ${odir} -prefix bychain_chain_${chain}_${basename} -group_by1 "chainIDs" -group_by2 "chainIDs" > ${odir}/bychain_chain_${chain}_${basename}.log 2>&1 &
+        python3 ${scripts_dir}/lifetime_analysis.py -dt ${dt} -min_event_ns ${min_event_ns} -cutoff "${cutoff}" -f ${f} -traj ${trj} -sel1 "${sel8}" -sel2 "${sel1}" -o ${odir} -prefix bychain_protein_chain_${chain}_${basename} -group_by1 "chainIDs" -group_by2 "chainIDs" > ${odir}/bychain_protein_chain_${chain}_${basename}.log 2>&1 &
         #python3 ${scripts_dir}/lifetime_analysis.py -dt ${dt} -min_event_ns ${min_event_ns} -cutoff "${cutoff}" -f ${f} -traj ${trj} -sel1 "${sel4}" -sel2 "${sel1}" -o ${odir} -prefix cofactors_chain_${chain}_${basename} -group_by1 "resids" -group_by2 "resids" > ${odir}/chlorophylls_chain_${chain}_${basename}.log 2>&1 &
-        python3 ${scripts_dir}/lifetime_analysis.py -dt ${dt} -min_event_ns ${min_event_ns} -cutoff "${cutoff}" -f ${f} -traj ${trj} -sel1 "${sel4}" -sel2 "${sel1}" -o ${odir} -prefix bychain_cofactors_${chain}_${basename} -group_by1 "resnames" -group_by2 "chainIDs" > ${odir}/bychain_cofactors_${chain}_${basename}.log 2>&1 &
-
+        #python3 ${scripts_dir}/lifetime_analysis.py -dt ${dt} -min_event_ns ${min_event_ns} -cutoff "${cutoff}" -f ${f} -traj ${trj} -sel1 "${sel4}" -sel2 "${sel1}" -o ${odir} -prefix bychain_cofactors_${chain}_${basename} -group_by1 "resnames" -group_by2 "chainIDs" > ${odir}/bychain_cofactors_${chain}_${basename}.log 2>&1 &
+        #python3 ${scripts_dir}/lifetime_analysis.py -dt ${dt} -min_event_ns ${min_event_ns} -cutoff "${cutoff}" -f ${f} -traj ${trj} -sel1 "${sel5}" -sel2 "${sel1}" -o ${odir} -prefix bychain_helix_chain_${chain}_${basename} -group_by1 "segids" -group_by2 "resids" > ${odir}/bychain_helix_chain_${chain}_${basename}.log 2>&1 &
+        #python3 ${scripts_dir}/lifetime_analysis.py -dt ${dt} -min_event_ns ${min_event_ns} -cutoff "${cutoff}" -f ${f} -traj ${trj} -sel1 "${sel6}" -sel2 "${sel1}" -o ${odir} -prefix bychain_loop_chain_${chain}_${basename} -group_by1 "segids" -group_by2 "resids" > ${odir}/bychain_loop_chain_${chain}_${basename}.log 2>&1 &
+        #python3 ${scripts_dir}/lifetime_analysis.py -dt ${dt} -min_event_ns ${min_event_ns} -cutoff "${cutoff}" -f ${f} -traj ${trj} -sel1 "${sel7}" -sel2 "${sel5}" -o ${odir} -prefix bychain_helix_helix_psbs_chain_${chain}_${basename} -group_by1 "segids" -group_by2 "resids" > ${odir}/bychain_helix_helix_psbs_chain_${chain}_${basename}.log 2>&1 &
+        #python3 ${scripts_dir}/lifetime_analysis.py -dt ${dt} -min_event_ns ${min_event_ns} -cutoff "${cutoff}" -f ${f} -traj ${trj} -sel1 "${sel5}" -sel2 "${sel7}" -o ${odir} -prefix bychain_helix_helix_chain_${chain}_${basename} -group_by1 "segids" -group_by2 "resids" > ${odir}/bychain_helix_helix_chain_${chain}_${basename}.log 2>&1 &
       done
     done
   done
@@ -595,7 +615,8 @@ function main(){
   #extract_binding
   #align_middle_cluster
   #binding_pose_grouped   
-  #lifetime_analysis_grouped
+  #add_segids_to_pdb
+  lifetime_analysis_grouped
   #sum_csv_lifetimes
   #symmetric_sum_lifetimes_psbs_chains
   #get_lifetimes_per_binding_mode      # Get binding time per binding mode
