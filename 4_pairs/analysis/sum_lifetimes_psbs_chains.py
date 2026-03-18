@@ -16,7 +16,23 @@ def parser_args():
     args = parser.parse_args()
     return args
 
+def normalize_columns(df):
+    """Normalize column names from raw per-binding-mode format to summary format.
+    
+    Raw per-binding-mode CSVs have: resid, n_events, occupancy_pct, median_ns, sum_ns, p90_ns, chainID_i, chainID_j, resname_i
+    Summary CSVs have: resid, resname, chain, sum_ns
+    """
+    rename_map = {}
+    if 'chainID_i' in df.columns and 'chain' not in df.columns:
+        rename_map['chainID_i'] = 'chain'
+    if 'resname_i' in df.columns and 'resname' not in df.columns:
+        rename_map['resname_i'] = 'resname'
+    if rename_map:
+        df = df.rename(columns=rename_map)
+    return df
+
 def transform_df(df):
+    df = normalize_columns(df)
     half = len(df) // 2
     df1 = df.iloc[0:half, :].copy().reset_index(drop=True)
     df2 = df.iloc[half:, :].copy().reset_index(drop=True)

@@ -141,7 +141,7 @@ def load_lifetime_data(csv_files, log_transform=False):
             print(f"  After log10 transformation: min={lifetime_values.min():.2f}, max={lifetime_values.max():.2f}")
         
         if use_chain_key:
-            chain_id = df['chainID_i'].iloc[0]
+            chain_id = str(df['chainID_i'].iloc[0])  # cast to str: CSV may store as int, CIF uses string chain IDs
             print(f"  Chain: {chain_id}")
             for resid, bfactor in zip(df['resid'], lifetime_values):
                 resid_to_bfactor[(chain_id, resid)] = bfactor

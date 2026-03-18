@@ -170,6 +170,19 @@ function extract_cluster_patch(){
   rm -f /martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/analysis_pairs/chain_4/6_cg2at/chain_4_3/FINAL/final_cg2at_de_novo.pdb
 }
 
+function add_segids_to_pdb(){
+  for chain in "${chains_analyze[@]}"; do
+    wdir=${analysis_dir}/chain_${chain}
+    idir1=${wdir}/1_trj
+    f=${idir1}/initial_fit_merged.pdb
+    o=${idir1}/initial_fit_labelled.pdb
+    python3 ${scripts_dir}/add_segids_to_pdb.py \
+      --input_pdb ${f} \
+      --helix_yaml ${HELIX_DEFINITIONS_YAML_COMBINED_simtype1} \
+      --output_pdb ${o}
+  done
+}
+
 function tpr_cofactors(){
   for chain in "${chains[@]}"; do
     wdir=${analysis_dir}/chain_${chain}
@@ -243,19 +256,6 @@ function cg2at(){
         (cd ${odir} && ${cg2at_path} -c ${basename}_protein_cg.pdb -ff charmm36-jul2020-updated -fg martini_3-0_charmm36 -w tip3p -loc . >> cg2at.log 2>&1) &
       fi
     done
-  done
-}
-
-function add_segids_to_pdb(){
-  for chain in "${chains_analyze[@]}"; do
-    wdir=${analysis_dir}/chain_${chain}
-    idir1=${wdir}/1_trj
-    f=${idir1}/initial_fit_merged.pdb
-    o=${idir1}/initial_fit_labelled.pdb
-    python3 ${scripts_dir}/add_segids_to_pdb.py \
-      --input_pdb ${f} \
-      --helix_yaml ${HELIX_DEFINITIONS_YAML_COMBINED_simtype1} \
-      --output_pdb ${o}
   done
 }
 
@@ -368,6 +368,15 @@ function symmetric_sum_lifetimes_psbs_chains(){
   for chain in "${chains[@]}"; do
     python  ${script}/sum_lifetimes_psbs_chains.py -csv ${idir}/lifetimes_summary_df_psbs_chain_${chain}.csv -o ${odir}/lifetimes_summary_df_psbs_chain_${chain}_symmetrized.csv
   done
+
+  # Also for the binding modes lifetimes
+
+    csv=${idir4}/binding_basenames.csv
+    mapfile -t basenames < "${csv}"
+
+    for basename in "${basenames[@]}"; do
+    
+
 }
 
 function get_lifetimes_per_binding_mode(){
@@ -380,23 +389,6 @@ function get_lifetimes_per_binding_mode(){
   output=${odir}/binding_modes_lifetimes.csv
   dt=2 # time step between frames
   python3 ${scripts_dir}/get_lifetimes_per_binding_mode.py -d "${arr_dir[@]}" -o ${output} -dt ${dt}
-}
-
-function plot_binding_modes () {
-  script=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis
-  ref_pdb=/martini/rubiz/Github/PsbS_Binding_Site/3_reference_proteins/PSII_LHCII/psii_with_cofactors_aa.pdb
-  binding_dir=()
-  for chain in "${chains_analyze[@]}"; do
-    binding_dir+=("${analysis_dir}/chain_${chain}/5_middle_cluster")
-  done
-  binding_modes_occupancy_csv=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/analysis_pairs/10_lifetimes_summary/binding_modes_lifetimes.csv
-  chains_occupancy_csv=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/analysis_pairs/10_lifetimes_summary/lifetimes_summary_df_bychain_chains_all.csv
-  chain_labels_yaml=/martini/rubiz/Github/PsbS_Binding_Site/definitions_yaml/chain_labels.yaml
-  output=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/figures/pairs_binding_sites_overview.pdf
-  vmin=100
-  vmax=30000
-  cmap='colorcet:CET_L17'
-  python3 ${script}/plot_psii_binding_modes.py -min_lifetime 3000 -top_label 3 -log_transform  -alpha_value 0.1 -ref ${ref_pdb} -binding_dir "${binding_dir[@]}" -binding_modes_occupancy_csv ${binding_modes_occupancy_csv} -chains_occupancy_csv ${chains_occupancy_csv} -chain_labels_yaml ${chain_labels_yaml} -output ${output} -vmin ${vmin} -vmax ${vmax} -cmap ${cmap} 
 }
 
 function reassign_chains(){
@@ -424,6 +416,57 @@ function reassign_chains(){
       ref_pdb="${odir}/${basename}_protein_cg.pdb"
       #python ${script}/align_structures.py -mobile ${dir}/${subdirpath}/FINAL/final.pdb -ref ${ref_pdb} -sel_ref "name BB and chainID ${chains_arr[*]}" -sel_mobile "name CA and chainID ${chains_arr[*]}" -o ${dir}/${subdirpath}/FINAL/final_aligned.pdb > ${dir}/${subdirpath}_align.log 2>&1 &
       python "${scripts_dir}/align_structures.py" -mobile "${odir}/FINAL/final.pdb" -ref "${ref_pdb}" -sel_ref "name BB and chainID ${chains_arr[*]}" -sel_mobile "name CA and chainID ${chains_arr[*]}" -o "${odir}/FINAL/final_aligned.pdb"
+    done
+  done
+}
+
+function extract_aligned_cofactors(){
+  # Align CG cofactors to match the final_aligned.pdb (AA) coordinate frame.
+  #
+  # Problem: During cg2at(), gmx editconf extracts protein and cofactors separately,
+  # shifting protein coordinates. reassign_chains then aligns the AA protein to this
+  # shifted CG protein (protein_cg.pdb), but the cofactors stay in the old frame
+  # (~30 Å offset from the protein).
+  #
+  # Solution: Use the CG aligned PDB (which has BOTH protein and cofactors in the same
+  # frame from align_middle_cluster) and align it to final_aligned.pdb (AA) using BB↔CA.
+  # This puts the cofactors in the same frame as the backmapped protein.
+  cofactors="resname PLQ PL9 LUT VIO XAT NEO NEX BCR CLA CLB HEME CHL"
+
+  for chain in "${chains_analyze[@]}"; do
+    wdir=${analysis_dir}/chain_${chain}
+    idir4=${wdir}/4_trj_cluster
+    odir=${wdir}/6_cg2at
+    csv=${idir4}/binding_basenames.csv
+    mapfile -t basenames < "${csv}"
+
+    for basename in "${basenames[@]}"; do
+      ref_pdb=${odir}/${basename}/FINAL/final_aligned.pdb
+      # Use the CG aligned PDB (contains both protein + cofactors in consistent frame)
+      cg_pdb=${odir}/${basename}/${basename}_aligned.pdb
+      o=${odir}/${basename}/${basename}_cofactors_cg.pdb
+
+      if [ ! -f "${ref_pdb}" ]; then
+        echo "Warning: ${ref_pdb} not found, skipping ${basename}"
+        continue
+      fi
+      if [ ! -f "${cg_pdb}" ]; then
+        echo "Warning: ${cg_pdb} not found, skipping ${basename}"
+        continue
+      fi
+
+      # Extract chains from basename (strip first "chain" and last element)
+      chains_arr=(${basename//_/ })
+      chains_arr=("${chains_arr[@]:1}")
+      chains_arr=("${chains_arr[@]::${#chains_arr[@]}-1}")
+
+      echo "Extracting aligned cofactors for ${basename} (chains: ${chains_arr[*]})..."
+      python3 ${scripts_dir}/extract_aligned_cofactors.py \
+        -cg ${cg_pdb} \
+        -ref ${ref_pdb} \
+        -sel_cofactors "${cofactors}" \
+        -chains ${chains_arr[*]} \
+        -o ${o}
     done
   done
 }
@@ -475,11 +518,17 @@ function lifetimes_to_cif(){
         rm -f ${cofactors_conect}
       fi
 
-      # PsbS
+      # PsbS: symmetrize dimer lifetimes before CIF generation
+      psbs_csv=${idir7}/psbs_${basename}_residue_summary_df.csv
+      psbs_csv_sym=${odir}/${basename}_psbs_symmetrized.csv
+      echo "Symmetrizing ${basename} psbs..."
+      python3 ${scripts_dir}/sum_lifetimes_psbs_chains.py \
+        -csv ${psbs_csv} -o ${psbs_csv_sym}
+
       echo "Processing ${basename} psbs..."
       python3 ${scripts_dir}/add_lifetimes_to_cif.py \
         -f ${pdb} -sel "${sel_psbs}" \
-        -csv ${idir7}/psbs_${basename}_residue_summary_df.csv \
+        -csv ${psbs_csv_sym} \
         -o ${odir}/${basename}_psbs.cif --log_transform
     done
   done
@@ -607,35 +656,48 @@ function plot_cofactors_lifetimes(){
   python3 ${script}/plot_cofactors_lifetimes.py -log_transform -ref ${ref_pdb} -csv ${dir}/lifetimes_summary_df_cofactors_all.csv -vmin ${vmin} -vmax ${vmax} -cmap ${cmap} -output ${output_dir}/cofactors_lifetimes_pairs.eps -change_resnames_yaml ${change_resnames_yaml} -change_chains_yaml ${change_chains_yaml} 
 }
 
+function plot_binding_modes () {
+  script=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis
+  ref_pdb=/martini/rubiz/Github/PsbS_Binding_Site/3_reference_proteins/PSII_LHCII/psii_with_cofactors_aa.pdb
+  binding_dir=()
+  for chain in "${chains_analyze[@]}"; do
+    binding_dir+=("${analysis_dir}/chain_${chain}/5_middle_cluster")
+  done
+  binding_modes_occupancy_csv=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/analysis_pairs/10_lifetimes_summary/binding_modes_lifetimes.csv
+  chains_occupancy_csv=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/analysis_pairs/10_lifetimes_summary/lifetimes_summary_df_bychain_chains_all.csv
+  chain_labels_yaml=/martini/rubiz/Github/PsbS_Binding_Site/definitions_yaml/chain_labels.yaml
+  output=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/figures/pairs_binding_sites_overview.eps
+  vmin=100
+  vmax=30000
+  cmap='colorcet:CET_L17'
+  python3 ${script}/plot_psii_binding_modes.py -min_lifetime 3000 -top_label 3 -log_transform  -alpha_value 0.1 -ref ${ref_pdb} -binding_dir "${binding_dir[@]}" -binding_modes_occupancy_csv ${binding_modes_occupancy_csv} -chains_occupancy_csv ${chains_occupancy_csv} -chain_labels_yaml ${chain_labels_yaml} -output ${output} -vmin ${vmin} -vmax ${vmax} -cmap ${cmap} 
+}
+
 function main(){
   set -e
   #check_selections
   #lifetimes_classification
   #fit_structure_to_reference
   #extract_binding
+  #binding_pose_grouped
+  #extract_cluster
+  #extract_cluster_patch             # Backmapping failed for chain_4_3, extract first cluster member instead
   #align_middle_cluster
-  #binding_pose_grouped   
   #add_segids_to_pdb
-  lifetime_analysis_grouped
+  #tpr_cofactors
+  #cg2at
+  #reassign_chains
+  #extract_aligned_cofactors            # Align CG cofactors to final_aligned.pdb frame (BB↔CA transformation)
+  #lifetime_analysis_grouped
   #sum_csv_lifetimes
   #symmetric_sum_lifetimes_psbs_chains
   #get_lifetimes_per_binding_mode      # Get binding time per binding mode
-  #plot_binding_modes
-  #extract_cluster
-  #extract_cluster_special          # Backmapping failed for chain_4_3, extract first cluster member instead
-  #tpr_cofactors
-
-  #cg2at 
-  #reassign_chains
-
-    
-  #lifetimes_to_cif                   # CIF files allow bfactors > 999 while PDB files do not. Cofactors saved as PDB with CONECT records.
+  lifetimes_to_cif                   # CIF files allow bfactors > 999 while PDB files do not. Cofactors saved as PDB with CONECT records.
   #add_lifetimes_to_cif
-  
-  #lifetimes_statistics_psii          # Max occupancy
   #plot_lifetimes
   #plot_aligned_sequences
   #plot_cofactors_lifetimes
+  #plot_binding_modes
 }
 
 main

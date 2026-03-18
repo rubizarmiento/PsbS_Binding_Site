@@ -70,6 +70,7 @@ def parse_arguments():
     parser.add_argument('-equivalent_chains_yaml', type=str, default=None, help='YAML file with equivalent chains mapping')
     parser.add_argument('-helix_labels_yaml', type=str, default=None, help='YAML file with helix definitions (for plotting helices B and C in green)')
     parser.add_argument('-change_chains_yaml', type=str, default=None, help='YAML file with chain ID mapping for renaming chains in the dataframe')
+    parser.add_argument('-chain_labels_yaml', type=str, default=None, help='YAML file with chain ID to protein name mapping (e.g., chain_labels.yaml) for labeling LHCII chains')
     return parser.parse_args()
 
 
@@ -318,7 +319,7 @@ def plot_reference_chains(ax, u0, cmap, selected_chains=None, mode=None):
                bbox=dict(boxstyle="round,pad=0.3", facecolor="None", alpha=0))
 
 
-def plot_lhcii_complexes(ax, u0, selected_chains=None, mode=None):
+def plot_lhcii_complexes(ax, u0, selected_chains=None, mode=None, chain_labels_yaml=None):
     """Plot LHCII antenna complexes.
     
     Parameters
@@ -331,24 +332,36 @@ def plot_lhcii_complexes(ax, u0, selected_chains=None, mode=None):
         If provided, only these chains are considered "selected"
     mode : str or None
         'white': non-selected chains in white, 'only_chains': skip non-selected
+    chain_labels_yaml : str or None
+        Path to YAML file with chain ID to protein name mapping.
+        If provided, labels each LHCII chain individually (LHCBM, LHCB3, etc.).
     """
     lhcbm_color = "#DBE4C9"
     lhcb3_color = "#87cd9d"
     lhcii_chains = [["7", "6", "5"], ["3", "2", "1"], 
                     ["n", "y", "g"], ["N", "Y", "G"]]
-    lhcii_labels = ["S-LHCII", "S-LHCII", "M-LHCII", "M-LHCII"]
-    lhcii_colors = [[lhcb3_color, lhcbm_color, lhcbm_color], [lhcb3_color, lhcbm_color, lhcbm_color], 
-                    [lhcbm_color, lhcbm_color, lhcbm_color], [lhcbm_color, lhcbm_color, lhcbm_color]]
+    # Color mapping per chain label
+    label_color_map = {"LHCB3": lhcb3_color, "LHCBM": lhcbm_color}
+    
+    # Load chain labels from YAML if provided
+    chain_label_map = {}
+    if chain_labels_yaml is not None:
+        with open(chain_labels_yaml, 'r') as f:
+            chain_label_map = {str(k): str(v) for k, v in yaml.safe_load(f).items()}
     
     # Chains that will have lifetime labels plotted on them - use higher zorder
     labeled_chains = ["n", "g", "6", "7", "8", "s"]
     
-    for chains, colors, label in zip(lhcii_chains, lhcii_colors, lhcii_labels):
-        for chain, color in zip(chains, colors):
+    for chains in lhcii_chains:
+        for chain in chains:
             is_selected = selected_chains is None or chain in selected_chains
             
             if mode == 'only_chains' and not is_selected:
                 continue
+            
+            # Determine color from chain label
+            chain_label = chain_label_map.get(chain, "LHCBM")
+            color = label_color_map.get(chain_label, lhcbm_color)
             
             selection = u0.select_atoms(f"chainID {chain}")
             display_color = color if is_selected or mode is None else 'white'
@@ -358,30 +371,15 @@ def plot_lhcii_complexes(ax, u0, selected_chains=None, mode=None):
                       c="black", alpha=1, s=80, zorder=zorder)
             ax.scatter(selection.positions[:, 0], selection.positions[:, 1], 
                       c=display_color, alpha=1, s=60, zorder=zorder)
-        
-        # Plot label at center of geometry of all chains in this group
-        selection = u0.select_atoms(f"chainID {' '.join(chains)}")
-        cog = selection.center_of_geometry()
-        ax.text(cog[0], cog[1], label, color='black', fontsize=8, fontweight='bold',
-               ha='center', va='center', zorder=20,
-               bbox=dict(boxstyle="round,pad=0.3", facecolor=None, alpha=0))
     
-    # Add individual chain labels for labeled chains
-    # LHCBM labels at center of chains n, g, 6
-    for chain in ["n", "g", "6"]:
+    # Add individual chain labels from YAML for all LHCII chains
+    all_lhcii_chain_ids = [ch for group in lhcii_chains for ch in group]
+    for chain in all_lhcii_chain_ids:
         selection = u0.select_atoms(f"chainID {chain}")
         if selection.n_atoms > 0:
+            label = chain_label_map.get(chain, "LHCBM")
             cog = selection.center_of_geometry()
-            ax.text(cog[0], cog[1], "LHCBM", color='black', fontsize=8,
-                   ha='center', va='center', zorder=20,
-                   bbox=dict(boxstyle="round,pad=0.3", facecolor="None", alpha=0))
-    
-    # LHCB3 label at center of chain 7
-    for chain in ["7"]:
-        selection = u0.select_atoms(f"chainID {chain}")
-        if selection.n_atoms > 0:
-            cog = selection.center_of_geometry()
-            ax.text(cog[0], cog[1], "LHCB3", color='black', fontsize=8,
+            ax.text(cog[0], cog[1], label, color='black', fontsize=8,
                    ha='center', va='center', zorder=20,
                    bbox=dict(boxstyle="round,pad=0.3", facecolor="None", alpha=0))
 
@@ -778,7 +776,7 @@ def main():
     # Plot components
     plot_psii_background(ax, u0)
     plot_reference_chains(ax, u0, cmap_ref_chains)
-    plot_lhcii_complexes(ax, u0)
+    plot_lhcii_complexes(ax, u0, chain_labels_yaml=args.chain_labels_yaml)
     
     # Plot helices B and C behind residue data points
     plot_helices(ax, u0, args.helix_labels_yaml)
@@ -806,7 +804,7 @@ def main():
     # Plot same components without labels
     plot_psii_background(ax2, u0)
     plot_reference_chains(ax2, u0, cmap_ref_chains)
-    plot_lhcii_complexes(ax2, u0)
+    plot_lhcii_complexes(ax2, u0, chain_labels_yaml=args.chain_labels_yaml)
     plot_helices(ax2, u0, args.helix_labels_yaml)
     plot_residues_by_lifetime(ax2, df, cmap_sites, args.vmin, args.vmax, args.log_transform, show_labels=False)
     add_colorbar(ax2, cmap_sites, vmin=actual_vmin, vmax=actual_vmax,
@@ -824,7 +822,7 @@ def main():
     fig3, ax3 = setup_figure_and_axis()
     plot_psii_background(ax3, u0, selected_chains=selected_chains, mode='white')
     plot_reference_chains(ax3, u0, cmap_ref_chains, selected_chains=selected_chains, mode='white')
-    plot_lhcii_complexes(ax3, u0, selected_chains=selected_chains, mode='white')
+    plot_lhcii_complexes(ax3, u0, selected_chains=selected_chains, mode='white', chain_labels_yaml=args.chain_labels_yaml)
     plot_helices(ax3, u0, args.helix_labels_yaml)
     plot_residues_by_lifetime(ax3, df, cmap_sites, args.vmin, args.vmax, args.log_transform, show_labels=False)
     add_colorbar(ax3, cmap_sites, vmin=actual_vmin, vmax=actual_vmax,
@@ -838,7 +836,7 @@ def main():
     fig4, ax4 = setup_figure_and_axis()
     plot_psii_background(ax4, u0, selected_chains=selected_chains, mode='only_chains')
     plot_reference_chains(ax4, u0, cmap_ref_chains, selected_chains=selected_chains, mode='only_chains')
-    plot_lhcii_complexes(ax4, u0, selected_chains=selected_chains, mode='only_chains')
+    plot_lhcii_complexes(ax4, u0, selected_chains=selected_chains, mode='only_chains', chain_labels_yaml=args.chain_labels_yaml)
     plot_helices(ax4, u0, args.helix_labels_yaml)
     plot_residues_by_lifetime(ax4, df, cmap_sites, args.vmin, args.vmax, args.log_transform, show_labels=False)
     add_colorbar(ax4, cmap_sites, vmin=actual_vmin, vmax=actual_vmax,
