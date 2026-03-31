@@ -11,6 +11,7 @@ os.environ['OMP_NUM_THREADS'] = '1'
 
 import pandas as pd
 from pandas.core import strings
+import yaml
 
 
 
@@ -104,9 +105,52 @@ df['tag_number'] = df['tag'].map(tag_numbers)
 # Sort by tag_number
 df = df.sort_values(by=['tag_number'])
 
+# Load trajectory lengths and add binding_time_ns column
+length_file = '/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj/simulation_length_ns.csv'
+df_lengths = pd.read_csv(length_file)
+
+# Merge to add binding_time_ns - match by 'original' column
+df = df.merge(df_lengths, left_on='original', right_on='basename', how='left')
+df['binding_time_ns'] = df['total_length_ns']
+df = df.drop(columns=['basename', 'total_length_ns'])
+
+# Load YAML and create tag_rename column
+yaml_file = '/martini/rubiz/Github/PsbS_Binding_Site/definitions_yaml/equivalent_chains.yaml'
+tag_rename_list = []
+
+if os.path.exists(yaml_file):
+    with open(yaml_file, 'r') as f:
+        yaml_data = yaml.safe_load(f)
+    
+    # Create reverse mapping: chain -> protein name
+    chain_to_protein = {}
+    for protein, chains in yaml_data.items():
+        for chain in chains:
+            chain_to_protein[chain] = protein
+    
+    # For each row, map the tag to protein names
+    for tag in df['tag']:
+        # Split tag by underscore
+        chains = tag.split('_')
+        # Map each chain to its protein name
+        protein_names = []
+        for chain in chains:
+            if chain in chain_to_protein:
+                protein_names.append(chain_to_protein[chain])
+            else:
+                protein_names.append(chain)  # Keep original if not found
+        # Join with underscore
+        tag_rename = '_'.join(protein_names)
+        tag_rename_list.append(tag_rename)
+    
+    df['tag_rename'] = tag_rename_list
+    print(f"Loaded chain-to-protein mapping from {yaml_file}")
+else:
+    print(f"Warning: YAML file not found at {yaml_file}, skipping tag_rename column")
 
 # Write the DataFrame to a CSV file
 output_file = '/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj/basenames_equivalent_chains.csv'
 df.to_csv(output_file, sep=' ', index=False, header=True)
 
 print(f"Basenames with equivalent chains written to {output_file}")
+print(f"Columns: {list(df.columns)}")

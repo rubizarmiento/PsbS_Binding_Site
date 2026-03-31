@@ -21,6 +21,7 @@ python extract_binding_trajectories_psii.py \
   -p original.top \
   -mdp /path/to/em.mdp
 
+
 """
 
 import pandas as pd
@@ -40,7 +41,7 @@ def parse_arguments():
     parser.add_argument("-preffix", "--prefix", default="binding", help="Prefix for output trajectory files")
     parser.add_argument("-p", "--topology", help="Topology file (.top) to modify for each trajectory")
     parser.add_argument("-mdp", "--mdp_file", help="MDP file for grompp")
-    
+    parser.add_argument("-dat", "--simulation_length", help="Text file containing the total simulation length in ns (used for grompp time parameters)")
     return parser.parse_args()
 
 def modify_topology_file(top_file, chain_ids, seg_id, output_top):

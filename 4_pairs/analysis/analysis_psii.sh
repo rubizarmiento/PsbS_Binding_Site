@@ -55,6 +55,35 @@ function binding_pose_pdb(){
   done
 }
 
+function get_sim_length_in_dir(){
+  idir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj
+  trjs=($(ls ${idir}/*.xtc))
+  for trj in "${trjs[@]}"; do
+    basename=$(basename ${trj} .xtc)
+    tpr=${idir}/${basename}.tpr
+    #If the last part of the basename is _cofactors, skip
+    if [[ ${basename} == *"_cofactors" ]]; then
+      echo "Skipping ${basename} as it is a cofactors trajectory"
+      continue
+    fi
+    gmx check -f ${trj} > ${idir}/${basename}_length.log 2>&1
+  done
+}
+
+function postprocessing_sim_length_in_dir(){
+  idir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj
+  ocsv=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj/simulation_length_ns.csv
+  echo "basename,total_length_ns" > ${ocsv}
+  log_files=($(ls ${idir}/*_length.log))
+  for log in "${log_files[@]}"; do
+    time=$(grep "Time          " ${log} | awk '{print $2}')
+    basename=$(basename ${log} _length.log)
+    echo "${basename},${time}" >> ${ocsv}
+  done
+  echo "Simulation lengths written to ${ocsv}"
+  cat ${ocsv}
+}
+
 function write_equivalent_binding_sites(){
   # The binding events are in the dir: /martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj
   # The files are named sim_{n_sim}_{PsbSID}_{chains}.* e.g. sim_4_A3_6_7.pdb
@@ -63,7 +92,7 @@ function write_equivalent_binding_sites(){
   # tag original     new          old_chains count tag_number
   # n_s sim_4_A4_N_S sim_4_A4_n_s N_S        6     1
 
-  python3 /martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/write_equivalent_binding_sites.py
+  #python3 /martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/write_equivalent_binding_sites.py
   
   # Then simply copies the first {original}.*pdb and {original}.*tpr files in /martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj_grouped
   # With the name 
@@ -71,10 +100,11 @@ function write_equivalent_binding_sites(){
   dir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj 
   csv=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj/basenames_equivalent_chains.csv
   odir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj_grouped
-  python3 /martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/grouped_binding_pdbs.py ${dir} ${csv} ${odir}
-  python3 /martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/concatenated_grouped_trajectories.py ${dir} ${csv} ${odir}
-  ocsv=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj/basenames_binding.csv
-  python3 /martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/write_unique_basenames.py ${csv} ${ocsv} 
+  #python3 /martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/grouped_binding_pdbs.py ${dir} ${csv} ${odir}
+  #python3 /martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/concatenated_grouped_trajectories.py ${dir} ${csv} ${odir}
+  ocsv=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj/basenames_binding.csv # This is the Table used in the Manuscript
+  yaml=/martini/rubiz/Github/PsbS_Binding_Site/definitions_yaml/equivalent_chains.yaml
+  python3 /martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/write_unique_basenames.py ${csv} ${ocsv} ${yaml}
 }
 
 function align_trajectories(){
@@ -169,14 +199,22 @@ function plot_binding_modes () {
   script=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis
   ref_pdb=/martini/rubiz/Github/PsbS_Binding_Site/3_reference_proteins/PSII_LHCII/psii_with_cofactors_aa.pdb
   binding_dir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/middle_cluster
-  binding_modes_occupancy_csv=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj_grouped/binding_modes_lifetimes.csv
+  binding_modes_occupancy_csv=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj/basenames_binding.csv
   chains_occupancy_csv=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/lifetimes_summary/lifetimes_summary_df_bychain_chains_all.csv
   chain_labels_yaml=/martini/rubiz/Github/PsbS_Binding_Site/definitions_yaml/chain_labels.yaml
-  output=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/figures/psii_binding_sites_overview.png
+  output1=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/figures/psii_binding_sites_overview.eps
+  output2=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/figures/psii_binding_sites_overview_all_labels.eps
+  output3=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/figures/psii_binding_reaction_center.eps
+  output4=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/figures/psii_binding_reaction_center_all_labels.eps
+
   vmin=100
   vmax=30000
   cmap='colorcet:CET_L17'
-  python3 ${script}/plot_psii_binding_modes.py -min_lifetime 5000 -top_label 10 -log_transform  -alpha_value 0.1 -ref ${ref_pdb} -binding_dir ${binding_dir} -binding_modes_occupancy_csv ${binding_modes_occupancy_csv} -chains_occupancy_csv ${chains_occupancy_csv} -chain_labels_yaml ${chain_labels_yaml} -output ${output} -vmin ${vmin} -vmax ${vmax} -cmap ${cmap} 
+  python3 ${script}/plot_psii_binding_modes.py -min_lifetime 1000 -top_label 4 -log_transform  -alpha_value 0.1 -ref ${ref_pdb} -binding_dir ${binding_dir} -binding_modes_occupancy_csv ${binding_modes_occupancy_csv} -chains_occupancy_csv ${chains_occupancy_csv} -chain_labels_yaml ${chain_labels_yaml} -output ${output1} -vmin ${vmin} -vmax ${vmax} -cmap ${cmap} 
+  python3 ${script}/plot_psii_binding_modes.py -min_lifetime 1000 -log_transform  -alpha_value 0.1 -ref ${ref_pdb} -binding_dir ${binding_dir} -binding_modes_occupancy_csv ${binding_modes_occupancy_csv} -chains_occupancy_csv ${chains_occupancy_csv} -chain_labels_yaml ${chain_labels_yaml} -output ${output2} -vmin ${vmin} -vmax ${vmax} -cmap ${cmap} 
+  python3 ${script}/plot_psii_binding_modes.py -no_labels -min_lifetime 1000 -exclude_sites "S1" "S2" "S3" "S4" "S11" "S5" "S9" -log_transform  -alpha_value 0.1 -ref ${ref_pdb} -binding_dir ${binding_dir} -binding_modes_occupancy_csv ${binding_modes_occupancy_csv} -chains_occupancy_csv ${chains_occupancy_csv} -chain_labels_yaml ${chain_labels_yaml} -output ${output3} -vmin ${vmin} -vmax ${vmax} -cmap ${cmap} 
+  python3 ${script}/plot_psii_binding_modes.py -min_lifetime 1000 -exclude_sites "S1" "S2" "S3" "S4" "S11" "S5" "S9" -log_transform  -alpha_value 0.1 -ref ${ref_pdb} -binding_dir ${binding_dir} -binding_modes_occupancy_csv ${binding_modes_occupancy_csv} -chains_occupancy_csv ${chains_occupancy_csv} -chain_labels_yaml ${chain_labels_yaml} -output ${output4} -vmin ${vmin} -vmax ${vmax} -cmap ${cmap} 
+  
 }
 
 function plot_psii_venn_diagram () {
@@ -253,6 +291,20 @@ function extract_cluster(){
   done
 }
 
+function write_yaml_chainid_and_size(){
+  ref_pdb=/martini/rubiz/Github/PsbS_Binding_Site/3_reference_proteins/PSII_LHCII/psii_with_cofactors_aa.pdb
+  oyaml=/martini/rubiz/Github/PsbS_Binding_Site/definitions_yaml/chain_sizes.yaml
+  python3 /martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/write_yaml_chainid_and_size.py -f ${ref_pdb} -o ${oyaml} 
+}
+
+function get_biggest_chain_in_binding_site(){
+  yaml=/martini/rubiz/Github/PsbS_Binding_Site/definitions_yaml/chain_sizes.yaml
+  csv=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj/basenames_binding.csv
+  ocsv=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj/basenames_biggest_chain.csv
+  python3 /martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/get_biggest_chain_in_binding_site.py -yaml ${yaml} -csv ${csv} -ocsv ${ocsv}
+}
+
+
 function extract_structures(){
   # Extract CG protein and cofactor PDBs from middle_cluster snapshots.
   # Can be re-run independently (e.g. if ref_pdb changes) without repeating cg2at.
@@ -261,7 +313,7 @@ function extract_structures(){
   tpr_dir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj_grouped
   odir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/cg2at          
   ref_pdb=/martini/rubiz/Github/PsbS_Binding_Site/3_reference_proteins/PSII_LHCII/psii_with_cofactors_aa.pdb
-
+  biggest_chain_csv=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj/basenames_biggest_chain.csv
   files=("$dir"/*.pdb)
 
   echo "Extracting protein/cofactor PDBs for ${#files[@]} files in ${dir}..."
@@ -271,12 +323,13 @@ function extract_structures(){
       basename=$(basename ${file} .pdb)  # Get filename without path and extension
       echo "Processing ${file}..."
       chains_arr=($(echo ${basename} | cut -d'_' -f2- | tr '_' ' '))  # Extract chains from filename and split into array
-      # If chains_arr contains "c", then replace it with chains_arr=("c")
-      if [[ " ${chains_arr[@]} " =~ " c " ]]; then
-        chains_arr=("c")
-        echo "Special case for ${basename}, using chainID C only"
-      fi
-      python ${script}/align_structures.py -mobile ${dir}/${basename}.pdb -ref ${ref_pdb} -sel_ref "name CA and chainID ${chains_arr[*]}" -sel_mobile "name BB and chainID ${chains_arr[*]}" -o ${dir}/${basename}.pdb    
+
+      # Get biggest chain in the binding site from csv with grep and awk
+      biggest_chain=$(grep "${basename}" ${biggest_chain_csv} | awk -F',' '{print $3}')
+
+      echo "Aligning ${basename} to reference using biggest chain ${biggest_chain} for selection..."  
+
+      python ${script}/align_structures.py -mobile ${dir}/${basename}.pdb -ref ${ref_pdb} -sel_ref "name CA and chainID ${biggest_chain}" -sel_mobile "name BB and chainID ${biggest_chain}" -o ${dir}/${basename}.pdb    
 
       # Write ndxs
       sel="not resname CLA CLB CHL *HG* *HEM* PLQ PL9 *GG* *SQ* *PG* DGD LMG DSMG LUT VIO XAT NEO NEX W2 HOH BCR"
@@ -287,11 +340,11 @@ function extract_structures(){
       python3 ${script}/sel_to_ndx.py -f ${dir}/${basename}.pdb -sel "${sel}" -name "Protein" -o ${odir}/${basename}_protein_cg.ndx
       python3 ${script}/sel_to_ndx.py -f ${dir}/${basename}.pdb -sel "${cofactors}" -name "Cofactors" -o ${odir}/${basename}_cofactors_cg.ndx
       chains_str=$(echo ${basename} | cut -d'_' -f2- | tr '_' ' ')
-      python3 ${script}/sel_to_ndx.py -f ${ref_pdb} -sel "chainID ${chains_str} and ${sel}" -name "Protein" -o ${odir}/${basename}_protein_aa.ndx
+      #python3 ${script}/sel_to_ndx.py -f ${ref_pdb} -sel "chainID ${chains_str} and ${sel}" -name "Protein" -o ${odir}/${basename}_protein_aa.ndx
 
       # Extract proteins
       gmx editconf -f ${file} -n ${odir}/${basename}_protein_cg.ndx -o ${odir}/${basename}_protein_cg.pdb
-      gmx editconf -f ${ref_pdb} -n ${odir}/${basename}_protein_aa.ndx -o ${odir}/${basename}_protein_aa.pdb  
+      #gmx editconf -f ${ref_pdb} -n ${odir}/${basename}_protein_aa.ndx -o ${odir}/${basename}_protein_aa.pdb  
 
       
       # Check if ndx is empty
@@ -449,6 +502,8 @@ function main(){
   #lifetime_analysis_protein_protein  # Get the binding events a csv file.
 
   #extract_binding                    # Extract binding events (pdb, xtc, tpr)
+  #get_sim_length_in_dir
+  #postprocessing_sim_length_in_dir
   #write_equivalent_binding_sites     # Group binding sites
   #write_occupancy                    # !!!Change "total_frames" if the trajectory is extended
   #check_selections
@@ -458,13 +513,17 @@ function main(){
   
   #binding_pose_grouped               # Clustering analysis. 
   #extract_cluster                    # Extract middle structure from largest cluster as gmx cluster generates corrupted PDBs
+  #write_yaml_chainid_and_size          # Write YAML with chain IDs and sizes for PSII reference structure
+  #get_biggest_chain_in_binding_site    # Get the biggest chain in each binding site and write to CSV for plotting purposes (e.g. to color by chain in the binding modes overview)
+  #extract_structures                 # Extract CG protein/cofactor PDBs (re-runnable if ref_pdb changes)
+
+
   plot_binding_modes
   #plot_psii_venn_diagram
-  #extract_structures                       # Extract CG protein/cofactor PDBs (re-runnable if ref_pdb changes)
   #cg2at                              # CG-to-AA conversion (uses align_chains output)
   #reassign_chains                    # Reassign chain IDs and align AA to CG backbone
-  #lifetimes_to_cif_psii             # CIF files allow bfactors > 999 while PDB files do not.
-  #lifetimes_statistics_psii         # Max occupancy
+  #lifetimes_to_cif_psii              # CIF files allow bfactors > 999 while PDB files do not.
+  #lifetimes_statistics_psii          # Max occupancy
   #plot_lifetimes                     # Generate protein sequence plots with B-factor coloring
   #write_databases
   #join_databases

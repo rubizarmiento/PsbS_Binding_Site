@@ -376,7 +376,8 @@ function symmetric_sum_lifetimes_psbs_chains(){
 
     for basename in "${basenames[@]}"; do
     
-
+      python  ${script}/sum_lifetimes_psbs_chains.py -csv ${odir}/binding_modes_lifetimes.csv -o ${odir}/binding_modes_lifetimes_symmetrized.csv --basename ${basename}
+    done
 }
 
 function get_lifetimes_per_binding_mode(){
@@ -657,20 +658,25 @@ function plot_cofactors_lifetimes(){
 }
 
 function plot_binding_modes () {
+  # Binding modes occupancy: Contains the columns trajectory,frames,lifetime, e.g. chain_4_1_18128_19801,1674,3348.0
+  # chains_occupancy_csv: resid,resname,chain,sum_ns, e.g. 4,NA,4,11942.0 
+  # trajectory is used to get the binding modes PDBs
   script=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis
   ref_pdb=/martini/rubiz/Github/PsbS_Binding_Site/3_reference_proteins/PSII_LHCII/psii_with_cofactors_aa.pdb
   binding_dir=()
   for chain in "${chains_analyze[@]}"; do
     binding_dir+=("${analysis_dir}/chain_${chain}/5_middle_cluster")
   done
+
   binding_modes_occupancy_csv=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/analysis_pairs/10_lifetimes_summary/binding_modes_lifetimes.csv
+  
   chains_occupancy_csv=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/analysis_pairs/10_lifetimes_summary/lifetimes_summary_df_bychain_chains_all.csv
   chain_labels_yaml=/martini/rubiz/Github/PsbS_Binding_Site/definitions_yaml/chain_labels.yaml
   output=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/figures/pairs_binding_sites_overview.eps
   vmin=100
   vmax=30000
   cmap='colorcet:CET_L17'
-  python3 ${script}/plot_psii_binding_modes.py -min_lifetime 3000 -top_label 3 -log_transform  -alpha_value 0.1 -ref ${ref_pdb} -binding_dir "${binding_dir[@]}" -binding_modes_occupancy_csv ${binding_modes_occupancy_csv} -chains_occupancy_csv ${chains_occupancy_csv} -chain_labels_yaml ${chain_labels_yaml} -output ${output} -vmin ${vmin} -vmax ${vmax} -cmap ${cmap} 
+  python3 ${script}/plot_psii_binding_modes.py -top_label 3 -min_lifetime 2000 -log_transform  -alpha_value 0.1 -ref ${ref_pdb} -binding_dir "${binding_dir[@]}" -binding_modes_occupancy_csv ${binding_modes_occupancy_csv} -chains_occupancy_csv ${chains_occupancy_csv} -chain_labels_yaml ${chain_labels_yaml} -output ${output} -vmin ${vmin} -vmax ${vmax} -cmap ${cmap} 
 }
 
 function main(){
@@ -692,12 +698,12 @@ function main(){
   #sum_csv_lifetimes
   #symmetric_sum_lifetimes_psbs_chains
   #get_lifetimes_per_binding_mode      # Get binding time per binding mode
-  lifetimes_to_cif                   # CIF files allow bfactors > 999 while PDB files do not. Cofactors saved as PDB with CONECT records.
+  #lifetimes_to_cif                   # CIF files allow bfactors > 999 while PDB files do not. Cofactors saved as PDB with CONECT records.
   #add_lifetimes_to_cif
   #plot_lifetimes
   #plot_aligned_sequences
   #plot_cofactors_lifetimes
-  #plot_binding_modes
+  plot_binding_modes
 }
 
 main

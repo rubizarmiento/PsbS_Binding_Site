@@ -4,7 +4,7 @@ Render PSII structure with PsbS binding modes colored by lifetime.
 Arguments:
 -ref: Path to reference PSII structure PDB file.
 -binding_dir: Directory containing binding site PDB structures.
--binding_modes_occupancy_csv: CSV file with occupancy data for binding sites (used for sorting/labeling).
+-binding_modes_occupancy_csv: CSV file with occupancy data for binding sites (used for sorting/labeling). The lifetime column can be named 'lifetimes', 'sum_ns', or 'sum_ms'.
 -chains_occupancy_csv: CSV file with per-chain lifetime sums (columns: chain, sum_ns).
 -output: Output file path (without extension, .png and .pdf will be generated).
 -vmin: Minimum value for color mapping.
@@ -102,12 +102,20 @@ def parser():
                         help='Path to YAML file mapping chain IDs to protein labels '
                              '(e.g., "8": CP24, "s": CP26). When provided, labels are '
                              'added to chains that are part of the colormap.')
-    parser.add_argument('-top_label', type=int, default=5,
+    parser.add_argument('-top_label', type=int, default=0,
                         help='Number of top binding sites (by lifetime) to label and show as scatter. '
-                             'Default: 5. Remaining sites are shown as polygons (if -polygons is set).')
+                             'Default: 0 (label all sites). Remaining sites are shown as polygons (if -polygons is set).')
     parser.add_argument('-min_lifetime', type=float, default=None,
                         help='Minimum lifetime (in ns, before log transform) to include a binding mode. '
                              'Binding modes with lifetime below this value are excluded from the plot.')
+    parser.add_argument('-max_lifetime', type=float, default=None,
+                        help='Maximum lifetime (in ns, before log transform) to include a binding mode. '
+                             'Binding modes with lifetime above this value are excluded from the plot.')
+    parser.add_argument('-exclude_sites', type=str, nargs='+', default=None,
+                        help='Site labels to exclude from the plot (e.g., -exclude_sites S1 S2). '
+                             'Labels are assigned after sorting by lifetime: S1 = highest lifetime.')
+    parser.add_argument('-no_labels', action='store_true',
+                        help='Suppress all site labels (S1, S2, ...) from the plot.')
 
     return parser.parse_args()
 
@@ -164,14 +172,23 @@ def load_lifetime_data(csv_path):
     Parameters
     ----------
     csv_path : str
-        Path to lifetime CSV file (columns: trajectory, frames, lifetimes)
+        Path to lifetime CSV file (columns: trajectory, frames, lifetimes|sum_ns|sum_ms)
         
     Returns
     -------
     pd.DataFrame
-        Lifetime data
+        Lifetime data with column normalised to 'lifetimes'
     """
-    return pd.read_csv(csv_path)
+    df = pd.read_csv(csv_path)
+    # Accept 'sum_ns' or 'sum_ms' as aliases for 'lifetimes'.
+    # The code expects values in nanoseconds, so convert sum_ms (µs) back to ns.
+    if 'lifetimes' not in df.columns:
+        if 'sum_ns' in df.columns:
+            df = df.rename(columns={'sum_ns': 'lifetimes'})
+        elif 'sum_ms' in df.columns:
+            df['lifetimes'] = df['sum_ms'] * 1e3  # µs -> ns
+            df = df.drop(columns=['sum_ms'])
+    return df
 
 
 def load_chains_lifetime_data(csv_path):
@@ -394,7 +411,7 @@ def plot_reference_chains(ax, u0, cmap, chains_lifetime_dict=None, lifetime_cmap
             if chain_labels and chain in chain_labels:
                 label = chain_labels[chain]
                 cog = selection.center_of_geometry()
-                ax.text(cog[0], cog[1], label, color='black', fontsize=8, 
+                ax.text(cog[0], cog[1], label, color='black', fontsize=10, 
                     ha='center', va='center', zorder=20,
                     bbox=dict(boxstyle="round,pad=0.3", facecolor="white", alpha=0.8)) 
                 ax.scatter(selection.positions[:, 0], selection.positions[:, 1], 
@@ -413,7 +430,7 @@ def plot_reference_chains(ax, u0, cmap, chains_lifetime_dict=None, lifetime_cmap
             if chain_labels and chain in chain_labels:
                 label = chain_labels[chain]
                 cog = selection.center_of_geometry()
-                ax.text(cog[0], cog[1], label, color='black', fontsize=6, 
+                ax.text(cog[0], cog[1], label, color='black', fontsize=10, 
                     ha='center', va='center', zorder=3,
                     bbox=dict(boxstyle="round,pad=0.3", facecolor="white", alpha=0))
 
@@ -457,7 +474,7 @@ def plot_lhcii_complexes(ax, u0, chains_lifetime_dict=None, lifetime_cmap=None, 
                 if chain_labels and chain in chain_labels:
                     label = chain_labels[chain]
                     cog = selection.center_of_geometry()
-                    ax.text(cog[0], cog[1], label, color='black', fontsize=8, 
+                    ax.text(cog[0], cog[1], label, color='black', fontsize=10, 
                         ha='center', va='center', zorder=8,
                         bbox=dict(boxstyle="round,pad=0.3", facecolor="white", alpha=0.8))
             else:
@@ -472,12 +489,12 @@ def plot_lhcii_complexes(ax, u0, chains_lifetime_dict=None, lifetime_cmap=None, 
                 if chain_labels and chain in chain_labels:
                     label = chain_labels[chain]
                     cog = selection.center_of_geometry()
-                    ax.text(cog[0], cog[1], label, color='black', fontsize=6, 
+                    ax.text(cog[0], cog[1], label, color='black', fontsize=10, 
                         ha='center', va='center', zorder=3,
                         bbox=dict(boxstyle="round,pad=0.3", facecolor="white", alpha=0))
 
 
-def plot_binding_sites(ax, sorted_chain_dict, df, lifetime_cmap, norm, move_site_label=None, move_offset=(0,0), polygons=False, alpha_value=0.0, top_label=5):
+def plot_binding_sites(ax, sorted_chain_dict, df, lifetime_cmap, norm, move_site_label=None, move_offset=(0,0), polygons=False, alpha_value=0.0, top_label=5, exclude_sites=None, no_labels=False):
     """Plot PsbS binding sites with lifetime-based coloring.
     
     Parameters
@@ -503,6 +520,10 @@ def plot_binding_sites(ax, sorted_chain_dict, df, lifetime_cmap, norm, move_site
     top_label : int
         Number of top binding sites (by lifetime) to label and show as scatter.
         Default: 5.
+    exclude_sites : list of str or None
+        Site labels to exclude from plotting (e.g., ['S1', 'S2']).
+    no_labels : bool
+        If True, suppress all site labels.
         
     Returns
     -------
@@ -511,8 +532,17 @@ def plot_binding_sites(ax, sorted_chain_dict, df, lifetime_cmap, norm, move_site
     """
     n_sites = len(sorted_chain_dict)
     site_labels = [f"S{n_sites - i}" for i in range(n_sites)]
+    if exclude_sites:
+        print(f"Excluding sites: {exclude_sites}")
+    # top_label <= 0 means label all sites
+    if top_label <= 0:
+        top_label = n_sites
     counter = 0
     for (pdb_path, u), label in zip(sorted_chain_dict.items(), site_labels):
+        if exclude_sites and label in exclude_sites:
+            print(f"Skipping excluded site {label}")
+            counter += 1
+            continue
         basename = os.path.splitext(os.path.basename(pdb_path))[0]
         
         # Find matching lifetime value (exact match first, then prefix match)
@@ -563,12 +593,13 @@ def plot_binding_sites(ax, sorted_chain_dict, df, lifetime_cmap, norm, move_site
                     cog_x += move_offset[0]
                     cog_y += move_offset[1]
 
-                ax.text(cog_x, cog_y, label, color='black', fontsize=8, 
-                       ha='center', va='center', zorder=20,
-                       bbox=dict(boxstyle="round,pad=0.3", facecolor="white", alpha=0.8))
+                if not no_labels:
+                    ax.text(cog_x, cog_y, label, color='black', fontsize=10, 
+                           ha='center', va='center', zorder=20,
+                           bbox=dict(boxstyle="round,pad=0.3", facecolor="white", alpha=0.8))
             else:
                 ax.scatter(sel.positions[:, 0], sel.positions[:, 1], 
-                        c='black', alpha=1, s=70, zorder=5)
+                        c='grey', alpha=1, s=90, zorder=5)
                 ax.scatter(sel.positions[:, 0], sel.positions[:, 1], 
                         c=[color], alpha=1, s=60, zorder=5)
         
@@ -696,6 +727,13 @@ def main():
         n_after = len(sorted_chain_dict)
         print(f"min_lifetime filter: {n_before} -> {n_after} binding modes (threshold={args.min_lifetime} ns)")
     
+    # Filter binding modes by max_lifetime (before log transform)
+    if args.max_lifetime is not None:
+        n_before = len(sorted_chain_dict)
+        sorted_chain_dict = {k: v for k, v in sorted_chain_dict.items() if v.lifetime <= args.max_lifetime}
+        n_after = len(sorted_chain_dict)
+        print(f"max_lifetime filter: {n_before} -> {n_after} binding modes (threshold={args.max_lifetime} ns)")
+    
     # Get lifetime values for color scale
     lifetime_values = df['lifetimes'].values
     
@@ -736,7 +774,9 @@ def main():
                        move_offset=args.move_offset,
                        polygons=args.polygons,
                        alpha_value=args.alpha_value,
-                       top_label=args.top_label)
+                       top_label=args.top_label,
+                       exclude_sites=args.exclude_sites,
+                       no_labels=args.no_labels)
     plot_reference_chains(ax, u0, cmap_ref, 
                          chains_lifetime_dict=chains_lifetime_dict,
                          lifetime_cmap=lifetime_cmap, norm=norm,
