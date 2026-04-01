@@ -43,140 +43,140 @@ n:
     length: 30
     class: 1
   E:
-    start: 111
-    end: 113
-    start_res_name: GLY
-    end_res_name: GLN
+    start: 112
+    end: 114
+    start_res_name: SER
+    end_res_name: ILE
     length: 3
     class: 1
   C:
-    start: 133
-    end: 153
-    start_res_name: SER
-    end_res_name: ILE
+    start: 134
+    end: 154
+    start_res_name: ILE
+    end_res_name: ASN
     length: 21
+    class: 1
+  A:
+    start: 181
+    end: 212
+    start_res_name: PRO
+    end_res_name: THR
+    length: 32
+    class: 1
+  D:
+    start: 216
+    end: 225
+    start_res_name: PRO
+    end_res_name: ASP
+    length: 10
+    class: 1
+r:
+  B:
+    start: 89
+    end: 118
+    start_res_name: LEU
+    end_res_name: GLY
+    length: 30
+    class: 1
+  E:
+    start: 126
+    end: 128
+    start_res_name: LYS
+    end_res_name: GLU
+    length: 3
+    class: 1
+  C:
+    start: 147
+    end: 163
+    start_res_name: LEU
+    end_res_name: ASN
+    length: 17
+    class: 1
+  A:
+    start: 188
+    end: 219
+    start_res_name: PRO
+    end_res_name: THR
+    length: 32
+    class: 1
+  D:
+    start: 223
+    end: 232
+    start_res_name: PRO
+    end_res_name: SER
+    length: 10
+    class: 1
+s:
+  B:
+    start: 71
+    end: 102
+    start_res_name: PHE
+    end_res_name: GLY
+    length: 32
+    class: 1
+  E:
+    start: 116
+    end: 118
+    start_res_name: ALA
+    end_res_name: LEU
+    length: 3
+    class: 1
+  C:
+    start: 136
+    end: 155
+    start_res_name: ILE
+    end_res_name: ILE
+    length: 20
     class: 1
   A:
     start: 179
     end: 210
-    start_res_name: ASP
-    end_res_name: ILE
+    start_res_name: PRO
+    end_res_name: THR
     length: 32
     class: 1
   D:
     start: 214
     end: 223
-    start_res_name: LYS
-    end_res_name: HIS
-    length: 10
-    class: 1
-r:
-  B:
-    start: 56
-    end: 85
-    start_res_name: ASN
-    end_res_name: GLU
-    length: 30
-    class: 1
-  E:
-    start: 100
-    end: 102
-    start_res_name: GLY
-    end_res_name: TRP
-    length: 3
-    class: 1
-  C:
-    start: 122
-    end: 142
-    start_res_name: GLN
-    end_res_name: PHE
-    length: 21
-    class: 1
-  A:
-    start: 168
-    end: 199
-    start_res_name: SER
-    end_res_name: ILE
-    length: 32
-    class: 1
-  D:
-    start: 203
-    end: 212
-    start_res_name: ARG
-    end_res_name: PHE
+    start_res_name: PRO
+    end_res_name: SER
     length: 10
     class: 1
 '8':
   B:
-    start: 51
+    start: 47
     end: 80
-    start_res_name: ARG
+    start_res_name: LEU
     end_res_name: PHE
-    length: 30
+    length: 34
     class: 1
   E:
-    start: 95
-    end: 97
-    start_res_name: GLY
-    end_res_name: LEU
+    start: 84
+    end: 86
+    start_res_name: ALA
+    end_res_name: PRO
     length: 3
     class: 1
   C:
-    start: 117
-    end: 137
+    start: 94
+    end: 114
     start_res_name: PHE
-    end_res_name: PHE
+    end_res_name: VAL
     length: 21
     class: 1
   A:
-    start: 163
-    end: 194
-    start_res_name: ASN
-    end_res_name: PHE
-    length: 32
+    start: 170
+    end: 200
+    start_res_name: THR
+    end_res_name: GLN
+    length: 31
     class: 1
   D:
-    start: 198
-    end: 207
-    start_res_name: ALA
-    end_res_name: ALA
-    length: 10
-    class: 1
-s:
-  B:
-    start: 65
-    end: 94
-    start_res_name: SER
-    end_res_name: ILE
-    length: 30
-    class: 1
-  E:
-    start: 109
-    end: 111
-    start_res_name: ALA
-    end_res_name: TRP
-    length: 3
-    class: 1
-  C:
-    start: 131
-    end: 151
-    start_res_name: ILE
-    end_res_name: TYR
-    length: 21
-    class: 1
-  A:
-    start: 177
-    end: 208
-    start_res_name: LYS
-    end_res_name: TYR
-    length: 32
-    class: 1
-  D:
-    start: 212
-    end: 221
-    start_res_name: GLU
-    end_res_name: HIS
-    length: 10
+    start: 204
+    end: 210
+    start_res_name: PRO
+    end_res_name: LEU
+    length: 7
     class: 1
 '1':
   B:
@@ -511,138 +511,138 @@ N:
     length: 30
     class: 1
   E:
-    start: 111
-    end: 113
-    start_res_name: GLY
-    end_res_name: GLN
+    start: 112
+    end: 114
+    start_res_name: SER
+    end_res_name: ILE
     length: 3
     class: 1
   C:
-    start: 133
-    end: 153
-    start_res_name: SER
-    end_res_name: ILE
+    start: 134
+    end: 154
+    start_res_name: ILE
+    end_res_name: ASN
     length: 21
+    class: 1
+  A:
+    start: 181
+    end: 212
+    start_res_name: PRO
+    end_res_name: THR
+    length: 32
+    class: 1
+  D:
+    start: 216
+    end: 225
+    start_res_name: PRO
+    end_res_name: ASP
+    length: 10
+    class: 1
+R:
+  B:
+    start: 89
+    end: 118
+    start_res_name: LEU
+    end_res_name: GLY
+    length: 30
+    class: 1
+  E:
+    start: 126
+    end: 128
+    start_res_name: LYS
+    end_res_name: GLU
+    length: 3
+    class: 1
+  C:
+    start: 147
+    end: 163
+    start_res_name: LEU
+    end_res_name: ASN
+    length: 17
+    class: 1
+  A:
+    start: 188
+    end: 219
+    start_res_name: PRO
+    end_res_name: THR
+    length: 32
+    class: 1
+  D:
+    start: 223
+    end: 232
+    start_res_name: PRO
+    end_res_name: SER
+    length: 10
+    class: 1
+S:
+  B:
+    start: 71
+    end: 102
+    start_res_name: PHE
+    end_res_name: GLY
+    length: 32
+    class: 1
+  E:
+    start: 116
+    end: 118
+    start_res_name: ALA
+    end_res_name: LEU
+    length: 3
+    class: 1
+  C:
+    start: 136
+    end: 155
+    start_res_name: ILE
+    end_res_name: ILE
+    length: 20
     class: 1
   A:
     start: 179
     end: 210
-    start_res_name: ASP
-    end_res_name: ILE
+    start_res_name: PRO
+    end_res_name: THR
     length: 32
     class: 1
   D:
     start: 214
     end: 223
-    start_res_name: LYS
-    end_res_name: HIS
-    length: 10
-    class: 1
-R:
-  B:
-    start: 56
-    end: 85
-    start_res_name: ASN
-    end_res_name: GLU
-    length: 30
-    class: 1
-  E:
-    start: 100
-    end: 102
-    start_res_name: GLY
-    end_res_name: TRP
-    length: 3
-    class: 1
-  C:
-    start: 122
-    end: 142
-    start_res_name: GLN
-    end_res_name: PHE
-    length: 21
-    class: 1
-  A:
-    start: 168
-    end: 199
-    start_res_name: SER
-    end_res_name: ILE
-    length: 32
-    class: 1
-  D:
-    start: 203
-    end: 212
-    start_res_name: ARG
-    end_res_name: PHE
+    start_res_name: PRO
+    end_res_name: SER
     length: 10
     class: 1
 '4':
   B:
-    start: 51
+    start: 47
     end: 80
-    start_res_name: ARG
+    start_res_name: LEU
     end_res_name: PHE
-    length: 30
+    length: 34
     class: 1
   E:
-    start: 95
-    end: 97
-    start_res_name: GLY
-    end_res_name: LEU
+    start: 84
+    end: 86
+    start_res_name: ALA
+    end_res_name: PRO
     length: 3
     class: 1
   C:
-    start: 117
-    end: 137
+    start: 94
+    end: 114
     start_res_name: PHE
-    end_res_name: PHE
+    end_res_name: VAL
     length: 21
     class: 1
   A:
-    start: 163
-    end: 194
-    start_res_name: ASN
-    end_res_name: PHE
-    length: 32
+    start: 170
+    end: 200
+    start_res_name: THR
+    end_res_name: GLN
+    length: 31
     class: 1
   D:
-    start: 198
-    end: 207
-    start_res_name: ALA
-    end_res_name: ALA
-    length: 10
-    class: 1
-S:
-  B:
-    start: 65
-    end: 94
-    start_res_name: SER
-    end_res_name: ILE
-    length: 30
-    class: 1
-  E:
-    start: 109
-    end: 111
-    start_res_name: ALA
-    end_res_name: TRP
-    length: 3
-    class: 1
-  C:
-    start: 131
-    end: 151
-    start_res_name: ILE
-    end_res_name: TYR
-    length: 21
-    class: 1
-  A:
-    start: 177
-    end: 208
-    start_res_name: LYS
-    end_res_name: TYR
-    length: 32
-    class: 1
-  D:
-    start: 212
-    end: 221
-    start_res_name: GLU
-    end_res_name: HIS
-    length: 10
+    start: 204
+    end: 210
+    start_res_name: PRO
+    end_res_name: LEU
+    length: 7
     class: 1
