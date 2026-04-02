@@ -181,6 +181,8 @@ function add_segids_to_pdb(){
       --helix_yaml ${HELIX_DEFINITIONS_YAML_COMBINED_simtype1} \
       --output_pdb ${o}
   done
+  sed -i "s/_A//g" ${o} # Remove _A from segids
+  sed -i "s/_B//g" ${o} # Remove _B from segids
 }
 
 function tpr_cofactors(){
@@ -303,13 +305,13 @@ function lifetime_analysis_grouped(){
         #python3 ${scripts_dir}/lifetime_analysis.py -dt ${dt} -min_event_ns ${min_event_ns} -cutoff "${cutoff}" -f ${f} -traj ${trj} -sel1 "${sel1}" -sel2 "${sel3}" -o ${odir} -prefix psbs_chain_${chain}_${basename} -group_by1 "resids" -group_by2 "resids" > ${odir}/psbs_chain_${chain}_${basename}.log 2>&1 &
         #python3 ${scripts_dir}/lifetime_analysis.py -dt ${dt} -min_event_ns ${min_event_ns} -cutoff "${cutoff}" -f ${f} -traj ${trj} -sel1 "${sel3}" -sel2 "${sel1}" -o ${odir} -prefix chain_${chain}_${basename} -group_by1 "resids" -group_by2 "resids" > ${odir}/chain_${chain}_${basename}.log 2>&1 &
         #python3 ${scripts_dir}/lifetime_analysis.py -dt ${dt} -min_event_ns ${min_event_ns} -cutoff "${cutoff}" -f ${f} -traj ${trj} -sel1 "${sel3}" -sel2 "${sel1}" -o ${odir} -prefix bychain_chain_${chain}_${basename} -group_by1 "chainIDs" -group_by2 "chainIDs" > ${odir}/bychain_chain_${chain}_${basename}.log 2>&1 &
-        python3 ${scripts_dir}/lifetime_analysis.py -dt ${dt} -min_event_ns ${min_event_ns} -cutoff "${cutoff}" -f ${f} -traj ${trj} -sel1 "${sel8}" -sel2 "${sel1}" -o ${odir} -prefix bychain_protein_chain_${chain}_${basename} -group_by1 "chainIDs" -group_by2 "chainIDs" > ${odir}/bychain_protein_chain_${chain}_${basename}.log 2>&1 &
+        #python3 ${scripts_dir}/lifetime_analysis.py -dt ${dt} -min_event_ns ${min_event_ns} -cutoff "${cutoff}" -f ${f} -traj ${trj} -sel1 "${sel8}" -sel2 "${sel1}" -o ${odir} -prefix bychain_protein_chain_${chain}_${basename} -group_by1 "chainIDs" -group_by2 "chainIDs" > ${odir}/bychain_protein_chain_${chain}_${basename}.log 2>&1 &
         #python3 ${scripts_dir}/lifetime_analysis.py -dt ${dt} -min_event_ns ${min_event_ns} -cutoff "${cutoff}" -f ${f} -traj ${trj} -sel1 "${sel4}" -sel2 "${sel1}" -o ${odir} -prefix cofactors_chain_${chain}_${basename} -group_by1 "resids" -group_by2 "resids" > ${odir}/chlorophylls_chain_${chain}_${basename}.log 2>&1 &
         #python3 ${scripts_dir}/lifetime_analysis.py -dt ${dt} -min_event_ns ${min_event_ns} -cutoff "${cutoff}" -f ${f} -traj ${trj} -sel1 "${sel4}" -sel2 "${sel1}" -o ${odir} -prefix bychain_cofactors_${chain}_${basename} -group_by1 "resnames" -group_by2 "chainIDs" > ${odir}/bychain_cofactors_${chain}_${basename}.log 2>&1 &
         #python3 ${scripts_dir}/lifetime_analysis.py -dt ${dt} -min_event_ns ${min_event_ns} -cutoff "${cutoff}" -f ${f} -traj ${trj} -sel1 "${sel5}" -sel2 "${sel1}" -o ${odir} -prefix bychain_helix_chain_${chain}_${basename} -group_by1 "segids" -group_by2 "resids" > ${odir}/bychain_helix_chain_${chain}_${basename}.log 2>&1 &
         #python3 ${scripts_dir}/lifetime_analysis.py -dt ${dt} -min_event_ns ${min_event_ns} -cutoff "${cutoff}" -f ${f} -traj ${trj} -sel1 "${sel6}" -sel2 "${sel1}" -o ${odir} -prefix bychain_loop_chain_${chain}_${basename} -group_by1 "segids" -group_by2 "resids" > ${odir}/bychain_loop_chain_${chain}_${basename}.log 2>&1 &
-        #python3 ${scripts_dir}/lifetime_analysis.py -dt ${dt} -min_event_ns ${min_event_ns} -cutoff "${cutoff}" -f ${f} -traj ${trj} -sel1 "${sel7}" -sel2 "${sel5}" -o ${odir} -prefix bychain_helix_helix_psbs_chain_${chain}_${basename} -group_by1 "segids" -group_by2 "resids" > ${odir}/bychain_helix_helix_psbs_chain_${chain}_${basename}.log 2>&1 &
-        #python3 ${scripts_dir}/lifetime_analysis.py -dt ${dt} -min_event_ns ${min_event_ns} -cutoff "${cutoff}" -f ${f} -traj ${trj} -sel1 "${sel5}" -sel2 "${sel7}" -o ${odir} -prefix bychain_helix_helix_chain_${chain}_${basename} -group_by1 "segids" -group_by2 "resids" > ${odir}/bychain_helix_helix_chain_${chain}_${basename}.log 2>&1 &
+        python3 ${scripts_dir}/lifetime_analysis.py -dt ${dt} -min_event_ns ${min_event_ns} -cutoff "${cutoff}" -f ${f} -traj ${trj} -sel1 "${sel7}" -sel2 "${sel5}" -o ${odir} -prefix bychain_helix_helix_psbs_chain_${chain}_${basename} -group_by1 "segids" -group_by2 "resids" > ${odir}/bychain_helix_helix_psbs_chain_${chain}_${basename}.log 2>&1 &
+        python3 ${scripts_dir}/lifetime_analysis.py -dt ${dt} -min_event_ns ${min_event_ns} -cutoff "${cutoff}" -f ${f} -traj ${trj} -sel1 "${sel5}" -sel2 "${sel7}" -o ${odir} -prefix bychain_helix_helix_chain_${chain}_${basename} -group_by1 "segids" -group_by2 "resids" > ${odir}/bychain_helix_helix_chain_${chain}_${basename}.log 2>&1 &
       done
     done
   done
@@ -694,7 +696,7 @@ function main(){
   #cg2at
   #reassign_chains
   #extract_aligned_cofactors            # Align CG cofactors to final_aligned.pdb frame (BB↔CA transformation)
-  #lifetime_analysis_grouped
+  lifetime_analysis_grouped
   #sum_csv_lifetimes
   #symmetric_sum_lifetimes_psbs_chains
   #get_lifetimes_per_binding_mode      # Get binding time per binding mode
@@ -703,7 +705,7 @@ function main(){
   #plot_lifetimes
   #plot_aligned_sequences
   #plot_cofactors_lifetimes
-  plot_binding_modes
+  #plot_binding_modes
 }
 
 main

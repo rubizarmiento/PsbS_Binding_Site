@@ -647,52 +647,101 @@ S:
     length: 7
     class: 1
 '9':
-  TM1:
+  TM1_A:
+    start: 34
+    end: 58
+    start_res_name: LYS
+    end_res_name: THR
+    length: 25
+    class: 1
+  H1_A:
+    start: 62
+    end: 66
+    start_res_name: ILE
+    end_res_name: LEU
+    length: 5
+    class: 1
+  H3_A:
+    start: 69
+    end: 73
+    start_res_name: GLU
+    end_res_name: PRO
+    length: 5
+    class: 1
+  TM2_A:
+    start: 79
+    end: 93
+    start_res_name: PRO
+    end_res_name: ILE
+    length: 15
+    class: 1
+  TM3_A:
+    start: 138
+    end: 162
+    start_res_name: LYS
+    end_res_name: THR
+    length: 25
+    class: 1
+  H2_A:
+    start: 166
+    end: 174
+    start_res_name: ALA
+    end_res_name: THR
+    length: 9
+    class: 1
+  TM4_A:
+    start: 178
+    end: 197
+    start_res_name: ILE
+    end_res_name: ILE
+    length: 20
+    class: 1
+  TM1_B:
     start: 246
     end: 270
     start_res_name: LYS
     end_res_name: THR
     length: 25
     class: 1
-  H1:
+  H1_B:
     start: 274
     end: 278
     start_res_name: ILE
     end_res_name: LEU
     length: 5
     class: 1
-  H3:
-    start: 286
-    end: 289
-    start_res_name: ILE
-    end_res_name: ALA
-    length: 4
-    class: 1
-  TM2:
-    start: 290
-    end: 305
+  H3_B:
+    start: 281
+    end: 285
     start_res_name: GLU
-    end_res_name: ILE
-    length: 16
+    end_res_name: PRO
+    length: 5
     class: 1
-  TM3:
+  TM2_B:
+    start: 291
+    end: 305
+    start_res_name: PRO
+    end_res_name: ILE
+    length: 15
+    class: 1
+  TM3_B:
     start: 350
     end: 374
     start_res_name: LYS
     end_res_name: THR
     length: 25
     class: 1
-  H2:
-    start: 377
+  H2_B:
+    start: 378
     end: 386
-    start_res_name: GLY
+    start_res_name: ALA
     end_res_name: THR
-    length: 10
+    length: 9
     class: 1
-  TM4:
-    start: 389
+  TM4_B:
+    start: 390
     end: 409
-    start_res_name: PRO
+    start_res_name: ILE
     end_res_name: ILE
-    length: 21
+    length: 20
     class: 1

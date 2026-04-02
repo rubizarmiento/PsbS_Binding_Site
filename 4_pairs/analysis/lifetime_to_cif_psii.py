@@ -85,7 +85,7 @@ def validate_input_files(pdb_dir, lifetimes_dir, case, struct_type, chain):
     
     # Check CSV files
     if struct_type == "PSBS":
-        csv_file = f"{lifetimes_dir}/psbs_{case}_residue_summary_df.csv"
+        csv_file = f"{lifetimes_dir}/psbs_{case}_residue_summary_df_symmetrized.csv"
         if not os.path.isfile(csv_file):
             raise FileNotFoundError(f"Required CSV file not found: {csv_file}")
     elif struct_type in ["PROTEIN", "COFACTORS"]:
@@ -124,7 +124,7 @@ def load_bfactor_mapping(lifetimes_dir, case, chains=None):
     
     if chains is None:
         # PSBS case: single file, use resid as key
-        csv_file = f"{lifetimes_dir}/psbs_{case}_residue_summary_df.csv"
+        csv_file = f"{lifetimes_dir}/psbs_{case}_residue_summary_df_symmetrized.csv"
         if not os.path.isfile(csv_file):
             print(f"CSV file not found: {csv_file}. Using B-factor=0 for all residues.")
             return {}
@@ -326,8 +326,8 @@ def main():
             continue
         if line.startswith('#'):  # Skip comments
             continue
-        # Take only the first column (whitespace-separated)
-        case = line.split()[0]
+        # Take only the first column (comma or whitespace separated)
+        case = line.split(',')[0].strip()
         cases.append(case)
     
     if not cases:
