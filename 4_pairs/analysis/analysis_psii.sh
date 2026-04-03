@@ -257,6 +257,7 @@ function binding_pose_grouped(){
 function plot_binding_modes () {
   script=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis
   ref_pdb=/martini/rubiz/Github/PsbS_Binding_Site/3_reference_proteins/PSII_LHCII/psii_with_cofactors_aa.pdb
+  #ref_pdb=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/base_dir/rotated.pdb
   binding_dir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/middle_cluster
   binding_modes_occupancy_csv=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj/basenames_binding.csv
   chains_occupancy_csv=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/lifetimes_summary/lifetimes_summary_df_bychain_chains_all.csv
@@ -265,15 +266,18 @@ function plot_binding_modes () {
   output2=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/figures/psii_binding_sites_overview_all_labels.eps
   output3=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/figures/psii_binding_reaction_center.eps
   output4=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/figures/psii_binding_reaction_center_all_labels.eps
-
+  output5=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/figures/s1.png
+  output5=/martini/rubiz/Github/PsbS_Binding_Site/4_pairs/analysis/figures/s2.png
   vmin=100
   vmax=30000
   cmap='colorcet:CET_L17'
-  python3 ${script}/plot_psii_binding_modes.py -min_lifetime 1000 -top_label 4 -log_transform  -alpha_value 0.1 -ref ${ref_pdb} -binding_dir ${binding_dir} -binding_modes_occupancy_csv ${binding_modes_occupancy_csv} -chains_occupancy_csv ${chains_occupancy_csv} -chain_labels_yaml ${chain_labels_yaml} -output ${output1} -vmin ${vmin} -vmax ${vmax} -cmap ${cmap} 
-  python3 ${script}/plot_psii_binding_modes.py -min_lifetime 1000 -log_transform  -alpha_value 0.1 -ref ${ref_pdb} -binding_dir ${binding_dir} -binding_modes_occupancy_csv ${binding_modes_occupancy_csv} -chains_occupancy_csv ${chains_occupancy_csv} -chain_labels_yaml ${chain_labels_yaml} -output ${output2} -vmin ${vmin} -vmax ${vmax} -cmap ${cmap} 
-  python3 ${script}/plot_psii_binding_modes.py -no_labels -min_lifetime 1000 -exclude_sites "S1" "S2" "S3" "S4" "S11" "S5" "S9" -log_transform  -alpha_value 0.1 -ref ${ref_pdb} -binding_dir ${binding_dir} -binding_modes_occupancy_csv ${binding_modes_occupancy_csv} -chains_occupancy_csv ${chains_occupancy_csv} -chain_labels_yaml ${chain_labels_yaml} -output ${output3} -vmin ${vmin} -vmax ${vmax} -cmap ${cmap} 
-  python3 ${script}/plot_psii_binding_modes.py -min_lifetime 1000 -exclude_sites "S1" "S2" "S3" "S4" "S11" "S5" "S9" -log_transform  -alpha_value 0.1 -ref ${ref_pdb} -binding_dir ${binding_dir} -binding_modes_occupancy_csv ${binding_modes_occupancy_csv} -chains_occupancy_csv ${chains_occupancy_csv} -chain_labels_yaml ${chain_labels_yaml} -output ${output4} -vmin ${vmin} -vmax ${vmax} -cmap ${cmap} 
-  
+  #python3 ${script}/plot_psii_binding_modes.py -min_lifetime 1000 -top_label 4 -log_transform  -alpha_value 0.1 -ref ${ref_pdb} -binding_dir ${binding_dir} -binding_modes_occupancy_csv ${binding_modes_occupancy_csv} -chains_occupancy_csv ${chains_occupancy_csv} -chain_labels_yaml ${chain_labels_yaml} -output ${output1} -vmin ${vmin} -vmax ${vmax} -cmap ${cmap} 
+  #python3 ${script}/plot_psii_binding_modes.py -min_lifetime 1000 -top_label 4 -log_transform  -alpha_value 0.1 -ref ${ref_pdb} -binding_dir ${binding_dir} -binding_modes_occupancy_csv ${binding_modes_occupancy_csv} -chains_occupancy_csv ${chains_occupancy_csv} -chain_labels_yaml ${chain_labels_yaml} -output ${output1} -vmin ${vmin} -vmax ${vmax} -cmap ${cmap} 
+  #python3 ${script}/plot_psii_binding_modes.py -min_lifetime 1000 -log_transform  -alpha_value 0.1 -ref ${ref_pdb} -binding_dir ${binding_dir} -binding_modes_occupancy_csv ${binding_modes_occupancy_csv} -chains_occupancy_csv ${chains_occupancy_csv} -chain_labels_yaml ${chain_labels_yaml} -output ${output2} -vmin ${vmin} -vmax ${vmax} -cmap ${cmap} 
+  #python3 ${script}/plot_psii_binding_modes.py -no_labels -min_lifetime 1000 -exclude_sites "S1" "S2" "S3" "S4" "S11" "S5" "S9" -log_transform  -alpha_value 0.1 -ref ${ref_pdb} -binding_dir ${binding_dir} -binding_modes_occupancy_csv ${binding_modes_occupancy_csv} -chains_occupancy_csv ${chains_occupancy_csv} -chain_labels_yaml ${chain_labels_yaml} -output ${output3} -vmin ${vmin} -vmax ${vmax} -cmap ${cmap} 
+  #python3 ${script}/plot_psii_binding_modes.py -min_lifetime 1000 -exclude_sites "S1" "S2" "S3" "S4" "S11" "S5" "S9" -log_transform  -alpha_value 0.1 -ref ${ref_pdb} -binding_dir ${binding_dir} -binding_modes_occupancy_csv ${binding_modes_occupancy_csv} -chains_occupancy_csv ${chains_occupancy_csv} -chain_labels_yaml ${chain_labels_yaml} -output ${output4} -vmin ${vmin} -vmax ${vmax} -cmap ${cmap} 
+  python3 ${script}/plot_psii_binding_modes.py -min_lifetime 5000 -top_label 4  -exclude_sites "S1"  -log_transform -ref ${ref_pdb} -binding_dir ${binding_dir} -binding_modes_occupancy_csv ${binding_modes_occupancy_csv} -chains_occupancy_csv ${chains_occupancy_csv} -chain_labels_yaml ${chain_labels_yaml} -output ${output5} -vmin ${vmin} -vmax ${vmax} -cmap ${cmap} 
+
 }
 
 function plot_psii_venn_diagram () {
@@ -409,7 +413,8 @@ function extract_structures(){
   dir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/middle_cluster   # pdb files: 9_c_s_z.pdb -> ${basename}.pdb 
   tpr_dir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj_grouped
   odir=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/cg2at          
-  ref_pdb=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/base_dir/rotated.pdb
+  #ref_pdb=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/base_dir/rotated.pdb
+  ref_pdb=/martini/rubiz/Github/PsbS_Binding_Site/3_reference_proteins/PSII_LHCII/psii_with_cofactors_aa.pdb
   biggest_chain_csv=/martini/rubiz/Github/PsbS_Binding_Site/5_psii/binding_sites/trj/basenames_biggest_chain.csv
   files=("$dir"/*.pdb)
   sel_cofactors="resname CLA CLB CHL *HEM* PLQ PL9 LUT VIO XAT NEO NEX BCR"
@@ -426,13 +431,13 @@ function extract_structures(){
       biggest_chain=$(grep "${basename}" ${biggest_chain_csv} | awk -F',' '{print $3}')
 
       echo "Aligning ${basename} to reference using biggest chain ${biggest_chain} for selection..."  
-      python ${script}/align_structures.py -mobile ${dir}/${basename}.pdb -ref ${ref_pdb} -sel_ref "name BB and chainID ${biggest_chain}" -sel_mobile "name BB and chainID ${biggest_chain}" -o ${dir}/${basename}.pdb    
+      python ${script}/align_structures.py -mobile ${dir}/${basename}.pdb -ref ${ref_pdb} -sel_ref "name CA and chainID ${biggest_chain}" -sel_mobile "name BB and chainID ${biggest_chain}" -o ${dir}/${basename}.pdb    
 
 
       pdb_aa=${odir}/${basename}/FINAL/final_aligned.pdb
       cp ${pdb_aa} ${pdb_aa}.bak
       #Fit to reference using the biggest chain in the binding site for selection
-      python ${script}/align_structures.py -mobile ${pdb_aa} -ref ${ref_pdb} -sel_ref "name BB and chainID ${biggest_chain}" -sel_mobile "name CA and chainID ${biggest_chain}" -o ${pdb_aa}
+      python ${script}/align_structures.py -mobile ${pdb_aa} -ref ${ref_pdb} -sel_ref "name CA and chainID ${biggest_chain}" -sel_mobile "name CA and chainID ${biggest_chain}" -o ${pdb_aa}
       # Write ndxs
       sel="not resname CLA CLB CHL *HG* *HEM* PLQ PL9 *GG* *SQ* *PG* DGD LMG DSMG LUT VIO XAT NEO NEX W2 HOH BCR"
       cofactors="resname CLA CLB CHL *HG* *HEM* PLQ PL9 *GG* *SQ* *PG* DGD LMG DSMG LUT VIO XAT NEO NEX W2 HOH BCR"
@@ -720,14 +725,14 @@ function main(){
   #extract_cluster                    # Extract middle structure from largest cluster as gmx cluster generates corrupted PDBs
   #write_yaml_chainid_and_size          # Write YAML with chain IDs and sizes for PSII reference structure
   #get_biggest_chain_in_binding_site    # Get the biggest chain in each binding site and write to CSV for plotting purposes (e.g. to color by chain in the binding modes overview)
-  extract_structures                 # Extract CG protein/cofactor PDBs (re-runnable if ref_pdb changes)
+  #extract_structures                 # Extract CG protein/cofactor PDBs (re-runnable if ref_pdb changes)
 
 
-  #plot_binding_modes
+  plot_binding_modes
   #plot_psii_venn_diagram
   #cg2at                              # CG-to -AA conversion (uses align_chains output)
   #reassign_chains                    # Reassign chain IDs and align AA to CG backbone
-  lifetimes_to_cif_psii              # CIF files allow bfactors > 999 while PDB files do not.
+  #lifetimes_to_cif_psii              # CIF files allow bfactors > 999 while PDB files do not.
   #lifetimes_to_cif_psii_old         # Old monolithic version (uses lifetime_to_cif_psii.py)
   #lifetimes_statistics_psii          # Max occupancy
   #plot_lifetimes                     # Generate protein sequence plots with B-factor coloring

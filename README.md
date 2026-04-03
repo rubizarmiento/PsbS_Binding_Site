@@ -1,7 +1,3 @@
-# The repository contains the methods to generate the simulations in the directories 4_pairs and 5_psii (Pending final documentation).
-
-# The analysis_dataset directory contains scripts and instructions to process the simulation data and generate the analysis databases.
-
 # Database Creation Pipeline
 
 This pipeline processes protein binding event data from CSV files, enriches it with structural information, and creates combined databases for analysis.

@@ -116,8 +116,36 @@ def parser():
                              'Labels are assigned after sorting by lifetime: S1 = highest lifetime.')
     parser.add_argument('-no_labels', action='store_true',
                         help='Suppress all site labels (S1, S2, ...) from the plot.')
+    parser.add_argument('-rotate', type=float, nargs=3, default=None, metavar=('X', 'Y', 'Z'),
+                        help='Rotate all coordinates by X, Y, Z degrees around the x, y, z axes '
+                             '(applied in order x -> y -> z). E.g. -rotate 0 0 180')
 
     return parser.parse_args()
+
+
+def rotate_universe(u, angles_deg):
+    """Rotate all atom positions in a Universe around x, y, z axes.
+
+    Parameters
+    ----------
+    u : mda.Universe
+        Universe whose coordinates will be rotated **in-place**.
+    angles_deg : tuple of float
+        (rx, ry, rz) rotation angles in degrees applied sequentially
+        around x, y, then z through the center of geometry.
+
+    Returns
+    -------
+    mda.Universe
+        The same Universe (modified in-place).
+    """
+    ag = u.select_atoms('all')
+    cog = ag.center_of_geometry()
+    axis_vectors = {'x': [1, 0, 0], 'y': [0, 1, 0], 'z': [0, 0, 1]}
+    for axis_name, angle in zip(['x', 'y', 'z'], angles_deg):
+        if angle != 0:
+            ag.rotateby(angle, axis_vectors[axis_name], point=cog)
+    return u
 
 
 def load_reference_structure(pdb_path):
@@ -415,7 +443,7 @@ def plot_reference_chains(ax, u0, cmap, chains_lifetime_dict=None, lifetime_cmap
                     ha='center', va='center', zorder=20,
                     bbox=dict(boxstyle="round,pad=0.3", facecolor="white", alpha=0.8)) 
                 ax.scatter(selection.positions[:, 0], selection.positions[:, 1], 
-                color="black", alpha=alpha_edge, s=90, zorder=6)
+                color="black", alpha=alpha_edge, s=70, zorder=6)
                 ax.scatter(selection.positions[:, 0], selection.positions[:, 1], 
                 color=color, alpha=1, s=50, zorder=6)
         else:
@@ -467,7 +495,7 @@ def plot_lhcii_complexes(ax, u0, chains_lifetime_dict=None, lifetime_cmap=None, 
                 color = lifetime_cmap(norm(chains_lifetime_dict[chain]))
                 alpha_edge = 1.0
                 ax.scatter(selection.positions[:, 0], selection.positions[:, 1], 
-                        c='black', alpha=alpha_edge, s=90, zorder=6)
+                        c='black', alpha=alpha_edge, s=70, zorder=6)
                 ax.scatter(selection.positions[:, 0], selection.positions[:, 1], 
                         c=[color], alpha=1, s=50, zorder=6)
                 # Add individual chain label from YAML if chain has a label defined
@@ -580,7 +608,7 @@ def plot_binding_sites(ax, sorted_chain_dict, df, lifetime_cmap, norm, move_site
         else:
             if counter >= n_sites - top_label: # For the top sites uses higher alpha.
                 ax.scatter(sel.positions[:, 0], sel.positions[:, 1], 
-                        c='black', alpha=1, s=90, zorder=5)
+                        c='black', alpha=1, s=70, zorder=5)
                 ax.scatter(sel.positions[:, 0], sel.positions[:, 1], 
                         c=[color], alpha=1, s=50, zorder=5)
                         # Add label at center of geometry
@@ -599,7 +627,7 @@ def plot_binding_sites(ax, sorted_chain_dict, df, lifetime_cmap, norm, move_site
                            bbox=dict(boxstyle="round,pad=0.3", facecolor="white", alpha=0.8))
             else:
                 ax.scatter(sel.positions[:, 0], sel.positions[:, 1], 
-                        c='grey', alpha=1, s=90, zorder=5)
+                        c='grey', alpha=1, s=70, zorder=5)
                 ax.scatter(sel.positions[:, 0], sel.positions[:, 1], 
                         c=[color], alpha=1, s=60, zorder=5)
         
@@ -715,6 +743,13 @@ def main():
     chain_dict = load_binding_site_structures(args.binding_dir)
     df = load_lifetime_data(args.binding_modes_occupancy_csv)
     chains_lifetime_dict = load_chains_lifetime_data(args.chains_occupancy_csv)
+
+    # Apply rotation if requested
+    if args.rotate is not None:
+        print(f"Rotating all structures by x={args.rotate[0]}°, y={args.rotate[1]}°, z={args.rotate[2]}°")
+        rotate_universe(u0, args.rotate)
+        for u in chain_dict.values():
+            rotate_universe(u, args.rotate)
     
     # Process lifetime data
     chain_dict = annotate_chain_dict_with_lifetime(chain_dict, df)
