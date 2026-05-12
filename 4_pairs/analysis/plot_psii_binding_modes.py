@@ -114,11 +114,16 @@ def parser():
     parser.add_argument('-exclude_sites', type=str, nargs='+', default=None,
                         help='Site labels to exclude from the plot (e.g., -exclude_sites S1 S2). '
                              'Labels are assigned after sorting by lifetime: S1 = highest lifetime.')
+    parser.add_argument('-only_sites', type=str, nargs='+', default=None,
+                        help='Site labels to include in the plot (e.g., -only_sites S1 S2). '
+                             'Labels are assigned after sorting by lifetime: S1 = highest lifetime.')
     parser.add_argument('-no_labels', action='store_true',
                         help='Suppress all site labels (S1, S2, ...) from the plot.')
     parser.add_argument('-rotate', type=float, nargs=3, default=None, metavar=('X', 'Y', 'Z'),
                         help='Rotate all coordinates by X, Y, Z degrees around the x, y, z axes '
                              '(applied in order x -> y -> z). E.g. -rotate 0 0 180')
+    parser.add_argument('-border_mode', type=str, default='false',
+                        help='Enable or disable border mode. Default is false.')
 
     return parser.parse_args()
 
@@ -397,12 +402,12 @@ def plot_psii_background(ax, u0):
     """
     selection = u0.select_atoms("all")
     ax.scatter(selection.positions[:, 0], selection.positions[:, 1], 
-              c='black', alpha=1, s=70, zorder=1)
+              c='lightgray', alpha=1, s=70, zorder=1)
     ax.scatter(selection.positions[:, 0], selection.positions[:, 1], 
               c='white', alpha=1, s=60, zorder=1)
 
 
-def plot_reference_chains(ax, u0, cmap, chains_lifetime_dict=None, lifetime_cmap=None, norm=None, chain_labels=None):
+def plot_reference_chains(ax, u0, cmap, chains_lifetime_dict=None, lifetime_cmap=None, norm=None, chain_labels=None, border_mode='false'):
     """Plot reference protein chains (CP24, CP29, CP26, CP43).
     
     Parameters
@@ -423,6 +428,8 @@ def plot_reference_chains(ax, u0, cmap, chains_lifetime_dict=None, lifetime_cmap
     chain_labels : dict or None
         Dictionary mapping chain IDs to protein labels from YAML.
         If provided, labels are shown for chains that are part of the colormap.
+    border_mode : str
+        If 'true', labels are shown with a border around them.
     """
     default_colors = ["white", "white", "white", "white",
                       "white", "white", "white", "white"]
@@ -433,37 +440,42 @@ def plot_reference_chains(ax, u0, cmap, chains_lifetime_dict=None, lifetime_cmap
         
         # Use lifetime color if chain has lifetime data, otherwise default
         if chains_lifetime_dict and chain in chains_lifetime_dict and lifetime_cmap is not None and norm is not None:
-            color = lifetime_cmap(norm(chains_lifetime_dict[chain]))
+            if border_mode == 'false':
+                color = lifetime_cmap(norm(chains_lifetime_dict[chain]))
+            else:
+                color = 'white'
             alpha_edge = 1.0   
             # Add label from YAML if chain has a label defined
             if chain_labels and chain in chain_labels:
                 label = chain_labels[chain]
                 cog = selection.center_of_geometry()
-                ax.text(cog[0], cog[1], label, color='black', fontsize=10, 
-                    ha='center', va='center', zorder=20,
-                    bbox=dict(boxstyle="round,pad=0.3", facecolor="white", alpha=0.8)) 
+                if border_mode == 'false':
+                    ax.text(cog[0], cog[1], label, color='lightgray', fontsize=8, 
+                        ha='center', va='center', zorder=20,
+                        bbox=dict(boxstyle="round,pad=0.3", facecolor="white", alpha=0.8))
                 ax.scatter(selection.positions[:, 0], selection.positions[:, 1], 
-                color="black", alpha=alpha_edge, s=70, zorder=6)
+                color="lightgray", alpha=alpha_edge, s=70, zorder=6)
                 ax.scatter(selection.positions[:, 0], selection.positions[:, 1], 
                 color=color, alpha=1, s=50, zorder=6)
         else:
             color = default_color
             alpha_edge = 1.0
             ax.scatter(selection.positions[:, 0], selection.positions[:, 1], 
-            color="black", alpha=alpha_edge, s=70, zorder=2)
+            color="lightgray", alpha=alpha_edge, s=70, zorder=2)
             ax.scatter(selection.positions[:, 0], selection.positions[:, 1], 
                 color=color, alpha=1, s=60, zorder=2)
         
             # Add label from YAML if chain has a label defined
-            if chain_labels and chain in chain_labels:
+
+            if chain_labels and chain in chain_labels and border_mode == 'false':
                 label = chain_labels[chain]
                 cog = selection.center_of_geometry()
-                ax.text(cog[0], cog[1], label, color='black', fontsize=10, 
+                ax.text(cog[0], cog[1], label, color='lightgray', fontsize=8, 
                     ha='center', va='center', zorder=3,
                     bbox=dict(boxstyle="round,pad=0.3", facecolor="white", alpha=0))
 
 
-def plot_lhcii_complexes(ax, u0, chains_lifetime_dict=None, lifetime_cmap=None, norm=None, chain_labels=None):
+def plot_lhcii_complexes(ax, u0, chains_lifetime_dict=None, lifetime_cmap=None, norm=None, chain_labels=None, border_mode='false'):
     """Plot LHCII antenna complexes.
     
     Parameters
@@ -481,6 +493,8 @@ def plot_lhcii_complexes(ax, u0, chains_lifetime_dict=None, lifetime_cmap=None, 
     chain_labels : dict or None
         Dictionary mapping chain IDs to protein labels from YAML.
         If provided, individual chain labels are shown for chains in the colormap.
+    border_mode : str
+        If 'true', labels are shown with a border around them.
     """
     lhcii_chains = [["5", "6", "7"], ["1", "2", "3"], 
                     ["g", "y", "n"], ["G", "Y", "N"]]
@@ -492,37 +506,42 @@ def plot_lhcii_complexes(ax, u0, chains_lifetime_dict=None, lifetime_cmap=None, 
         for chain in chains:
             selection = u0.select_atoms(f"chainID {chain}")
             if chains_lifetime_dict and chain in chains_lifetime_dict and lifetime_cmap is not None and norm is not None:
-                color = lifetime_cmap(norm(chains_lifetime_dict[chain]))
+                if border_mode == 'false':
+                    color = lifetime_cmap(norm(chains_lifetime_dict[chain]))
+                else:
+                    color = 'white'
                 alpha_edge = 1.0
                 ax.scatter(selection.positions[:, 0], selection.positions[:, 1], 
-                        c='black', alpha=alpha_edge, s=70, zorder=6)
+                        c='lightgray', alpha=alpha_edge, s=70, zorder=6)
                 ax.scatter(selection.positions[:, 0], selection.positions[:, 1], 
                         c=[color], alpha=1, s=50, zorder=6)
                 # Add individual chain label from YAML if chain has a label defined
                 if chain_labels and chain in chain_labels:
                     label = chain_labels[chain]
                     cog = selection.center_of_geometry()
-                    ax.text(cog[0], cog[1], label, color='black', fontsize=10, 
-                        ha='center', va='center', zorder=8,
-                        bbox=dict(boxstyle="round,pad=0.3", facecolor="white", alpha=0.8))
+                    if border_mode == 'false':
+                        ax.text(cog[0], cog[1], label, color='lightgray', fontsize=8, 
+                            ha='center', va='center', zorder=8,
+                            bbox=dict(boxstyle="round,pad=0.3", facecolor="white", alpha=0.8))
             else:
                 color = default_color
                 alpha_edge = 1.0
                 ax.scatter(selection.positions[:, 0], selection.positions[:, 1], 
-                        c='black', alpha=alpha_edge, s=70, zorder=2)
+                        c='lightgray', alpha=alpha_edge, s=70, zorder=2)
                 ax.scatter(selection.positions[:, 0], selection.positions[:, 1], 
-                        c=[color], alpha=1, s=60, zorder=2)
+                            c=[color], alpha=1, s=60, zorder=2)
             
                 # Add individual chain label from YAML if chain has a label defined
                 if chain_labels and chain in chain_labels:
-                    label = chain_labels[chain]
-                    cog = selection.center_of_geometry()
-                    ax.text(cog[0], cog[1], label, color='black', fontsize=10, 
-                        ha='center', va='center', zorder=3,
-                        bbox=dict(boxstyle="round,pad=0.3", facecolor="white", alpha=0))
+                    if border_mode == "false":
+                        label = chain_labels[chain]
+                        cog = selection.center_of_geometry()
+                        ax.text(cog[0], cog[1], label, color='lightgray', fontsize=8, 
+                            ha='center', va='center', zorder=3,
+                            bbox=dict(boxstyle="round,pad=0.3", facecolor="white", alpha=0))
 
 
-def plot_binding_sites(ax, sorted_chain_dict, df, lifetime_cmap, norm, move_site_label=None, move_offset=(0,0), polygons=False, alpha_value=0.0, top_label=5, exclude_sites=None, no_labels=False):
+def plot_binding_sites(ax, sorted_chain_dict, df, lifetime_cmap, norm, move_site_label=None, move_offset=(0,0), polygons=False, alpha_value=0.0, top_label=5, exclude_sites=None, only_sites=None, no_labels=False, border_mode='false'):
     """Plot PsbS binding sites with lifetime-based coloring.
     
     Parameters
@@ -550,8 +569,12 @@ def plot_binding_sites(ax, sorted_chain_dict, df, lifetime_cmap, norm, move_site
         Default: 5.
     exclude_sites : list of str or None
         Site labels to exclude from plotting (e.g., ['S1', 'S2']).
+    only_sites : list of str or None
+        If provided, only plot these site labels (e.g., ['S1', 'S3']).
     no_labels : bool
         If True, suppress all site labels.
+    border_mode : str
+        If 'true', draw a border around the labels.
         
     Returns
     -------
@@ -571,6 +594,10 @@ def plot_binding_sites(ax, sorted_chain_dict, df, lifetime_cmap, norm, move_site
             print(f"Skipping excluded site {label}")
             counter += 1
             continue
+        if only_sites and label not in only_sites:
+            print(f"Skipping site {label} as it is not in the only_sites list")
+            counter += 1
+            continue        
         basename = os.path.splitext(os.path.basename(pdb_path))[0]
         
         # Find matching lifetime value (exact match first, then prefix match)
@@ -585,7 +612,10 @@ def plot_binding_sites(ax, sorted_chain_dict, df, lifetime_cmap, norm, move_site
             lifetime_value = matching_rows.iloc[0]['lifetimes']
         
         # Plot binding site with lifetime color
-        color = lifetime_cmap(norm(lifetime_value))
+        if border_mode == 'false':
+            color = lifetime_cmap(norm(lifetime_value))
+        else:
+            color = 'white'
         cofactor_exclusion = "(not resname *MG* *HEME* *GG* *SQ* *PG* W* HOH *MG* *HG* PLQ PL9 LUT VIO XAT NEO NEX BCR CHL CLA CLB)"
         # Try chainID 9 (PSII) first, fall back to chainID A (pairs)
         sel = u.select_atoms(f"chainID 9 and {cofactor_exclusion}")
@@ -597,18 +627,18 @@ def plot_binding_sites(ax, sorted_chain_dict, df, lifetime_cmap, norm, move_site
         if polygons:
             if counter >= n_sites - top_label: # For the top sites uses higher alpha.
                 ax.scatter(sel.positions[:, 0], sel.positions[:, 1], 
-                        c='black', alpha=1, s=70, zorder=5)
+                        c='lightgray', alpha=1, s=70, zorder=5)
                 ax.scatter(sel.positions[:, 0], sel.positions[:, 1], 
                         c=[color], alpha=1, s=60, zorder=5)
             else:
                 plot_chain_as_polygon(ax, sel.positions[:, :2],
-                                    color=color, edgecolor='black',
+                                    color=color, edgecolor='lightgray',
                                     linewidth=1, alpha=0.3, zorder=5,
                                     alpha_value=alpha_value)
         else:
             if counter >= n_sites - top_label: # For the top sites uses higher alpha.
                 ax.scatter(sel.positions[:, 0], sel.positions[:, 1], 
-                        c='black', alpha=1, s=70, zorder=5)
+                        c='lightgray', alpha=1, s=70, zorder=5)
                 ax.scatter(sel.positions[:, 0], sel.positions[:, 1], 
                         c=[color], alpha=1, s=50, zorder=5)
                         # Add label at center of geometry
@@ -622,9 +652,10 @@ def plot_binding_sites(ax, sorted_chain_dict, df, lifetime_cmap, norm, move_site
                     cog_y += move_offset[1]
 
                 if not no_labels:
-                    ax.text(cog_x, cog_y, label, color='black', fontsize=10, 
-                           ha='center', va='center', zorder=20,
-                           bbox=dict(boxstyle="round,pad=0.3", facecolor="white", alpha=0.8))
+                    if border_mode == 'false':
+                        ax.text(cog_x, cog_y, label, color='lightgray', fontsize=8, 
+                            ha='center', va='center', zorder=20,
+                            bbox=dict(boxstyle="round,pad=0.3", facecolor="white", alpha=0.8))
             else:
                 ax.scatter(sel.positions[:, 0], sel.positions[:, 1], 
                         c='grey', alpha=1, s=70, zorder=5)
@@ -728,7 +759,7 @@ def save_figure(fig, output):
     
     png_path = f"{output}"
     
-    fig.savefig(png_path, dpi=600, bbox_inches='tight')
+    fig.savefig(png_path, dpi=600, bbox_inches='tight', transparent=True)
     
     print(f"Figure saved in {png_path}")
 
@@ -803,7 +834,8 @@ def main():
     fig, ax = setup_figure_and_axis()
     
     # Plot components (binding sites plotted in front via higher zorder)
-    plot_psii_background(ax, u0)
+    if args.border_mode == 'false':
+        plot_psii_background(ax, u0)
     plot_binding_sites(ax, sorted_chain_dict, df, lifetime_cmap, norm,
                        move_site_label=args.move_site_label,
                        move_offset=args.move_offset,
@@ -811,20 +843,25 @@ def main():
                        alpha_value=args.alpha_value,
                        top_label=args.top_label,
                        exclude_sites=args.exclude_sites,
-                       no_labels=args.no_labels)
+                       only_sites=args.only_sites,
+                       no_labels=args.no_labels,
+                       border_mode=args.border_mode)
     plot_reference_chains(ax, u0, cmap_ref, 
                          chains_lifetime_dict=chains_lifetime_dict,
                          lifetime_cmap=lifetime_cmap, norm=norm,
-                         chain_labels=chain_labels)
+                         chain_labels=chain_labels,
+                         border_mode=args.border_mode)
     plot_lhcii_complexes(ax, u0,
                         chains_lifetime_dict=chains_lifetime_dict,
                         lifetime_cmap=lifetime_cmap, norm=norm,
-                        chain_labels=chain_labels)
+                        chain_labels=chain_labels,
+                        border_mode=args.border_mode)
     
     # Finalize plot
-    add_colorbar(ax, lifetime_cmap, display_vmin, display_vmax,
-                original_vmin=original_vmin, original_vmax=original_vmax,
-                log_transform=args.log_transform)
+    if args.border_mode == 'false':
+        add_colorbar(ax, lifetime_cmap, display_vmin, display_vmax,
+                    original_vmin=original_vmin, original_vmax=original_vmax,
+                    log_transform=args.log_transform)
     format_plot(ax)
     
     # Set axis limits from reference structure + binding sites to prevent cropping
