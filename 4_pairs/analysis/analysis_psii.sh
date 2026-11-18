@@ -278,8 +278,8 @@ function plot_binding_modes () {
   #python3 ${script}/plot_psii_binding_modes.py -no_labels -min_lifetime 1000 -exclude_sites "S1" "S2" "S3" "S4" "S11" "S5" "S9" -log_transform  -alpha_value 0.1 -ref ${ref_pdb} -binding_dir ${binding_dir} -binding_modes_occupancy_csv ${binding_modes_occupancy_csv} -chains_occupancy_csv ${chains_occupancy_csv} -chain_labels_yaml ${chain_labels_yaml} -output ${output3} -vmin ${vmin} -vmax ${vmax} -cmap ${cmap} 
   #python3 ${script}/plot_psii_binding_modes.py -min_lifetime 1000 -exclude_sites "S1" "S2" "S3" "S4" "S11" "S5" "S9" -log_transform  -alpha_value 0.1 -ref ${ref_pdb} -binding_dir ${binding_dir} -binding_modes_occupancy_csv ${binding_modes_occupancy_csv} -chains_occupancy_csv ${chains_occupancy_csv} -chain_labels_yaml ${chain_labels_yaml} -output ${output4} -vmin ${vmin} -vmax ${vmax} -cmap ${cmap} 
   #python3 ${script}/plot_psii_binding_modes.py -border_mode "true" -only_sites "S1" -log_transform -ref ${ref_pdb} -binding_dir ${binding_dir} -binding_modes_occupancy_csv ${binding_modes_occupancy_csv} -chains_occupancy_csv ${chains_occupancy_csv} -chain_labels_yaml ${chain_labels_yaml} -output ${output5} -vmin ${vmin} -vmax ${vmax} -cmap ${cmap} 
-  python3 ${script}/plot_psii_binding_modes.py -border_mode "true" -only_sites "S2" -log_transform -ref ${ref_pdb} -binding_dir ${binding_dir} -binding_modes_occupancy_csv ${binding_modes_occupancy_csv} -chains_occupancy_csv ${chains_occupancy_csv} -chain_labels_yaml ${chain_labels_yaml} -output ${output6} -vmin ${vmin} -vmax ${vmax} -cmap ${cmap}
-  python3 ${script}/plot_psii_binding_modes.py -border_mode "true" -only_sites "S3" -log_transform -ref ${ref_pdb} -binding_dir ${binding_dir} -binding_modes_occupancy_csv ${binding_modes_occupancy_csv} -chains_occupancy_csv ${chains_occupancy_csv} -chain_labels_yaml ${chain_labels_yaml} -output ${output7} -vmin ${vmin} -vmax ${vmax} -cmap ${cmap}
+  #python3 ${script}/plot_psii_binding_modes.py -border_mode "true" -only_sites "S2" -log_transform -ref ${ref_pdb} -binding_dir ${binding_dir} -binding_modes_occupancy_csv ${binding_modes_occupancy_csv} -chains_occupancy_csv ${chains_occupancy_csv} -chain_labels_yaml ${chain_labels_yaml} -output ${output6} -vmin ${vmin} -vmax ${vmax} -cmap ${cmap}
+  #python3 ${script}/plot_psii_binding_modes.py -border_mode "true" -only_sites "S3" -log_transform -ref ${ref_pdb} -binding_dir ${binding_dir} -binding_modes_occupancy_csv ${binding_modes_occupancy_csv} -chains_occupancy_csv ${chains_occupancy_csv} -chain_labels_yaml ${chain_labels_yaml} -output ${output7} -vmin ${vmin} -vmax ${vmax} -cmap ${cmap}
   python3 ${script}/plot_psii_binding_modes.py -border_mode "true" -only_sites "S4" -log_transform -ref ${ref_pdb} -binding_dir ${binding_dir} -binding_modes_occupancy_csv ${binding_modes_occupancy_csv} -chains_occupancy_csv ${chains_occupancy_csv} -chain_labels_yaml ${chain_labels_yaml} -output ${output8} -vmin ${vmin} -vmax ${vmax} -cmap ${cmap}
 }
 
@@ -764,7 +764,7 @@ function main(){
   #extract_structures                 # Extract CG protein/cofactor PDBs (re-runnable if ref_pdb changes)
 
 
-  #plot_binding_modes
+  plot_binding_modes
   #plot_psii_venn_diagram
   #cg2at                              # CG-to -AA conversion (uses align_chains output)
   #reassign_chains                    # Reassign chain IDs and align AA to CG backbone
